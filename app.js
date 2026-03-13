@@ -36,6 +36,11 @@ function escapeHtml(s) { const d=document.createElement('div'); d.textContent=s;
 
 // ---- Splash Screen ----
 const splashScreen = document.getElementById('splash-screen');
+const loginScreen = document.getElementById('login-screen');
+const appEl = document.getElementById('app');
+const loginForm = document.getElementById('login-form');
+const loginNameInput = document.getElementById('login-name');
+const savedUsersEl = document.getElementById('saved-users');
 
 function runSplash() {
     // Phase 1 runs via CSS animations (runner + data items + logo reveal)
@@ -61,13 +66,6 @@ if (!sessionStorage.getItem('trainlytics_splashed')) {
     splashScreen.style.display = 'none';
     loginScreen.style.display = '';
 }
-
-// ---- Login Screen ----
-const loginScreen = document.getElementById('login-screen');
-const appEl = document.getElementById('app');
-const loginForm = document.getElementById('login-form');
-const loginNameInput = document.getElementById('login-name');
-const savedUsersEl = document.getElementById('saved-users');
 
 function renderSavedUsers() {
     const users = getUsers();
