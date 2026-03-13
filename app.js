@@ -192,7 +192,7 @@ function addTimeEntry(value = '') {
     const e = document.createElement('div');
     e.className = 'time-entry';
     e.innerHTML = `<span class="time-index">${idx}</span>
-        <input type="number" step="0.01" min="0" placeholder="z.B. 6.85" class="time-input" value="${escapeHtml(String(value))}" required>
+        <input type="number" step="0.01" min="0" placeholder="z.B. 6.85" class="time-input" value="${escapeHtml(String(value))}">
         <button type="button" class="btn-remove-time" title="Entfernen">&times;</button>`;
     e.querySelector('.btn-remove-time').addEventListener('click', () => { e.remove(); refreshIdx(); });
     timesList.appendChild(e);
