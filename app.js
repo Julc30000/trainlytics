@@ -6,9 +6,27 @@ const MONTH_NAMES = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt
 const INTENSITIES = ['NI','I3','I2','I1'];
 
 // ================================================================
+//  FIREBASE
+// ================================================================
+const firebaseConfig = {
+    apiKey: "AIzaSyBxXxXxXxXxXxXxXxXxXxXxXxXxXxXxXxX",
+    authDomain: "DEIN-PROJEKT.firebaseapp.com",
+    projectId: "DEIN-PROJEKT-ID",
+    storageBucket: "DEIN-PROJEKT.firebasestorage.app",
+    messagingSenderId: "123456789012",
+    appId: "1:123456789012:web:abcdef1234567890"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+db.enablePersistence().catch(() => {});
+
+// ================================================================
 //  AUTH / USER
 // ================================================================
 let currentUser = null;
+let _cachedEntries = [];
+let _unsubscribe = null;
 
 function storageKeyFor(user) { return 'trainlytics_v3_' + user.toLowerCase().trim(); }
 function usersListKey() { return 'trainlytics_v3_users'; }
@@ -19,16 +37,66 @@ function getUsers() {
 function addUser(name) {
     const users = getUsers();
     const lower = name.toLowerCase().trim();
-    if (!users.includes(lower)) { users.push(lower); localStorage.setItem(usersListKey(), JSON.stringify(users)); }
+    if (!users.includes(lower)) {
+        users.push(lower);
+        localStorage.setItem(usersListKey(), JSON.stringify(users));
+        db.collection('meta').doc('users').set({ list: users }).catch(() => {});
+    }
+}
+
+async function syncUsers() {
+    try {
+        const doc = await db.collection('meta').doc('users').get();
+        if (doc.exists) {
+            const remote = doc.data().list || [];
+            const local = getUsers();
+            const merged = [...new Set([...local, ...remote])];
+            localStorage.setItem(usersListKey(), JSON.stringify(merged));
+        }
+    } catch(e) { /* offline fallback */ }
 }
 
 function loadData() {
-    if (!currentUser) return [];
-    try { return JSON.parse(localStorage.getItem(storageKeyFor(currentUser))) || []; } catch { return []; }
+    return _cachedEntries;
 }
+
 function saveData(data) {
+    _cachedEntries = data;
     if (!currentUser) return;
     localStorage.setItem(storageKeyFor(currentUser), JSON.stringify(data));
+    db.collection('users').doc(currentUser.toLowerCase().trim())
+      .set({ entries: data }).catch(() => {});
+}
+
+async function loadFromFirestore(user) {
+    try {
+        const doc = await db.collection('users').doc(user.toLowerCase().trim()).get();
+        if (doc.exists) {
+            _cachedEntries = doc.data().entries || [];
+            localStorage.setItem(storageKeyFor(user), JSON.stringify(_cachedEntries));
+        } else {
+            _cachedEntries = JSON.parse(localStorage.getItem(storageKeyFor(user))) || [];
+            if (_cachedEntries.length) {
+                db.collection('users').doc(user.toLowerCase().trim())
+                  .set({ entries: _cachedEntries }).catch(() => {});
+            }
+        }
+    } catch(e) {
+        try { _cachedEntries = JSON.parse(localStorage.getItem(storageKeyFor(user))) || []; }
+        catch { _cachedEntries = []; }
+    }
+}
+
+function startListener(user) {
+    if (_unsubscribe) _unsubscribe();
+    _unsubscribe = db.collection('users').doc(user.toLowerCase().trim())
+      .onSnapshot(doc => {
+        if (doc.exists && !doc.metadata.hasPendingWrites) {
+            _cachedEntries = doc.data().entries || [];
+            localStorage.setItem(storageKeyFor(user), JSON.stringify(_cachedEntries));
+            renderList();
+        }
+    });
 }
 
 function generateId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
@@ -80,7 +148,7 @@ function renderSavedUsers() {
         c.addEventListener('click', () => loginAs(c.dataset.user)));
 }
 
-function loginAs(name) {
+async function loginAs(name) {
     const clean = name.trim();
     if (!clean) return;
     currentUser = clean;
@@ -88,13 +156,17 @@ function loginAs(name) {
     loginScreen.style.display = 'none';
     appEl.style.display = '';
     document.getElementById('user-greeting').textContent = 'Hallo, ' + clean.charAt(0).toUpperCase() + clean.slice(1) + '!';
+    await loadFromFirestore(clean);
+    startListener(clean);
     renderList();
 }
 
 loginForm.addEventListener('submit', e => { e.preventDefault(); loginAs(loginNameInput.value); });
 
 document.getElementById('btn-logout').addEventListener('click', () => {
+    if (_unsubscribe) { _unsubscribe(); _unsubscribe = null; }
     currentUser = null;
+    _cachedEntries = [];
     loginScreen.style.display = '';
     loginScreen.classList.remove('fade-in');
     appEl.style.display = 'none';
@@ -102,7 +174,7 @@ document.getElementById('btn-logout').addEventListener('click', () => {
     renderSavedUsers();
 });
 
-renderSavedUsers();
+syncUsers().then(() => renderSavedUsers());
 
 // ================================================================
 //  TABS
