@@ -34,6 +34,34 @@ function saveData(data) {
 function generateId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function escapeHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
+// ---- Splash Screen ----
+const splashScreen = document.getElementById('splash-screen');
+
+function runSplash() {
+    // Phase 1 runs via CSS animations (runner + data items + logo reveal)
+    // After ~2.5s switch to welcome message
+    setTimeout(() => {
+        document.getElementById('splash-anim').style.display = 'none';
+        document.getElementById('splash-msg').style.display = '';
+    }, 2500);
+    // After ~4.5s total, fade out splash and show login
+    setTimeout(() => {
+        splashScreen.classList.add('fade-out');
+        loginScreen.style.display = '';
+        loginScreen.classList.add('fade-in');
+        setTimeout(() => { splashScreen.style.display = 'none'; }, 600);
+    }, 4500);
+}
+
+// Only show splash on first visit per session
+if (!sessionStorage.getItem('trainlytics_splashed')) {
+    sessionStorage.setItem('trainlytics_splashed', '1');
+    runSplash();
+} else {
+    splashScreen.style.display = 'none';
+    loginScreen.style.display = '';
+}
+
 // ---- Login Screen ----
 const loginScreen = document.getElementById('login-screen');
 const appEl = document.getElementById('app');
@@ -70,6 +98,7 @@ loginForm.addEventListener('submit', e => { e.preventDefault(); loginAs(loginNam
 document.getElementById('btn-logout').addEventListener('click', () => {
     currentUser = null;
     loginScreen.style.display = '';
+    loginScreen.classList.remove('fade-in');
     appEl.style.display = 'none';
     loginNameInput.value = '';
     renderSavedUsers();

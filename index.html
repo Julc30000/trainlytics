@@ -14,8 +14,48 @@
 </head>
 <body>
 
+    <!-- ============ SPLASH SCREEN ============ -->
+    <div id="splash-screen" class="splash-screen">
+        <div class="splash-content">
+            <!-- Phase 1: Athlete animation -->
+            <div class="splash-phase" id="splash-anim">
+                <div class="splash-track">
+                    <div class="splash-runner" id="splash-runner">
+                        <svg viewBox="0 0 64 64" width="64" height="64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="38" cy="10" r="6"/>
+                            <path d="M24 58 L30 38 L38 42 L44 28 L52 32"/>
+                            <path d="M30 38 L20 44"/>
+                            <path d="M38 42 L44 54"/>
+                            <path d="M44 28 L38 18"/>
+                        </svg>
+                    </div>
+                    <div class="splash-lane-lines"></div>
+                </div>
+                <div class="splash-data-overlay" id="splash-data">
+                    <div class="splash-data-item" style="--delay:0.3s">⏱ 6.85s</div>
+                    <div class="splash-data-item" style="--delay:0.6s">📊 Analyse</div>
+                    <div class="splash-data-item" style="--delay:0.9s">🏅 PB!</div>
+                    <div class="splash-data-item" style="--delay:1.2s">📈 Trend ↑</div>
+                </div>
+                <div class="splash-logo-reveal" id="splash-logo-reveal">
+                    <div class="splash-logo-icon">T</div>
+                    <h1 class="splash-title">Trainlytics</h1>
+                </div>
+            </div>
+            <!-- Phase 2: Welcome message -->
+            <div class="splash-phase" id="splash-msg" style="display:none">
+                <div class="splash-logo-icon small">T</div>
+                <p class="splash-welcome">Du trainierst bei <strong>Micky</strong> und möchtest deine Daten tracken?</p>
+                <p class="splash-welcome-sub">Hier bist du richtig.</p>
+                <div class="splash-dots">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ============ LOGIN SCREEN ============ -->
-    <div id="login-screen" class="login-screen">
+    <div id="login-screen" class="login-screen" style="display:none">
         <div class="login-card">
             <div class="login-logo">T</div>
             <h1>Trainlytics</h1>
@@ -23,7 +63,7 @@
             <form id="login-form">
                 <div class="form-group">
                     <label for="login-name">Dein Name</label>
-                    <input type="text" id="login-name" placeholder="z.B. Max" required autocomplete="off" maxlength="30">
+                    <input type="text" id="login-name" placeholder="z.B. Usain" required autocomplete="off" maxlength="30">
                 </div>
                 <button type="submit" class="btn-primary">Einloggen</button>
             </form>
