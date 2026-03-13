@@ -228,6 +228,9 @@ form.addEventListener('submit', e => {
     const time = document.getElementById('training-time').value;
     const type = trainingType.value;
     const notes = document.getElementById('training-notes').value.trim();
+
+    if (!date || !time || !type) { showToast('Bitte alle Felder ausfüllen'); return; }
+
     const isTempo = type.startsWith('Tempolauf');
     const intensity = isTempo ? trainingIntensity.value : '';
     const isCountMode = intensity === 'NI';
