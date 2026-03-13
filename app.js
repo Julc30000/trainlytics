@@ -9,12 +9,12 @@ const INTENSITIES = ['NI','I3','I2','I1'];
 //  FIREBASE
 // ================================================================
 const firebaseConfig = {
-    apiKey: "AIzaSyBxXxXxXxXxXxXxXxXxXxXxXxXxXxXxXxX",
-    authDomain: "DEIN-PROJEKT.firebaseapp.com",
-    projectId: "DEIN-PROJEKT-ID",
-    storageBucket: "DEIN-PROJEKT.firebasestorage.app",
-    messagingSenderId: "123456789012",
-    appId: "1:123456789012:web:abcdef1234567890"
+    apiKey: "AIzaSyBDlocw5nJKeCj5POS4FWwAHy3t1-LJxNs",
+    authDomain: "trainlytics-10c67.firebaseapp.com",
+    projectId: "trainlytics-10c67",
+    storageBucket: "trainlytics-10c67.firebasestorage.app",
+    messagingSenderId: "296168035386",
+    appId: "1:296168035386:web:1af111f2348c29d36bd103"
 };
 
 firebase.initializeApp(firebaseConfig);
