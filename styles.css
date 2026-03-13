@@ -275,6 +275,23 @@ textarea { resize:vertical; min-height:48px; }
 }
 .btn-ghost:hover { border-color:var(--primary-light); background:rgba(124,106,239,0.06); }
 
+/* ---- Telemark Toggle ---- */
+.toggle-row {
+    display:flex; gap:8px;
+}
+.toggle-btn {
+    flex:1; padding:8px 14px; border:1.5px solid var(--border); border-radius:var(--radius-sm);
+    background:transparent; color:var(--text-secondary);
+    font-family:'Inter',sans-serif; font-size:13px; font-weight:600;
+    cursor:pointer; transition:all 0.15s;
+}
+.toggle-btn.active {
+    border-color:var(--primary); background:rgba(124,106,239,0.12); color:var(--primary-light);
+}
+.toggle-btn:hover:not(.active) {
+    border-color:rgba(255,255,255,0.15); background:rgba(255,255,255,0.03);
+}
+
 .btn-danger {
     padding:10px 22px; border:none; border-radius:var(--radius-sm);
     background:var(--danger); color:#fff; font-family:'Inter',sans-serif;

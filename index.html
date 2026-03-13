@@ -115,11 +115,26 @@
                         </button>
                     </div>
 
-                    <!-- Count (only visible for I1) -->
+                    <!-- Count (only visible for NI/I1) -->
                     <div id="count-container" style="display:none">
                         <div class="form-group">
                             <label for="training-count">Anzahl Läufe</label>
                             <input type="number" id="training-count" min="1" step="1" placeholder="z.B. 6">
+                        </div>
+                    </div>
+
+                    <!-- Telemarks (only visible for NI) -->
+                    <div id="telemark-container" style="display:none">
+                        <div class="form-group">
+                            <label>Telemarks gemacht?</label>
+                            <div class="toggle-row">
+                                <button type="button" class="toggle-btn" id="telemark-no" data-val="no">Nein</button>
+                                <button type="button" class="toggle-btn active" id="telemark-yes" data-val="yes">Ja</button>
+                            </div>
+                        </div>
+                        <div class="form-group" id="telemark-count-group">
+                            <label for="telemark-count">Anzahl Telemarks</label>
+                            <input type="number" id="telemark-count" min="1" step="1" placeholder="z.B. 4">
                         </div>
                     </div>
 
@@ -228,6 +243,40 @@
                     <span class="stat-icon">&#128170;</span>
                     <span class="stat-value" id="stat-i1-total">0</span>
                     <span class="stat-label">Gesamt Läufe</span>
+                </div>
+            </div>
+
+            <!-- NI Stats (shown only for NI) -->
+            <div class="stats-row" id="stats-row-ni" style="display:none">
+                <div class="stat-card accent-purple">
+                    <span class="stat-icon">&#128202;</span>
+                    <span class="stat-value" id="stat-ni-sessions">0</span>
+                    <span class="stat-label">Einheiten</span>
+                </div>
+                <div class="stat-card accent-teal">
+                    <span class="stat-icon">&#8709;</span>
+                    <span class="stat-value" id="stat-ni-avg-count">--</span>
+                    <span class="stat-label">Ø Läufe</span>
+                </div>
+                <div class="stat-card accent-gold">
+                    <span class="stat-icon">&#128170;</span>
+                    <span class="stat-value" id="stat-ni-total">0</span>
+                    <span class="stat-label">Gesamt Läufe</span>
+                </div>
+                <div class="stat-card accent-blue">
+                    <span class="stat-icon">&#128207;</span>
+                    <span class="stat-value" id="stat-ni-meters">0</span>
+                    <span class="stat-label">Gesamt Meter</span>
+                </div>
+                <div class="stat-card accent-green">
+                    <span class="stat-icon">&#9971;</span>
+                    <span class="stat-value" id="stat-ni-telemarks">0</span>
+                    <span class="stat-label">Gesamt Telemarks</span>
+                </div>
+                <div class="stat-card accent-red">
+                    <span class="stat-icon">&#8709;</span>
+                    <span class="stat-value" id="stat-ni-avg-tm">--</span>
+                    <span class="stat-label">Ø Telemarks</span>
                 </div>
             </div>
 

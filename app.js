@@ -108,6 +108,10 @@ const intensityGroup = document.getElementById('intensity-group');
 const trainingIntensity = document.getElementById('training-intensity');
 const timesContainer = document.getElementById('times-container');
 const countContainer = document.getElementById('count-container');
+const telemarkContainer = document.getElementById('telemark-container');
+const telemarkCountGroup = document.getElementById('telemark-count-group');
+const telemarkYes = document.getElementById('telemark-yes');
+const telemarkNo = document.getElementById('telemark-no');
 const timesList = document.getElementById('times-list');
 
 // Show/hide intensity when type changes
@@ -117,23 +121,43 @@ trainingType.addEventListener('change', () => {
     if (!isTempo) {
         trainingIntensity.value = '';
         showTimesMode();
+    } else {
+        updateFormMode();
     }
 });
 
 // Show/hide times vs count when intensity changes
-trainingIntensity.addEventListener('change', () => {
-    if (trainingIntensity.value === 'I1') showCountMode();
+trainingIntensity.addEventListener('change', updateFormMode);
+
+function updateFormMode() {
+    const int = trainingIntensity.value;
+    if (int === 'I1' || int === 'NI') showCountMode();
     else showTimesMode();
-});
+    telemarkContainer.style.display = int === 'NI' ? '' : 'none';
+}
 
 function showTimesMode() {
     timesContainer.style.display = '';
     countContainer.style.display = 'none';
+    telemarkContainer.style.display = 'none';
 }
 function showCountMode() {
     timesContainer.style.display = 'none';
     countContainer.style.display = '';
 }
+
+// Telemark toggle
+telemarkYes.addEventListener('click', () => {
+    telemarkYes.classList.add('active');
+    telemarkNo.classList.remove('active');
+    telemarkCountGroup.style.display = '';
+});
+telemarkNo.addEventListener('click', () => {
+    telemarkNo.classList.add('active');
+    telemarkYes.classList.remove('active');
+    telemarkCountGroup.style.display = 'none';
+    document.getElementById('telemark-count').value = '';
+});
 
 // ---- Time entries ----
 function addTimeEntry(value = '') {
@@ -179,16 +203,26 @@ form.addEventListener('submit', e => {
     const notes = document.getElementById('training-notes').value.trim();
     const isTempo = type.startsWith('Tempolauf');
     const intensity = isTempo ? trainingIntensity.value : '';
-    const isI1 = intensity === 'I1';
+    const isCountMode = intensity === 'I1' || intensity === 'NI';
 
     if (isTempo && !intensity) { showToast('Bitte Intensität wählen'); return; }
 
     let times = [];
     let count = null;
+    let telemarks = null;
 
-    if (isI1) {
+    if (isCountMode) {
         count = parseInt(document.getElementById('training-count').value, 10);
         if (!count || count < 1) { showToast('Bitte Anzahl eingeben'); return; }
+        if (intensity === 'NI') {
+            const tmActive = telemarkYes.classList.contains('active');
+            if (tmActive) {
+                telemarks = parseInt(document.getElementById('telemark-count').value, 10);
+                if (!telemarks || telemarks < 1) { showToast('Bitte Telemark-Anzahl eingeben'); return; }
+            } else {
+                telemarks = 0;
+            }
+        }
     } else {
         const inputs = timesList.querySelectorAll('.time-input');
         let ok = true;
@@ -200,7 +234,7 @@ form.addEventListener('submit', e => {
         if (!ok || !times.length) { showToast('Bitte gültige Zeiten eingeben'); return; }
     }
 
-    const entry = { id: generateId(), date, time, type, intensity, times, count, notes };
+    const entry = { id: generateId(), date, time, type, intensity, times, count, telemarks, notes };
     const data = loadData();
     data.unshift(entry);
     saveData(data);
@@ -208,6 +242,10 @@ form.addEventListener('submit', e => {
     form.reset();
     setDefaults();
     intensityGroup.style.display = 'none';
+    telemarkContainer.style.display = 'none';
+    telemarkYes.classList.add('active');
+    telemarkNo.classList.remove('active');
+    telemarkCountGroup.style.display = '';
     showTimesMode();
     timesList.innerHTML = '';
     addTimeEntry();
@@ -257,8 +295,8 @@ function renderList() {
                     ${en.intensity ? `<span class="intensity-badge">${escapeHtml(en.intensity)}</span>` : ''}
                 </div>
             </div>
-            ${en.intensity === 'I1'
-                ? `<div class="entry-count">Anzahl Läufe: <strong>${en.count || 0}</strong></div>`
+            ${en.intensity === 'I1' || en.intensity === 'NI'
+                ? `<div class="entry-count">Anzahl Läufe: <strong>${en.count || 0}</strong>${en.intensity === 'NI' && en.telemarks != null ? ` · Telemarks: <strong>${en.telemarks}</strong>` : ''}</div>`
                 : `<div class="entry-times">${en.times.map(t=>`<span class="time-chip">${escapeHtml(String(t))}s</span>`).join('')}</div>`
             }
             ${en.notes ? `<div class="entry-notes">${escapeHtml(en.notes)}</div>` : ''}
@@ -339,27 +377,39 @@ function updateAnalytics() {
 
     const intFilter = isTempo ? analyticsIntEl.value : 'all';
     const isI1 = intFilter === 'I1';
+    const isNI = intFilter === 'NI';
 
     let data = loadData().filter(d => d.type === type);
     if (intFilter !== 'all') data = data.filter(d => d.intensity === intFilter);
     data.sort((a,b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
 
+    // For "all" view, filter out count-only entries (NI/I1) for time-based charts
+    const timeData = data.filter(d => d.intensity !== 'I1' && d.intensity !== 'NI');
+
     const c = COLORS[type];
 
+    // Extract meters from type string (e.g. "Tempolauf (120m)" -> 120)
+    const metersMatch = type.match(/\((\d+)m\)/);
+    const meters = metersMatch ? parseInt(metersMatch[1], 10) : 0;
+
     // Show/hide stats rows
-    document.getElementById('stats-row').style.display = isI1 ? 'none' : '';
+    document.getElementById('stats-row').style.display = (isI1 || isNI) ? 'none' : '';
     document.getElementById('stats-row-i1').style.display = isI1 ? '' : 'none';
-    document.getElementById('pb-card').style.display = isI1 ? 'none' : '';
+    document.getElementById('stats-row-ni').style.display = isNI ? '' : 'none';
+    document.getElementById('pb-card').style.display = (isI1 || isNI) ? 'none' : '';
 
     destroyAll();
 
-    if (isI1) {
+    if (isNI) {
+        updateStatsNI(data, meters);
+        buildNICharts(data, c, meters);
+    } else if (isI1) {
         updateStatsI1(data);
         buildI1Charts(data, c);
     } else {
-        updateStats(data);
-        buildTimeCharts(data, c);
-        drawPBTable(data);
+        updateStats(timeData);
+        buildTimeCharts(timeData, c);
+        drawPBTable(timeData);
     }
 }
 
@@ -398,6 +448,22 @@ function updateStatsI1(data) {
     const counts = data.map(d => d.count || 0);
     $('stat-i1-total').textContent = counts.reduce((a,b)=>a+b,0);
     $('stat-i1-avg-count').textContent = data.length ? (counts.reduce((a,b)=>a+b,0)/counts.length).toFixed(1) : '--';
+}
+
+// ---- Stats (NI count-based with meters & telemarks) ----
+function updateStatsNI(data, meters) {
+    const $ = id => document.getElementById(id);
+    $('stat-ni-sessions').textContent = data.length;
+    const counts = data.map(d => d.count || 0);
+    const totalRuns = counts.reduce((a,b)=>a+b,0);
+    $('stat-ni-total').textContent = totalRuns;
+    $('stat-ni-avg-count').textContent = data.length ? (totalRuns/data.length).toFixed(1) : '--';
+    $('stat-ni-meters').textContent = (totalRuns * meters).toLocaleString('de-DE') + 'm';
+    const tms = data.map(d => d.telemarks || 0);
+    const totalTm = tms.reduce((a,b)=>a+b,0);
+    $('stat-ni-telemarks').textContent = totalTm;
+    const tmSessions = data.filter(d => d.telemarks != null && d.telemarks > 0);
+    $('stat-ni-avg-tm').textContent = tmSessions.length ? (totalTm / tmSessions.length).toFixed(1) : '--';
 }
 
 // ---- Build charts container dynamically ----
@@ -663,6 +729,133 @@ function drawI1MonthlyAvg(data, c) {
         data:{labels:labels.map(prettyMonth), datasets:[{data:avgs, borderColor:c.main, backgroundColor:grad(ctx,c),
             borderWidth:2.5, pointBackgroundColor:c.main, pointRadius:4, fill:true, tension:0.35}]},
         options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Ø Läufe',color:'#555870',font:{size:11}}}}}
+    });
+}
+
+// ================================================================
+//  NI CHARTS (Count + Meters + Telemarks)
+// ================================================================
+function buildNICharts(data, c, meters) {
+    const container = getChartsContainer();
+
+    // 1) Count over time
+    const c1 = makeChartCard('Anzahl Läufe pro Einheit','Balken','ch-ni-count',false);
+    container.appendChild(c1);
+    drawNICount(data, c);
+
+    // 2) Meters over time (count × meters)
+    const c2 = makeChartCard('Meter pro Einheit (Läufe × '+meters+'m)','Balken','ch-ni-meters',false);
+    container.appendChild(c2);
+    drawNIMeters(data, c, meters);
+
+    // 3) Monthly total runs
+    const c3 = makeChartCard('Gesamt-Läufe pro Monat','Balken','ch-ni-monthly',false);
+    container.appendChild(c3);
+    drawNIMonthly(data, c);
+
+    // 4) Monthly total meters
+    const c4 = makeChartCard('Gesamt-Meter pro Monat','Balken','ch-ni-monthly-meters',false);
+    container.appendChild(c4);
+    drawNIMonthlyMeters(data, c, meters);
+
+    // 5) Telemarks over time
+    const c5 = makeChartCard('Telemarks pro Einheit','Balken','ch-ni-telemarks',false);
+    container.appendChild(c5);
+    drawNITelemarks(data, c);
+
+    // 6) Monthly total telemarks
+    const c6 = makeChartCard('Gesamt-Telemarks pro Monat','Balken','ch-ni-monthly-tm',false);
+    container.appendChild(c6);
+    drawNIMonthlyTelemarks(data, c);
+}
+
+function drawNICount(data, c) {
+    const ctx = document.getElementById('ch-ni-count')?.getContext('2d');
+    if(!ctx) return;
+    if(!data.length) { chartInstances.niCount = emptyChart(ctx); return; }
+    const labels = data.map(d=>shortDate(d.date));
+    const vals = data.map(d=>d.count||0);
+    const notes = data.map(d=>d.notes||'');
+    chartInstances.niCount = new Chart(ctx, {
+        type:'bar',
+        data:{labels, datasets:[{data:vals, backgroundColor:c.bg, borderColor:c.main, borderWidth:2, borderRadius:8, hoverBackgroundColor:c.main}]},
+        options:{...BASE, plugins:{...BASE.plugins, tooltip:{...BASE.plugins.tooltip,
+            callbacks:{label:t=>t.parsed.y+' Läufe', afterBody:items=>{const n=notes[items[0]?.dataIndex]; return n?'📝 '+n:'';}}
+        }}, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:'Anzahl',color:'#555870',font:{size:11}}}}}
+    });
+}
+
+function drawNIMeters(data, c, meters) {
+    const ctx = document.getElementById('ch-ni-meters')?.getContext('2d');
+    if(!ctx) return;
+    if(!data.length) { chartInstances.niMeters = emptyChart(ctx); return; }
+    const labels = data.map(d=>shortDate(d.date));
+    const vals = data.map(d=>(d.count||0)*meters);
+    const notes = data.map(d=>d.notes||'');
+    chartInstances.niMeters = new Chart(ctx, {
+        type:'bar',
+        data:{labels, datasets:[{data:vals, backgroundColor:'rgba(96,165,250,0.18)', borderColor:'#60A5FA', borderWidth:2, borderRadius:8, hoverBackgroundColor:'#60A5FA'}]},
+        options:{...BASE, plugins:{...BASE.plugins, tooltip:{...BASE.plugins.tooltip,
+            callbacks:{label:t=>t.parsed.y.toLocaleString('de-DE')+'m', afterBody:items=>{const n=notes[items[0]?.dataIndex]; return n?'📝 '+n:'';}}
+        }}, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Meter',color:'#555870',font:{size:11}}}}}
+    });
+}
+
+function drawNIMonthly(data, c) {
+    const ctx = document.getElementById('ch-ni-monthly')?.getContext('2d');
+    if(!ctx) return;
+    if(!data.length) { chartInstances.niMonthly = emptyChart(ctx); return; }
+    const g = groupByMonth(data);
+    const labels = Object.keys(g);
+    const totals = labels.map(k => g[k].reduce((s,d)=>s+(d.count||0),0));
+    chartInstances.niMonthly = new Chart(ctx, {
+        type:'bar',
+        data:{labels:labels.map(prettyMonth), datasets:[{data:totals, backgroundColor:c.bg, borderColor:c.main, borderWidth:2, borderRadius:8}]},
+        options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:'Gesamtläufe',color:'#555870',font:{size:11}}}}}
+    });
+}
+
+function drawNIMonthlyMeters(data, c, meters) {
+    const ctx = document.getElementById('ch-ni-monthly-meters')?.getContext('2d');
+    if(!ctx) return;
+    if(!data.length) { chartInstances.niMonthlyMeters = emptyChart(ctx); return; }
+    const g = groupByMonth(data);
+    const labels = Object.keys(g);
+    const totals = labels.map(k => g[k].reduce((s,d)=>s+(d.count||0)*meters,0));
+    chartInstances.niMonthlyMeters = new Chart(ctx, {
+        type:'bar',
+        data:{labels:labels.map(prettyMonth), datasets:[{data:totals, backgroundColor:'rgba(96,165,250,0.18)', borderColor:'#60A5FA', borderWidth:2, borderRadius:8}]},
+        options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Meter',color:'#555870',font:{size:11}}}}}
+    });
+}
+
+function drawNITelemarks(data, c) {
+    const ctx = document.getElementById('ch-ni-telemarks')?.getContext('2d');
+    if(!ctx) return;
+    if(!data.length) { chartInstances.niTelemarks = emptyChart(ctx); return; }
+    const labels = data.map(d=>shortDate(d.date));
+    const vals = data.map(d=>d.telemarks||0);
+    const notes = data.map(d=>d.notes||'');
+    chartInstances.niTelemarks = new Chart(ctx, {
+        type:'bar',
+        data:{labels, datasets:[{data:vals, backgroundColor:'rgba(251,191,36,0.18)', borderColor:'#FBBF24', borderWidth:2, borderRadius:8, hoverBackgroundColor:'#FBBF24'}]},
+        options:{...BASE, plugins:{...BASE.plugins, tooltip:{...BASE.plugins.tooltip,
+            callbacks:{label:t=>t.parsed.y+' Telemarks', afterBody:items=>{const n=notes[items[0]?.dataIndex]; return n?'📝 '+n:'';}}
+        }}, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:'Telemarks',color:'#555870',font:{size:11}}}}}
+    });
+}
+
+function drawNIMonthlyTelemarks(data, c) {
+    const ctx = document.getElementById('ch-ni-monthly-tm')?.getContext('2d');
+    if(!ctx) return;
+    if(!data.length) { chartInstances.niMonthlyTm = emptyChart(ctx); return; }
+    const g = groupByMonth(data);
+    const labels = Object.keys(g);
+    const totals = labels.map(k => g[k].reduce((s,d)=>s+(d.telemarks||0),0));
+    chartInstances.niMonthlyTm = new Chart(ctx, {
+        type:'bar',
+        data:{labels:labels.map(prettyMonth), datasets:[{data:totals, backgroundColor:'rgba(251,191,36,0.18)', borderColor:'#FBBF24', borderWidth:2, borderRadius:8}]},
+        options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:'Telemarks',color:'#555870',font:{size:11}}}}}
     });
 }
 
