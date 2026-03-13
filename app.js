@@ -160,7 +160,7 @@ trainingIntensity.addEventListener('change', updateFormMode);
 
 function updateFormMode() {
     const int = trainingIntensity.value;
-    if (int === 'I1' || int === 'NI') showCountMode();
+    if (int === 'NI') showCountMode();
     else showTimesMode();
     telemarkContainer.style.display = int === 'NI' ? '' : 'none';
 }
@@ -232,7 +232,7 @@ form.addEventListener('submit', e => {
     const notes = document.getElementById('training-notes').value.trim();
     const isTempo = type.startsWith('Tempolauf');
     const intensity = isTempo ? trainingIntensity.value : '';
-    const isCountMode = intensity === 'I1' || intensity === 'NI';
+    const isCountMode = intensity === 'NI';
 
     if (isTempo && !intensity) { showToast('Bitte Intensität wählen'); return; }
 
@@ -324,8 +324,8 @@ function renderList() {
                     ${en.intensity ? `<span class="intensity-badge">${escapeHtml(en.intensity)}</span>` : ''}
                 </div>
             </div>
-            ${en.intensity === 'I1' || en.intensity === 'NI'
-                ? `<div class="entry-count">Anzahl Läufe: <strong>${en.count || 0}</strong>${en.intensity === 'NI' && en.telemarks != null ? ` · Telemarks: <strong>${en.telemarks}</strong>` : ''}</div>`
+            ${en.intensity === 'NI'
+                ? `<div class="entry-count">Anzahl Läufe: <strong>${en.count || 0}</strong>${en.telemarks != null ? ` · Telemarks: <strong>${en.telemarks}</strong>` : ''}</div>`
                 : `<div class="entry-times">${en.times.map(t=>`<span class="time-chip">${escapeHtml(String(t))}s</span>`).join('')}</div>`
             }
             ${en.notes ? `<div class="entry-notes">${escapeHtml(en.notes)}</div>` : ''}
@@ -405,15 +405,14 @@ function updateAnalytics() {
     analyticsIntGroup.style.display = isTempo ? '' : 'none';
 
     const intFilter = isTempo ? analyticsIntEl.value : 'all';
-    const isI1 = intFilter === 'I1';
     const isNI = intFilter === 'NI';
 
     let data = loadData().filter(d => d.type === type);
     if (intFilter !== 'all') data = data.filter(d => d.intensity === intFilter);
     data.sort((a,b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
 
-    // For "all" view, filter out count-only entries (NI/I1) for time-based charts
-    const timeData = data.filter(d => d.intensity !== 'I1' && d.intensity !== 'NI');
+    // For "all" view, filter out count-only entries (NI) for time-based charts
+    const timeData = data.filter(d => d.intensity !== 'NI');
 
     const c = COLORS[type];
 
@@ -422,19 +421,15 @@ function updateAnalytics() {
     const meters = metersMatch ? parseInt(metersMatch[1], 10) : 0;
 
     // Show/hide stats rows
-    document.getElementById('stats-row').style.display = (isI1 || isNI) ? 'none' : '';
-    document.getElementById('stats-row-i1').style.display = isI1 ? '' : 'none';
+    document.getElementById('stats-row').style.display = isNI ? 'none' : '';
     document.getElementById('stats-row-ni').style.display = isNI ? '' : 'none';
-    document.getElementById('pb-card').style.display = (isI1 || isNI) ? 'none' : '';
+    document.getElementById('pb-card').style.display = isNI ? 'none' : '';
 
     destroyAll();
 
     if (isNI) {
         updateStatsNI(data, meters);
         buildNICharts(data, c, meters);
-    } else if (isI1) {
-        updateStatsI1(data);
-        buildI1Charts(data, c);
     } else {
         updateStats(timeData);
         buildTimeCharts(timeData, c);
@@ -471,14 +466,6 @@ function updateStats(data) {
 }
 
 // ---- Stats (I1 count-based) ----
-function updateStatsI1(data) {
-    const $ = id => document.getElementById(id);
-    $('stat-i1-sessions').textContent = data.length;
-    const counts = data.map(d => d.count || 0);
-    $('stat-i1-total').textContent = counts.reduce((a,b)=>a+b,0);
-    $('stat-i1-avg-count').textContent = data.length ? (counts.reduce((a,b)=>a+b,0)/counts.length).toFixed(1) : '--';
-}
-
 // ---- Stats (NI count-based with meters & telemarks) ----
 function updateStatsNI(data, meters) {
     const $ = id => document.getElementById(id);
@@ -691,73 +678,6 @@ function drawDistribution(data, c) {
             x:{...BASE.scales.x, title:{display:true,text:'Sekunden',color:'#555870',font:{size:11}}},
             y:{...BASE.scales.y, title:{display:true,text:'Häufigkeit',color:'#555870',font:{size:11}}, ticks:{...BASE.scales.y.ticks,stepSize:1}}
         }}
-    });
-}
-
-// ================================================================
-//  I1 CHARTS (Count-based)
-// ================================================================
-function buildI1Charts(data, c) {
-    const container = getChartsContainer();
-
-    // 1) Count over time
-    const c1 = makeChartCard('Anzahl Läufe pro Einheit','Balken','ch-i1-count',false);
-    container.appendChild(c1);
-    drawI1Count(data, c);
-
-    // 2) Monthly total
-    const c2 = makeChartCard('Gesamt-Läufe pro Monat','Balken','ch-i1-monthly',false);
-    container.appendChild(c2);
-    drawI1Monthly(data, c);
-
-    // 3) Monthly avg count
-    const c3 = makeChartCard('Ø Läufe pro Einheit (Monat)','Linie','ch-i1-monthly-avg',false);
-    container.appendChild(c3);
-    drawI1MonthlyAvg(data, c);
-}
-
-function drawI1Count(data, c) {
-    const ctx = document.getElementById('ch-i1-count')?.getContext('2d');
-    if(!ctx) return;
-    if(!data.length) { chartInstances.i1Count = emptyChart(ctx); return; }
-    const labels = data.map(d=>shortDate(d.date));
-    const vals = data.map(d=>d.count||0);
-    const notes = data.map(d=>d.notes||'');
-    chartInstances.i1Count = new Chart(ctx, {
-        type:'bar',
-        data:{labels, datasets:[{data:vals, backgroundColor:c.bg, borderColor:c.main, borderWidth:2, borderRadius:8, hoverBackgroundColor:c.main}]},
-        options:{...BASE, plugins:{...BASE.plugins, tooltip:{...BASE.plugins.tooltip,
-            callbacks:{label:t=>t.parsed.y+' Läufe', afterBody:items=>{const n=notes[items[0]?.dataIndex]; return n?'📝 '+n:'';}}
-        }}, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:'Anzahl',color:'#555870',font:{size:11}}}}}
-    });
-}
-
-function drawI1Monthly(data, c) {
-    const ctx = document.getElementById('ch-i1-monthly')?.getContext('2d');
-    if(!ctx) return;
-    if(!data.length) { chartInstances.i1Monthly = emptyChart(ctx); return; }
-    const g = groupByMonth(data);
-    const labels = Object.keys(g);
-    const totals = labels.map(k => g[k].reduce((s,d)=>s+(d.count||0),0));
-    chartInstances.i1Monthly = new Chart(ctx, {
-        type:'bar',
-        data:{labels:labels.map(prettyMonth), datasets:[{data:totals, backgroundColor:c.bg, borderColor:c.main, borderWidth:2, borderRadius:8}]},
-        options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:'Gesamtläufe',color:'#555870',font:{size:11}}}}}
-    });
-}
-
-function drawI1MonthlyAvg(data, c) {
-    const ctx = document.getElementById('ch-i1-monthly-avg')?.getContext('2d');
-    if(!ctx) return;
-    if(!data.length) { chartInstances.i1MonthAvg = emptyChart(ctx); return; }
-    const g = groupByMonth(data);
-    const labels = Object.keys(g);
-    const avgs = labels.map(k => { const counts=g[k].map(d=>d.count||0); return counts.reduce((a,b)=>a+b,0)/counts.length; });
-    chartInstances.i1MonthAvg = new Chart(ctx, {
-        type:'line',
-        data:{labels:labels.map(prettyMonth), datasets:[{data:avgs, borderColor:c.main, backgroundColor:grad(ctx,c),
-            borderWidth:2.5, pointBackgroundColor:c.main, pointRadius:4, fill:true, tension:0.35}]},
-        options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Ø Läufe',color:'#555870',font:{size:11}}}}}
     });
 }
 
