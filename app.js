@@ -1,5 +1,5 @@
 /* ========================================
-   Trainlytics v3 — App Logic
+   TrainLytics v3 — App Logic
    ======================================== */
 
 const MONTH_NAMES = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];

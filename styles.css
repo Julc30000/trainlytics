@@ -1,5 +1,5 @@
 /* ========================================
-   Trainlytics v3 — Professional UI
+   TrainLytics v3 — Professional UI
    ======================================== */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
@@ -123,22 +123,25 @@ body {
     to { opacity:1; transform:scale(1); }
 }
 .splash-logo-mark {
-    width:72px; height:72px;
+    width:96px; height:96px;
     background:rgba(124,106,239,0.06);
     border:1px solid rgba(180,168,255,0.15);
-    border-radius:18px;
+    border-radius:22px;
     display:inline-flex; align-items:center; justify-content:center;
-    margin-bottom:12px;
+    margin-bottom:16px;
     backdrop-filter:blur(8px);
 }
 .splash-logo-mark.small {
-    width:56px; height:56px; border-radius:14px;
+    width:72px; height:72px; border-radius:18px;
     margin-bottom:20px;
 }
 .splash-title {
-    font-size:32px; font-weight:800;
+    font-size:36px; font-weight:800;
     background:linear-gradient(135deg,#fff,var(--primary-light));
     -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+}
+.splash-title .brand-L {
+    -webkit-text-fill-color:var(--accent);
 }
 
 /* Welcome message */
@@ -202,24 +205,35 @@ body {
 }
 
 .login-logo {
-    width:64px; height:64px;
+    width:88px; height:88px;
     background:rgba(124,106,239,0.06);
     border:1px solid rgba(180,168,255,0.15);
-    border-radius:16px;
+    border-radius:20px;
     display:inline-flex; align-items:center; justify-content:center;
-    margin-bottom:16px;
+    margin-bottom:20px;
     backdrop-filter:blur(8px);
 }
 
 .login-card h1 {
-    font-size:28px; font-weight:800;
+    font-size:32px; font-weight:800;
     background:linear-gradient(135deg,#fff,var(--primary-light));
     -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
-    margin-bottom:4px;
+    margin-bottom:6px;
+}
+
+.brand-L {
+    color:var(--accent);
+    -webkit-text-fill-color:var(--accent);
+}
+
+.login-tagline {
+    font-size:13px; color:var(--text-secondary); margin-bottom:4px;
+    font-style:italic; font-weight:500;
+    line-height:1.5;
 }
 
 .login-sub {
-    font-size:13px; color:var(--text-tertiary); margin-bottom:24px;
+    font-size:12px; color:var(--text-tertiary); margin-bottom:24px;
 }
 
 .login-card .form-group { text-align:left; margin-bottom:16px; }
