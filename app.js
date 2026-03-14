@@ -212,6 +212,9 @@ async function loginAs(name) {
     appEl.style.display = '';
     document.getElementById('user-greeting').textContent = 'Hallo, ' + clean.charAt(0).toUpperCase() + clean.slice(1) + '!';
 
+    // Reset form/UI for new user
+    resetAppUI();
+
     // Restrict Angelika to Joggen only
     applyUserRestrictions(clean);
 
@@ -222,10 +225,48 @@ async function loginAs(name) {
 
 loginForm.addEventListener('submit', e => { e.preventDefault(); loginAs(loginNameInput.value); });
 
+function resetAppUI() {
+    form.reset();
+    setDefaults();
+    intensityGroup.style.display = 'none';
+    document.getElementById('kraft-container').style.display = 'none';
+    joggenContainer.style.display = 'none';
+    timesContainer.style.display = '';
+    countContainer.style.display = 'none';
+    telemarkContainer.style.display = 'none';
+    telemarkYes.classList.add('active');
+    telemarkNo.classList.remove('active');
+    telemarkCountGroup.style.display = '';
+    KRAFT_EXERCISES.forEach(ex => {
+        const cb = document.getElementById('kraft-' + ex);
+        if (cb) cb.checked = false;
+        const det = document.getElementById('kraft-' + ex + '-details');
+        if (det) det.style.display = 'none';
+    });
+    kbPyramidMode = false;
+    kbModeNormal.classList.add('active');
+    kbModePyramid.classList.remove('active');
+    kbNormalFields.style.display = '';
+    kbPyramidFields.style.display = 'none';
+    timesList.innerHTML = '';
+    addTimeEntry();
+    destroyAll();
+    // Reset to Training tab
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    const firstTab = document.querySelector('.tab-btn[data-tab="tab-training"]');
+    if (firstTab) firstTab.classList.add('active');
+    const firstContent = document.getElementById('tab-training');
+    if (firstContent) firstContent.classList.add('active');
+    // Clear stale training list
+    trainingListEl.innerHTML = '';
+}
+
 document.getElementById('btn-logout').addEventListener('click', () => {
     if (_unsubscribe) { _unsubscribe(); _unsubscribe = null; }
     currentUser = null;
     _cachedEntries = [];
+    resetAppUI();
     loginScreen.style.display = '';
     loginScreen.classList.remove('fade-in');
     appEl.style.display = 'none';
@@ -463,6 +504,7 @@ form.addEventListener('submit', e => {
 
     const isTempo = type.startsWith('Tempolauf');
     const isKraft = type === 'Kraft';
+    const isJoggen = type === 'Joggen (5km)';
     const intensity = isTempo ? trainingIntensity.value : '';
     const isCountMode = intensity === 'NI';
 
@@ -472,6 +514,7 @@ form.addEventListener('submit', e => {
     let count = null;
     let telemarks = null;
     let exercises = null;
+    let joggenTimeSec = null;
 
     if (isKraft) {
         exercises = {};
