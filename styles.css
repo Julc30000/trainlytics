@@ -606,6 +606,10 @@ textarea { resize:vertical; min-height:48px; }
 .btn-icon:hover {
     color:var(--danger); border-color:rgba(248,113,113,0.3); background:rgba(248,113,113,0.08);
 }
+/* Plan nav buttons override */
+.plan-week-nav .btn-icon:hover {
+    color:var(--accent); border-color:rgba(180,168,255,0.3); background:rgba(180,168,255,0.08);
+}
 
 /* ---- Stats ---- */
 .stats-row {
