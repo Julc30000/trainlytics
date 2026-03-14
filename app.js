@@ -1023,14 +1023,19 @@ function getCurrentSeason() {
 
 function getWeekNumber(dateStr) {
     const d = new Date(dateStr + 'T00:00:00');
-    const jan1 = new Date(d.getFullYear(), 0, 1);
-    return Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+    const day = d.getDay() || 7; // Mon=1 ... Sun=7
+    d.setDate(d.getDate() + 4 - day); // Thursday of this ISO week
+    const yearStart = new Date(d.getFullYear(), 0, 1);
+    return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
 }
 
 function getWeekKey(dateStr) {
     const d = new Date(dateStr + 'T00:00:00');
+    const day = d.getDay() || 7;
+    d.setDate(d.getDate() + 4 - day); // Thursday → ISO year
     const y = d.getFullYear();
-    const w = getWeekNumber(dateStr);
+    const yearStart = new Date(y, 0, 1);
+    const w = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
     return y + '-W' + String(w).padStart(2, '0');
 }
 
@@ -2439,11 +2444,14 @@ let ctTrackTimes = true;
 document.getElementById('btn-settings').addEventListener('click', () => {
     renderCustomTypesList();
     resetCtForm();
-    // Set report week to current week
+    // Set report week to current ISO week (Mo-So)
     const now = new Date();
-    const y = now.getFullYear();
-    const oneJan = new Date(y, 0, 1);
-    const wNum = Math.ceil(((now - oneJan) / 86400000 + oneJan.getDay() + 1) / 7);
+    const tmp = new Date(now);
+    const dow = tmp.getDay() || 7;
+    tmp.setDate(tmp.getDate() + 4 - dow);
+    const y = tmp.getFullYear();
+    const yearStart = new Date(y, 0, 1);
+    const wNum = Math.ceil(((tmp - yearStart) / 86400000 + 1) / 7);
     document.getElementById('report-week').value = y + '-W' + String(wNum).padStart(2, '0');
     // Default to first tab
     document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
