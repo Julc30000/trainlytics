@@ -240,6 +240,7 @@
                 <div class="form-group">
                     <label for="analytics-type">Trainingsart</label>
                     <select id="analytics-type">
+                        <option value="Allgemein">📊 Allgemein</option>
                         <option value="Sprint (50m)">Sprint (50m)</option>
                         <option value="Tempolauf (120m)">Tempolauf (120m)</option>
                         <option value="Tempolauf (150m)">Tempolauf (150m)</option>
@@ -254,6 +255,40 @@
                         <option value="I2">I2</option>
                         <option value="I1">I1</option>
                     </select>
+                </div>
+            </div>
+
+            <!-- General Stats (shown for Allgemein) -->
+            <div class="stats-row" id="stats-row-general" style="display:none">
+                <div class="stat-card accent-purple">
+                    <span class="stat-icon">📅</span>
+                    <span class="stat-value" id="stat-gen-season">--</span>
+                    <span class="stat-label">Saison</span>
+                </div>
+                <div class="stat-card accent-teal">
+                    <span class="stat-icon">🏃</span>
+                    <span class="stat-value" id="stat-gen-total">0</span>
+                    <span class="stat-label">Einheiten (Saison)</span>
+                </div>
+                <div class="stat-card accent-gold">
+                    <span class="stat-icon">📆</span>
+                    <span class="stat-value" id="stat-gen-weekly">--</span>
+                    <span class="stat-label">Ø pro Woche</span>
+                </div>
+                <div class="stat-card accent-blue">
+                    <span class="stat-icon">🔥</span>
+                    <span class="stat-value" id="stat-gen-streak">0</span>
+                    <span class="stat-label">Aktuelle Serie (Wo.)</span>
+                </div>
+                <div class="stat-card accent-green">
+                    <span class="stat-icon">📊</span>
+                    <span class="stat-value" id="stat-gen-total-all">0</span>
+                    <span class="stat-label">Einheiten Gesamt</span>
+                </div>
+                <div class="stat-card accent-red">
+                    <span class="stat-icon">⏱️</span>
+                    <span class="stat-value" id="stat-gen-last">--</span>
+                    <span class="stat-label">Letzte Einheit</span>
                 </div>
             </div>
 

@@ -432,8 +432,10 @@ const analyticsIntGroup = document.getElementById('analytics-intensity-group');
 const analyticsIntEl = document.getElementById('analytics-intensity');
 
 analyticsTypeEl.addEventListener('change', () => {
-    const isTempo = analyticsTypeEl.value.startsWith('Tempolauf');
-    analyticsIntGroup.style.display = isTempo ? '' : 'none';
+    const val = analyticsTypeEl.value;
+    const isGeneral = val === 'Allgemein';
+    const isTempo = val.startsWith('Tempolauf');
+    analyticsIntGroup.style.display = (isTempo && !isGeneral) ? '' : 'none';
     if (!isTempo) analyticsIntEl.value = 'all';
     updateAnalytics();
 });
@@ -474,8 +476,23 @@ function destroyAll() { Object.keys(chartInstances).forEach(k => { if(chartInsta
 
 function updateAnalytics() {
     const type = analyticsTypeEl.value;
+    const isGeneral = type === 'Allgemein';
     const isTempo = type.startsWith('Tempolauf');
-    analyticsIntGroup.style.display = isTempo ? '' : 'none';
+    analyticsIntGroup.style.display = (isTempo && !isGeneral) ? '' : 'none';
+
+    // Show/hide general stats
+    document.getElementById('stats-row-general').style.display = isGeneral ? '' : 'none';
+    document.getElementById('stats-row').style.display = isGeneral ? 'none' : '';
+    document.getElementById('stats-row-ni').style.display = 'none';
+    document.getElementById('pb-card').style.display = isGeneral ? 'none' : '';
+
+    destroyAll();
+
+    if (isGeneral) {
+        updateGeneralStats();
+        buildGeneralCharts();
+        return;
+    }
 
     const intFilter = isTempo ? analyticsIntEl.value : 'all';
     const isNI = intFilter === 'NI';
@@ -484,21 +501,16 @@ function updateAnalytics() {
     if (intFilter !== 'all') data = data.filter(d => d.intensity === intFilter);
     data.sort((a,b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
 
-    // For "all" view, filter out count-only entries (NI) for time-based charts
     const timeData = data.filter(d => d.intensity !== 'NI');
 
     const c = COLORS[type];
 
-    // Extract meters from type string (e.g. "Tempolauf (120m)" -> 120)
     const metersMatch = type.match(/\((\d+)m\)/);
     const meters = metersMatch ? parseInt(metersMatch[1], 10) : 0;
 
-    // Show/hide stats rows
     document.getElementById('stats-row').style.display = isNI ? 'none' : '';
     document.getElementById('stats-row-ni').style.display = isNI ? '' : 'none';
     document.getElementById('pb-card').style.display = isNI ? 'none' : '';
-
-    destroyAll();
 
     if (isNI) {
         updateStatsNI(data, meters);
@@ -508,6 +520,228 @@ function updateAnalytics() {
         buildTimeCharts(timeData, c);
         drawPBTable(timeData);
     }
+}
+
+// ================================================================
+//  GENERAL / ALLGEMEIN ANALYTICS
+// ================================================================
+function getCurrentSeason() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth(); // 0-based
+    // Season runs Sep(8) to Aug(7). If month >= Sep, season = thisYear/nextYear, else lastYear/thisYear
+    if (m >= 8) return { start: y + '-09-01', end: (y+1) + '-08-31', label: y + '/' + (y+1) };
+    return { start: (y-1) + '-09-01', end: y + '-08-31', label: (y-1) + '/' + y };
+}
+
+function getWeekNumber(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const jan1 = new Date(d.getFullYear(), 0, 1);
+    return Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+}
+
+function getWeekKey(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const y = d.getFullYear();
+    const w = getWeekNumber(dateStr);
+    return y + '-W' + String(w).padStart(2, '0');
+}
+
+function updateGeneralStats() {
+    const $ = id => document.getElementById(id);
+    const all = loadData();
+    const season = getCurrentSeason();
+    const seasonData = all.filter(d => d.date >= season.start && d.date <= season.end);
+
+    $('stat-gen-season').textContent = season.label;
+    $('stat-gen-total').textContent = seasonData.length;
+    $('stat-gen-total-all').textContent = all.length;
+
+    // Avg per week in season
+    if (seasonData.length) {
+        const weeks = new Set(seasonData.map(d => getWeekKey(d.date)));
+        const seasonStart = new Date(season.start + 'T00:00:00');
+        const now = new Date();
+        const diffWeeks = Math.max(1, Math.ceil((now - seasonStart) / (7 * 86400000)));
+        $('stat-gen-weekly').textContent = (seasonData.length / diffWeeks).toFixed(1);
+    } else {
+        $('stat-gen-weekly').textContent = '--';
+    }
+
+    // Current weekly streak: consecutive weeks with at least 1 session
+    if (all.length) {
+        const sorted = [...all].sort((a, b) => b.date.localeCompare(a.date));
+        const weekKeys = [...new Set(sorted.map(d => getWeekKey(d.date)))].sort().reverse();
+        // Current week
+        const currentWeek = getWeekKey(new Date().toISOString().split('T')[0]);
+        let streak = 0;
+        // Start from current week and go backwards
+        const d = new Date();
+        for (let i = 0; i < 52; i++) {
+            const wk = getWeekKey(d.toISOString().split('T')[0]);
+            if (weekKeys.includes(wk)) {
+                streak++;
+            } else if (i > 0) {
+                break; // Allow current week to have no training yet
+            }
+            d.setDate(d.getDate() - 7);
+        }
+        $('stat-gen-streak').textContent = streak;
+    } else {
+        $('stat-gen-streak').textContent = '0';
+    }
+
+    // Last session
+    if (all.length) {
+        const sorted = [...all].sort((a, b) => b.date.localeCompare(a.date));
+        $('stat-gen-last').textContent = fmtDate(sorted[0].date);
+    } else {
+        $('stat-gen-last').textContent = '--';
+    }
+}
+
+function buildGeneralCharts() {
+    const container = getChartsContainer();
+    const all = loadData();
+    if (!all.length) return;
+
+    const sorted = [...all].sort((a, b) => a.date.localeCompare(b.date));
+    const season = getCurrentSeason();
+    const seasonData = sorted.filter(d => d.date >= season.start && d.date <= season.end);
+
+    const cGen = { main: '#B4A8FF', bg: 'rgba(180,168,255,0.18)', g1: 'rgba(180,168,255,0.35)', g2: 'rgba(180,168,255,0.02)' };
+
+    // 1) Sessions per month (season)
+    const c1 = makeChartCard('Einheiten pro Monat (Saison ' + season.label + ')', 'Balken', 'ch-gen-monthly', false);
+    container.appendChild(c1);
+    drawGenMonthly(seasonData, cGen);
+
+    // 2) Sessions per type (pie)
+    const c2 = makeChartCard('Verteilung nach Trainingsart', 'Kreis', 'ch-gen-type-pie', false);
+    container.appendChild(c2);
+    drawGenTypePie(seasonData);
+
+    // 3) Weekly frequency over time
+    const c3 = makeChartCard('Einheiten pro Woche (Saison)', 'Balken', 'ch-gen-weekly', true);
+    container.appendChild(c3);
+    drawGenWeekly(seasonData, cGen);
+
+    // 4) Weekday distribution
+    const c4 = makeChartCard('Trainingstage (Wochentag)', 'Balken', 'ch-gen-weekday', false);
+    container.appendChild(c4);
+    drawGenWeekday(seasonData);
+
+    // 5) Monthly comparison across seasons
+    const c5 = makeChartCard('Einheiten pro Monat (Gesamtverlauf)', 'Balken', 'ch-gen-all-monthly', false);
+    container.appendChild(c5);
+    drawGenMonthly(sorted, { main: '#22D3C5', bg: 'rgba(34,211,197,0.18)', g1: 'rgba(34,211,197,0.35)', g2: 'rgba(34,211,197,0.02)' }, 'genAllMonthly');
+
+    // 6) Intensity distribution (all Tempolauf in season)
+    const tempoData = seasonData.filter(d => d.type.startsWith('Tempolauf') && d.intensity);
+    if (tempoData.length) {
+        const c6 = makeChartCard('Intensitätsverteilung (Tempolauf, Saison)', 'Kreis', 'ch-gen-intensity', false);
+        container.appendChild(c6);
+        drawGenIntensityPie(tempoData);
+    }
+}
+
+function drawGenMonthly(data, c, key) {
+    const canvasId = key ? 'ch-gen-all-monthly' : 'ch-gen-monthly';
+    const ctx = document.getElementById(canvasId)?.getContext('2d');
+    if (!ctx) return;
+    if (!data.length) { chartInstances[key || 'genMonthly'] = emptyChart(ctx); return; }
+    const g = groupByMonth(data);
+    const labels = Object.keys(g);
+    const counts = labels.map(k => g[k].length);
+    chartInstances[key || 'genMonthly'] = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: labels.map(prettyMonth), datasets: [{ data: counts, backgroundColor: c.bg, borderColor: c.main, borderWidth: 2, borderRadius: 8, hoverBackgroundColor: c.main }] },
+        options: { ...BASE, scales: { ...BASE.scales, y: { ...BASE.scales.y, ticks: { ...BASE.scales.y.ticks, stepSize: 1 }, title: { display: true, text: 'Einheiten', color: '#555870', font: { size: 11 } } } } }
+    });
+}
+
+function drawGenTypePie(data) {
+    const ctx = document.getElementById('ch-gen-type-pie')?.getContext('2d');
+    if (!ctx) return;
+    if (!data.length) { chartInstances.genTypePie = emptyChart(ctx); return; }
+    const types = {};
+    data.forEach(d => { types[d.type] = (types[d.type] || 0) + 1; });
+    const labels = Object.keys(types);
+    const values = Object.values(types);
+    const colors = labels.map(l => (COLORS[l] || { main: '#8B8FA7' }).main);
+    chartInstances.genTypePie = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data: values, backgroundColor: colors, borderColor: '#12141C', borderWidth: 3 }] },
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
+            plugins: {
+                legend: { display: true, position: 'bottom', labels: { color: '#8B8FA7', font: { size: 12, family: 'Inter' }, padding: 16 } },
+                tooltip: { ...BASE.plugins.tooltip, callbacks: { label: t => t.label + ': ' + t.parsed + ' (' + Math.round(t.parsed / values.reduce((a, b) => a + b, 0) * 100) + '%)' } }
+            }
+        }
+    });
+}
+
+function drawGenWeekly(data, c) {
+    const ctx = document.getElementById('ch-gen-weekly')?.getContext('2d');
+    if (!ctx) return;
+    if (!data.length) { chartInstances.genWeekly = emptyChart(ctx); return; }
+    const weeks = {};
+    data.forEach(d => { const w = getWeekKey(d.date); weeks[w] = (weeks[w] || 0) + 1; });
+    const labels = Object.keys(weeks).sort();
+    const values = labels.map(k => weeks[k]);
+    // Pretty week labels
+    const prettyWeeks = labels.map(k => {
+        const parts = k.split('-W');
+        return 'KW' + parseInt(parts[1]);
+    });
+    chartInstances.genWeekly = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: prettyWeeks, datasets: [{ data: values, backgroundColor: c.bg, borderColor: c.main, borderWidth: 2, borderRadius: 6, hoverBackgroundColor: c.main }] },
+        options: { ...BASE, scales: { ...BASE.scales, y: { ...BASE.scales.y, ticks: { ...BASE.scales.y.ticks, stepSize: 1 }, title: { display: true, text: 'Einheiten', color: '#555870', font: { size: 11 } } } } }
+    });
+}
+
+function drawGenWeekday(data) {
+    const ctx = document.getElementById('ch-gen-weekday')?.getContext('2d');
+    if (!ctx) return;
+    if (!data.length) { chartInstances.genWeekday = emptyChart(ctx); return; }
+    const days = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+    const counts = Array(7).fill(0);
+    data.forEach(d => { counts[new Date(d.date + 'T00:00:00').getDay()]++; });
+    // Reorder: Mo-So
+    const reorder = [1, 2, 3, 4, 5, 6, 0];
+    const labels = reorder.map(i => days[i]);
+    const values = reorder.map(i => counts[i]);
+    const colors = reorder.map((_, i) => i < 5 ? 'rgba(34,211,197,0.25)' : 'rgba(251,191,36,0.25)');
+    const borders = reorder.map((_, i) => i < 5 ? '#22D3C5' : '#FBBF24');
+    chartInstances.genWeekday = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{ data: values, backgroundColor: colors, borderColor: borders, borderWidth: 2, borderRadius: 8 }] },
+        options: { ...BASE, scales: { ...BASE.scales, y: { ...BASE.scales.y, ticks: { ...BASE.scales.y.ticks, stepSize: 1 }, title: { display: true, text: 'Einheiten', color: '#555870', font: { size: 11 } } } } }
+    });
+}
+
+function drawGenIntensityPie(data) {
+    const ctx = document.getElementById('ch-gen-intensity')?.getContext('2d');
+    if (!ctx) return;
+    const ints = {};
+    data.forEach(d => { ints[d.intensity] = (ints[d.intensity] || 0) + 1; });
+    const labels = Object.keys(ints);
+    const values = Object.values(ints);
+    const intColors = { NI: '#8B8FA7', I3: '#22D3C5', I2: '#FBBF24', I1: '#F87171' };
+    const colors = labels.map(l => intColors[l] || '#B4A8FF');
+    chartInstances.genIntensity = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data: values, backgroundColor: colors, borderColor: '#12141C', borderWidth: 3 }] },
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
+            plugins: {
+                legend: { display: true, position: 'bottom', labels: { color: '#8B8FA7', font: { size: 12, family: 'Inter' }, padding: 16 } },
+                tooltip: { ...BASE.plugins.tooltip, callbacks: { label: t => t.label + ': ' + t.parsed + ' (' + Math.round(t.parsed / values.reduce((a, b) => a + b, 0) * 100) + '%)' } }
+            }
+        }
+    });
 }
 
 // ---- Stats (Time-based) ----
