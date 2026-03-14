@@ -903,6 +903,11 @@ textarea { resize:vertical; min-height:48px; }
 .sent-plan-notes { font-size:11px; color:var(--text-muted); font-style:italic; padding-top:6px;
     border-top:1px solid var(--border); margin-top:4px; }
 .sent-plan-user { font-size:12px; font-weight:700; color:var(--accent); }
+.btn-small { font-size:11px; padding:5px 12px; border-radius:8px; font-weight:600; cursor:pointer;
+    border:1px solid var(--border); background:var(--bg-input); color:var(--text); transition:all 0.15s; }
+.btn-small:hover { border-color:rgba(180,168,255,0.3); background:rgba(180,168,255,0.08); color:var(--accent); }
+.btn-danger { border-color:rgba(239,68,68,0.25); color:#f87171; }
+.btn-danger:hover { border-color:rgba(239,68,68,0.4); background:rgba(239,68,68,0.1); color:#f87171; }
 
 /* Plan week navigation (athlete) */
 .plan-week-nav { display:flex; align-items:center; justify-content:space-between; gap:8px;

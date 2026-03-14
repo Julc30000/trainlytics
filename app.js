@@ -2555,10 +2555,17 @@ async function renderCoachSentPlansAll() {
         container.innerHTML = sortedWeeks.map(ws => {
             const items = byWeek[ws];
             const expired = isPlanExpired(items[0].plan);
+            const userCount = items.length;
             return `<div class="card glass-card">
                 <div class="card-header">
                     <h2>Woche ab ${escapeHtml(fmtDate(ws))}</h2>
-                    ${expired ? '<span class="card-badge" style="background:rgba(255,255,255,0.06);color:var(--text-muted)">abgelaufen</span>' : '<span class="card-badge" style="background:rgba(52,211,153,0.12);color:#34D399">aktiv</span>'}
+                    <div style="display:flex;align-items:center;gap:6px">
+                        ${expired ? '<span class="card-badge" style="background:rgba(255,255,255,0.06);color:var(--text-muted)">abgelaufen</span>' : '<span class="card-badge" style="background:rgba(52,211,153,0.12);color:#34D399">aktiv</span>'}
+                    </div>
+                </div>
+                <div class="sent-plan-bulk-actions" style="display:flex;gap:8px;margin-bottom:12px;">
+                    <button class="btn btn-small sent-plan-edit-week" data-ws="${escapeHtml(ws)}" title="Plan für alle Athleten bearbeiten">✏️ Alle bearbeiten</button>
+                    <button class="btn btn-small btn-danger sent-plan-del-week" data-ws="${escapeHtml(ws)}" title="Plan für alle Athleten löschen">🗑️ Alle löschen (${userCount})</button>
                 </div>
                 ${items.map(({ user, plan }) => {
                     const name = user.charAt(0).toUpperCase() + user.slice(1);
@@ -2588,6 +2595,52 @@ async function renderCoachSentPlansAll() {
                 }).join('')}
             </div>`;
         }).join('');
+
+        // Bulk edit: load first athlete's plan into form, keep "Alle Athleten" selected
+        container.querySelectorAll('.sent-plan-edit-week').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const ws = btn.dataset.ws;
+                const items = byWeek[ws];
+                if (!items || !items.length) return;
+                const firstPlan = items[0].plan;
+                // Keep "Alle Athleten" selected so saving will broadcast to all
+                document.getElementById('plan-user-select').value = '__alle__';
+                _coachPlanUser = '__alle__';
+                // Fill form
+                document.getElementById('plan-week').value = firstPlan.weekStart;
+                document.getElementById('plan-notes').value = firstPlan.notes || '';
+                document.querySelectorAll('#plan-days .plan-day-row').forEach(row => {
+                    row.querySelector('.plan-day-input').value = firstPlan.days[row.dataset.day] || '';
+                });
+                const infoEl2 = document.getElementById('plan-current-info');
+                infoEl2.innerHTML = `<span class="plan-info-badge">✏️ Plan für ALLE Athleten wird bearbeitet (${items.length} Athleten)</span>`;
+                infoEl2.style.display = '';
+                document.getElementById('coach-plan').scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+
+        // Bulk delete: remove plan for this week from ALL athletes
+        container.querySelectorAll('.sent-plan-del-week').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const ws = btn.dataset.ws;
+                const items = byWeek[ws];
+                if (!items || !items.length) return;
+                if (!confirm(`Plan (${fmtDate(ws)}) für ALLE ${items.length} Athleten wirklich löschen?`)) return;
+                try {
+                    for (const { user } of items) {
+                        const docRef = db.collection('users').doc(user.toLowerCase().trim());
+                        const snap = await docRef.get();
+                        let updatedPlans = snap.exists ? getPlansFromData(snap.data()) : [];
+                        updatedPlans = updatedPlans.filter(p => p.weekStart !== ws);
+                        await docRef.set({ trainingPlans: updatedPlans }, { merge: true });
+                    }
+                    showToast(`Plan bei ${items.length} Athleten gelöscht`);
+                    await renderCoachSentPlansAll();
+                } catch {
+                    showToast('Fehler beim Löschen');
+                }
+            });
+        });
 
         // Edit: load into form + switch select to that user
         container.querySelectorAll('.sent-plan-edit-all').forEach(btn => {
