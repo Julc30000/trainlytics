@@ -902,6 +902,7 @@ textarea { resize:vertical; min-height:48px; }
 .sent-plan-day-label { font-weight:800; color:var(--accent); min-width:20px; }
 .sent-plan-notes { font-size:11px; color:var(--text-muted); font-style:italic; padding-top:6px;
     border-top:1px solid var(--border); margin-top:4px; }
+.sent-plan-user { font-size:12px; font-weight:700; color:var(--accent); }
 
 /* Plan week navigation (athlete) */
 .plan-week-nav { display:flex; align-items:center; justify-content:space-between; gap:8px;

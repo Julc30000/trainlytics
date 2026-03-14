@@ -2484,8 +2484,9 @@ document.getElementById('btn-save-plan')?.addEventListener('click', async () => 
         document.getElementById('plan-notes').value = '';
         document.getElementById('plan-week').value = '';
         document.getElementById('plan-current-info').style.display = 'none';
-        // Refresh sent plans if single user
+        // Refresh sent plans
         if (targets.length === 1) await renderCoachSentPlans(targets[0]);
+        else await renderCoachSentPlansAll();
     } catch(e) {
         showToast('Fehler beim Speichern');
     }
@@ -2506,10 +2507,137 @@ document.getElementById('plan-user-select')?.addEventListener('change', async ()
     _coachPlanUser = '';
     _coachPlansCache = [];
 
-    if (!user || user === '__alle__') return;
+    if (!user) return;
     _coachPlanUser = user;
-    await renderCoachSentPlans(user);
+
+    if (user === '__alle__') {
+        await renderCoachSentPlansAll();
+    } else {
+        await renderCoachSentPlans(user);
+    }
 });
+
+// Render sent plans for ALL athletes
+async function renderCoachSentPlansAll() {
+    const container = document.getElementById('plan-sent-list');
+    const infoEl = document.getElementById('plan-current-info');
+    const dayOrder = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+    const dayShort = { Montag: 'Mo', Dienstag: 'Di', Mittwoch: 'Mi', Donnerstag: 'Do', Freitag: 'Fr', Samstag: 'Sa', Sonntag: 'So' };
+
+    try {
+        // Load plans from all users
+        const allUserPlans = []; // { user, plan }
+        for (const u of _planUsers) {
+            const doc = await db.collection('users').doc(u.toLowerCase().trim()).get();
+            const plans = doc.exists ? getPlansFromData(doc.data()) : [];
+            plans.forEach(p => allUserPlans.push({ user: u, plan: p }));
+        }
+
+        if (!allUserPlans.length) {
+            container.innerHTML = '';
+            infoEl.innerHTML = '<span class="plan-info-badge">Noch keine Pläne vorhanden</span>';
+            infoEl.style.display = '';
+            return;
+        }
+        infoEl.style.display = 'none';
+
+        // Group by weekStart
+        const byWeek = {};
+        allUserPlans.forEach(({ user, plan }) => {
+            const key = plan.weekStart;
+            if (!byWeek[key]) byWeek[key] = [];
+            byWeek[key].push({ user, plan });
+        });
+
+        // Sort weeks newest first
+        const sortedWeeks = Object.keys(byWeek).sort((a, b) => b.localeCompare(a));
+
+        container.innerHTML = sortedWeeks.map(ws => {
+            const items = byWeek[ws];
+            const expired = isPlanExpired(items[0].plan);
+            return `<div class="card glass-card">
+                <div class="card-header">
+                    <h2>Woche ab ${escapeHtml(fmtDate(ws))}</h2>
+                    ${expired ? '<span class="card-badge" style="background:rgba(255,255,255,0.06);color:var(--text-muted)">abgelaufen</span>' : '<span class="card-badge" style="background:rgba(52,211,153,0.12);color:#34D399">aktiv</span>'}
+                </div>
+                ${items.map(({ user, plan }) => {
+                    const name = user.charAt(0).toUpperCase() + user.slice(1);
+                    return `<div class="sent-plan-entry${expired ? ' sent-plan-expired' : ''}">
+                        <div class="sent-plan-header">
+                            <div>
+                                <span class="sent-plan-user">${escapeHtml(name)}</span>
+                            </div>
+                            <div class="sent-plan-actions">
+                                <button class="btn-icon sent-plan-edit-all" data-ws="${escapeHtml(plan.weekStart)}" data-user="${escapeHtml(user)}" title="Bearbeiten">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                </button>
+                                <button class="btn-icon sent-plan-del-all" data-ws="${escapeHtml(plan.weekStart)}" data-user="${escapeHtml(user)}" title="Löschen">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="sent-plan-days">
+                            ${dayOrder.map(day => {
+                                const val = plan.days[day];
+                                if (!val) return '';
+                                return `<div class="sent-plan-day"><span class="sent-plan-day-label">${dayShort[day]}</span><span>${escapeHtml(val)}</span></div>`;
+                            }).join('')}
+                        </div>
+                        ${plan.notes ? '<div class="sent-plan-notes">' + escapeHtml(plan.notes) + '</div>' : ''}
+                    </div>`;
+                }).join('')}
+            </div>`;
+        }).join('');
+
+        // Edit: load into form + switch select to that user
+        container.querySelectorAll('.sent-plan-edit-all').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetUser = btn.dataset.user;
+                const ws = btn.dataset.ws;
+                const item = allUserPlans.find(x => x.user === targetUser && x.plan.weekStart === ws);
+                if (!item) return;
+                // Switch dropdown to specific user
+                document.getElementById('plan-user-select').value = targetUser;
+                _coachPlanUser = targetUser;
+                // Fill form
+                document.getElementById('plan-week').value = item.plan.weekStart;
+                document.getElementById('plan-notes').value = item.plan.notes || '';
+                document.querySelectorAll('#plan-days .plan-day-row').forEach(row => {
+                    row.querySelector('.plan-day-input').value = item.plan.days[row.dataset.day] || '';
+                });
+                const infoEl2 = document.getElementById('plan-current-info');
+                const name = targetUser.charAt(0).toUpperCase() + targetUser.slice(1);
+                infoEl2.innerHTML = `<span class="plan-info-badge">✏️ Plan für ${escapeHtml(name)} wird bearbeitet</span>`;
+                infoEl2.style.display = '';
+                document.getElementById('coach-plan').scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+
+        // Delete: remove from that specific user
+        container.querySelectorAll('.sent-plan-del-all').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const targetUser = btn.dataset.user;
+                const ws = btn.dataset.ws;
+                const name = targetUser.charAt(0).toUpperCase() + targetUser.slice(1);
+                if (!confirm(`Plan (${fmtDate(ws)}) für ${name} wirklich löschen?`)) return;
+                try {
+                    const docRef = db.collection('users').doc(targetUser.toLowerCase().trim());
+                    const snap = await docRef.get();
+                    let updatedPlans = snap.exists ? getPlansFromData(snap.data()) : [];
+                    updatedPlans = updatedPlans.filter(p => p.weekStart !== ws);
+                    await docRef.set({ trainingPlans: updatedPlans }, { merge: true });
+                    showToast('Plan gelöscht');
+                    await renderCoachSentPlansAll();
+                } catch {
+                    showToast('Fehler beim Löschen');
+                }
+            });
+        });
+
+    } catch {
+        container.innerHTML = '';
+    }
+}
 
 async function renderCoachSentPlans(user) {
     const container = document.getElementById('plan-sent-list');
