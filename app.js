@@ -202,6 +202,7 @@ async function loginAs(name) {
 
     await loadFromFirestore(clean);
     await loadCompetitionsFromFirestore(clean);
+    await loadInjuriesFromFirestore(clean);
     startListener(clean);
     renderList();
 }
@@ -256,6 +257,7 @@ document.getElementById('btn-logout').addEventListener('click', () => {
     currentUser = null;
     _cachedEntries = [];
     _competitions = [];
+    _injuries = [];
     resetAppUI();
     loginScreen.style.display = '';
     loginScreen.classList.remove('fade-in');
@@ -291,6 +293,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
         document.getElementById(btn.dataset.tab).classList.add('active');
         if (btn.dataset.tab === 'analytics') updateAnalytics();
         if (btn.dataset.tab === 'kalender') renderCalendar();
+        if (btn.dataset.tab === 'tagebuch') { renderInjuryList(); loadAndShowPlan(); }
     });
 });
 
@@ -1807,6 +1810,7 @@ async function loadCoachDashboard() {
 
     renderCoachRanking(users, allData);
     populateCoachUserSelect(users);
+    populatePlanUserSelect(users);
 
     const coachUserSelect = document.getElementById('coach-user-select');
     coachUserSelect.addEventListener('change', () => {
@@ -2241,5 +2245,258 @@ function renderCalendar() {
         wkListEl.querySelectorAll('.wk-del-btn').forEach(b => {
             b.addEventListener('click', () => deleteCompetition(b.dataset.wkid));
         });
+    }
+}
+
+// ================================================================
+//  SCHMERZTAGEBUCH (INJURY DIARY)
+// ================================================================
+let _injuries = [];
+
+function injuriesKey() { return 'trainlytics_injuries_' + (currentUser || '').toLowerCase().trim(); }
+
+function loadInjuries() {
+    try { _injuries = JSON.parse(localStorage.getItem(injuriesKey())) || []; }
+    catch { _injuries = []; }
+    return _injuries;
+}
+
+function saveInjuries(list) {
+    _injuries = list;
+    if (!currentUser) return;
+    localStorage.setItem(injuriesKey(), JSON.stringify(list));
+    db.collection('users').doc(currentUser.toLowerCase().trim())
+      .set({ injuries: list }, { merge: true }).catch(() => {});
+}
+
+async function loadInjuriesFromFirestore(user) {
+    try {
+        const doc = await db.collection('users').doc(user.toLowerCase().trim()).get();
+        if (doc.exists && doc.data().injuries) {
+            _injuries = doc.data().injuries;
+            localStorage.setItem(injuriesKey(), JSON.stringify(_injuries));
+        } else {
+            loadInjuries();
+        }
+    } catch { loadInjuries(); }
+}
+
+// ---- Injury Modal ----
+const injuryModal = document.getElementById('injury-modal');
+const injuryForm = document.getElementById('injury-form');
+const painSlider = document.getElementById('injury-pain');
+const painVal = document.getElementById('injury-pain-val');
+
+painSlider.addEventListener('input', () => { painVal.textContent = painSlider.value; });
+
+// Side toggle
+let injurySide = 'Links';
+['links', 'rechts', 'beide'].forEach(s => {
+    const btn = document.getElementById('injury-side-' + s);
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('#injury-form .toggle-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        injurySide = s.charAt(0).toUpperCase() + s.slice(1);
+    });
+});
+
+document.getElementById('btn-add-injury').addEventListener('click', () => {
+    injuryForm.reset();
+    painSlider.value = 5;
+    painVal.textContent = '5';
+    injurySide = 'Links';
+    document.querySelectorAll('#injury-form .toggle-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('injury-side-links').classList.add('active');
+    const now = new Date();
+    document.getElementById('injury-date').value = now.toISOString().split('T')[0];
+    injuryModal.classList.add('show');
+});
+
+document.getElementById('injury-cancel').addEventListener('click', () => { injuryModal.classList.remove('show'); });
+injuryModal.addEventListener('click', e => { if (e.target === injuryModal) injuryModal.classList.remove('show'); });
+
+injuryForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const date = document.getElementById('injury-date').value;
+    const bodypart = document.getElementById('injury-bodypart').value;
+    const pain = parseInt(painSlider.value, 10);
+    const notes = document.getElementById('injury-notes').value.trim();
+
+    if (!date || !bodypart) { showToast('Bitte Datum und Körperteil angeben'); return; }
+
+    const list = loadInjuries();
+    list.push({ id: generateId(), date, bodypart, side: injurySide, pain, notes });
+    list.sort((a, b) => b.date.localeCompare(a.date));
+    saveInjuries(list);
+    injuryModal.classList.remove('show');
+    showToast('Eintrag gespeichert ✓');
+    renderInjuryList();
+});
+
+function painColor(level) {
+    if (level <= 3) return '#34D399';
+    if (level <= 6) return '#FBBF24';
+    return '#F87171';
+}
+
+function renderInjuryList() {
+    const list = loadInjuries();
+    const el = document.getElementById('injury-list');
+    const statsCard = document.getElementById('injury-stats-card');
+
+    if (!list.length) {
+        el.innerHTML = '<div class="empty-state"><p>Noch keine Einträge vorhanden.</p></div>';
+        statsCard.style.display = 'none';
+        return;
+    }
+
+    el.innerHTML = list.map(inj => `
+        <div class="injury-entry">
+            <div class="injury-entry-header">
+                <div class="injury-entry-info">
+                    <span class="injury-bodypart">${escapeHtml(inj.bodypart)}</span>
+                    <span class="injury-side-tag">${escapeHtml(inj.side)}</span>
+                    <span class="injury-pain-badge" style="background:${painColor(inj.pain)}20;color:${painColor(inj.pain)}">${inj.pain}/10</span>
+                </div>
+                <button class="btn-icon btn-del injury-del-btn" data-injid="${escapeHtml(inj.id)}" title="Löschen">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                </button>
+            </div>
+            <div class="injury-date">${escapeHtml(fmtDate(inj.date))}</div>
+            ${inj.notes ? '<div class="injury-notes">' + escapeHtml(inj.notes) + '</div>' : ''}
+            <div class="injury-pain-bar"><div class="injury-pain-fill" style="width:${inj.pain * 10}%;background:${painColor(inj.pain)}"></div></div>
+        </div>`).join('');
+
+    el.querySelectorAll('.injury-del-btn').forEach(b => {
+        b.addEventListener('click', () => {
+            const list2 = loadInjuries().filter(i => i.id !== b.dataset.injid);
+            saveInjuries(list2);
+            renderInjuryList();
+            showToast('Eintrag gelöscht');
+        });
+    });
+
+    // Stats summary
+    renderInjuryStats(list);
+}
+
+function renderInjuryStats(list) {
+    const statsCard = document.getElementById('injury-stats-card');
+    const statsEl = document.getElementById('injury-stats');
+    if (list.length < 2) { statsCard.style.display = 'none'; return; }
+    statsCard.style.display = '';
+
+    // Count by body part
+    const freq = {};
+    list.forEach(inj => { freq[inj.bodypart] = (freq[inj.bodypart] || 0) + 1; });
+    const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
+
+    // Avg pain
+    const avgPain = (list.reduce((s, i) => s + i.pain, 0) / list.length).toFixed(1);
+
+    // Most affected
+    const most = sorted[0];
+
+    statsEl.innerHTML = `
+        <div class="injury-stats-grid">
+            <div class="injury-stat">
+                <span class="injury-stat-val">${list.length}</span>
+                <span class="injury-stat-label">Einträge gesamt</span>
+            </div>
+            <div class="injury-stat">
+                <span class="injury-stat-val" style="color:${painColor(Math.round(avgPain))}">${avgPain}</span>
+                <span class="injury-stat-label">Ø Schmerzlevel</span>
+            </div>
+            <div class="injury-stat">
+                <span class="injury-stat-val">${escapeHtml(most[0])}</span>
+                <span class="injury-stat-label">Häufigste Stelle (${most[1]}×)</span>
+            </div>
+        </div>
+        <div class="injury-freq-bars">
+            ${sorted.map(([part, count]) => `
+                <div class="injury-freq-row">
+                    <span class="injury-freq-label">${escapeHtml(part)}</span>
+                    <div class="injury-freq-bar-bg"><div class="injury-freq-bar-fill" style="width:${Math.round(count / sorted[0][1] * 100)}%"></div></div>
+                    <span class="injury-freq-count">${count}</span>
+                </div>`).join('')}
+        </div>`;
+}
+
+// ================================================================
+//  TRAININGSPLAN (COACH → ATHLETE)
+// ================================================================
+
+// Coach: Save plan for a user
+document.getElementById('btn-save-plan')?.addEventListener('click', async () => {
+    const userSel = document.getElementById('plan-user-select');
+    const user = userSel.value;
+    const weekStart = document.getElementById('plan-week').value;
+    const notes = document.getElementById('plan-notes').value.trim();
+
+    if (!user || !weekStart) { showToast('Bitte Athlet und Woche wählen'); return; }
+
+    const days = {};
+    document.querySelectorAll('#plan-days .plan-day-row').forEach(row => {
+        const day = row.dataset.day;
+        const val = row.querySelector('.plan-day-input').value.trim();
+        if (val) days[day] = val;
+    });
+
+    if (!Object.keys(days).length) { showToast('Bitte mindestens einen Tag ausfüllen'); return; }
+
+    const plan = { weekStart, days, notes, createdAt: new Date().toISOString() };
+
+    try {
+        await db.collection('users').doc(user.toLowerCase().trim())
+          .set({ trainingPlan: plan }, { merge: true });
+        showToast('Plan zugewiesen ✓');
+        // Reset form
+        document.querySelectorAll('#plan-days .plan-day-input').forEach(inp => { inp.value = ''; });
+        document.getElementById('plan-notes').value = '';
+    } catch(e) {
+        showToast('Fehler beim Speichern');
+    }
+});
+
+// Populate plan user select alongside coach user select
+function populatePlanUserSelect(users) {
+    const sel = document.getElementById('plan-user-select');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- Bitte wählen --</option>' +
+        users.map(u => `<option value="${escapeHtml(u)}">${escapeHtml(u.charAt(0).toUpperCase() + u.slice(1))}</option>`).join('');
+}
+
+// Athlete: Load and display assigned plan
+async function loadAndShowPlan() {
+    if (!currentUser) return;
+    const planCard = document.getElementById('plan-card');
+    const planDisplay = document.getElementById('plan-display');
+
+    try {
+        const doc = await db.collection('users').doc(currentUser.toLowerCase().trim()).get();
+        if (doc.exists && doc.data().trainingPlan) {
+            const plan = doc.data().trainingPlan;
+            planCard.style.display = '';
+            const dayOrder = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+            const dayShort = { Montag: 'Mo', Dienstag: 'Di', Mittwoch: 'Mi', Donnerstag: 'Do', Freitag: 'Fr', Samstag: 'Sa', Sonntag: 'So' };
+
+            planDisplay.innerHTML = `
+                <div class="plan-week-label">Woche ab ${escapeHtml(fmtDate(plan.weekStart))}</div>
+                <div class="plan-grid">
+                    ${dayOrder.map(day => {
+                        const val = plan.days[day];
+                        if (!val) return '';
+                        return `<div class="plan-grid-day">
+                            <span class="plan-grid-day-label">${dayShort[day]}</span>
+                            <span class="plan-grid-day-val">${escapeHtml(val)}</span>
+                        </div>`;
+                    }).join('')}
+                </div>
+                ${plan.notes ? '<div class="plan-coach-notes">' + escapeHtml(plan.notes) + '</div>' : ''}`;
+        } else {
+            planCard.style.display = 'none';
+        }
+    } catch {
+        planCard.style.display = 'none';
     }
 }

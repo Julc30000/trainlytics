@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20260314d">
+    <link rel="stylesheet" href="styles.css?v=20260314e">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -106,6 +106,38 @@
 
         <!-- Coach Charts Container -->
         <div id="coach-charts-container"></div>
+
+        <!-- Coach Training Plan Assignment -->
+        <div class="card glass-card">
+            <div class="card-header"><h2>📋 Trainingsplan zuweisen</h2></div>
+            <div class="form-group">
+                <label for="plan-user-select">Athlet</label>
+                <select id="plan-user-select">
+                    <option value="">-- Bitte wählen --</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="plan-week">Woche ab</label>
+                <input type="date" id="plan-week">
+            </div>
+            <div id="plan-days" class="plan-days">
+                <div class="plan-day-row" data-day="Montag"><span class="plan-day-label">Mo</span><input type="text" class="plan-day-input" placeholder="z.B. Sprint 6×50m I2"></div>
+                <div class="plan-day-row" data-day="Dienstag"><span class="plan-day-label">Di</span><input type="text" class="plan-day-input" placeholder="z.B. Kraft"></div>
+                <div class="plan-day-row" data-day="Mittwoch"><span class="plan-day-label">Mi</span><input type="text" class="plan-day-input" placeholder="z.B. Regeneration"></div>
+                <div class="plan-day-row" data-day="Donnerstag"><span class="plan-day-label">Do</span><input type="text" class="plan-day-input" placeholder="z.B. Tempolauf 120m NI"></div>
+                <div class="plan-day-row" data-day="Freitag"><span class="plan-day-label">Fr</span><input type="text" class="plan-day-input" placeholder="z.B. Ruhetag"></div>
+                <div class="plan-day-row" data-day="Samstag"><span class="plan-day-label">Sa</span><input type="text" class="plan-day-input" placeholder="z.B. Wettkampf"></div>
+                <div class="plan-day-row" data-day="Sonntag"><span class="plan-day-label">So</span><input type="text" class="plan-day-input" placeholder="z.B. Frei"></div>
+            </div>
+            <div class="form-group">
+                <label for="plan-notes">Hinweise <span class="label-hint">(optional)</span></label>
+                <textarea id="plan-notes" rows="2" placeholder="Allgemeine Hinweise für die Woche…"></textarea>
+            </div>
+            <button class="btn-primary" id="btn-save-plan">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Plan zuweisen
+            </button>
+        </div>
     </div>
 
     <!-- ============ MAIN APP ============ -->
@@ -142,6 +174,10 @@
             <button class="tab-btn" data-tab="kalender">
                 <svg class="tab-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 <span>Kalender</span>
+            </button>
+            <button class="tab-btn" data-tab="tagebuch">
+                <svg class="tab-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span>Tagebuch</span>
             </button>
         </nav>
 
@@ -590,6 +626,35 @@
                 </div>
             </div>
         </section>
+
+        <!-- ============ TAGEBUCH TAB ============ -->
+        <section id="tagebuch" class="tab-content">
+            <!-- Assigned Training Plan -->
+            <div class="card glass-card" id="plan-card" style="display:none">
+                <div class="card-header"><h2>📋 Trainingsplan</h2><span class="card-badge">COACH</span></div>
+                <div id="plan-display"></div>
+            </div>
+
+            <!-- Add Injury Button -->
+            <button class="btn-primary btn-add-wk" id="btn-add-injury">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Schmerz / Verletzung eintragen
+            </button>
+
+            <!-- Injury Timeline -->
+            <div class="card glass-card">
+                <div class="card-header"><h2>🩺 Schmerztagebuch</h2></div>
+                <div id="injury-list" class="injury-list">
+                    <div class="empty-state"><p>Noch keine Einträge vorhanden.</p></div>
+                </div>
+            </div>
+
+            <!-- Injury Stats -->
+            <div class="card glass-card" id="injury-stats-card" style="display:none">
+                <div class="card-header"><h2>📈 Schmerzübersicht</h2></div>
+                <div id="injury-stats"></div>
+            </div>
+        </section>
     </div>
 
     <!-- Toast -->
@@ -648,6 +713,61 @@
         </div>
     </div>
 
-    <script src="app.js?v=20260314d"></script>
+    <!-- Injury Modal -->
+    <div id="injury-modal" class="modal-overlay">
+        <div class="modal modal-wk">
+            <h3>🩺 Schmerz / Verletzung</h3>
+            <form id="injury-form" novalidate>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="injury-date">Datum</label>
+                        <input type="date" id="injury-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="injury-bodypart">Körperteil</label>
+                        <select id="injury-bodypart" required>
+                            <option value="">-- Wählen --</option>
+                            <option value="Knie">Knie</option>
+                            <option value="Oberschenkel">Oberschenkel</option>
+                            <option value="Wade">Wade</option>
+                            <option value="Sprunggelenk">Sprunggelenk</option>
+                            <option value="Fuß">Fuß</option>
+                            <option value="Hüfte">Hüfte</option>
+                            <option value="Rücken">Rücken</option>
+                            <option value="Schulter">Schulter</option>
+                            <option value="Achillessehne">Achillessehne</option>
+                            <option value="Schienbein">Schienbein</option>
+                            <option value="Sonstiges">Sonstiges</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Schmerzlevel (1–10)</label>
+                    <div class="pain-slider-wrap">
+                        <input type="range" id="injury-pain" min="1" max="10" value="5" class="pain-slider">
+                        <span id="injury-pain-val" class="pain-val">5</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="injury-side">Seite</label>
+                    <div class="toggle-row">
+                        <button type="button" class="toggle-btn active" id="injury-side-links">Links</button>
+                        <button type="button" class="toggle-btn" id="injury-side-rechts">Rechts</button>
+                        <button type="button" class="toggle-btn" id="injury-side-beide">Beide</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="injury-notes">Beschreibung <span class="label-hint">(optional)</span></label>
+                    <textarea id="injury-notes" rows="2" placeholder="Was genau tut weh? Bei welcher Bewegung?"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-ghost" id="injury-cancel">Abbrechen</button>
+                    <button type="submit" class="btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js?v=20260314e"></script>
 </body>
 </html>

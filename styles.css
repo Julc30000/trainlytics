@@ -797,3 +797,71 @@ textarea { resize:vertical; min-height:48px; }
     background:var(--bg-input); border:1px solid var(--border); border-radius:8px; padding:6px 10px; cursor:pointer; transition:all 0.15s; }
 .wk-disc-check:has(input:checked) { background:rgba(52,211,153,0.12); border-color:#34D399; color:#34D399; }
 .wk-disc-check input { display:none; }
+
+/* ================================================================
+   SCHMERZTAGEBUCH (INJURY DIARY)
+   ================================================================ */
+#btn-add-injury { width:100%; margin-bottom:16px; }
+
+.injury-entry { background:var(--bg-input); border:1px solid var(--border); border-radius:12px;
+    padding:14px 16px; margin-bottom:10px; transition:border-color 0.15s; }
+.injury-entry:hover { border-color:rgba(255,255,255,0.12); }
+.injury-entry-header { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px; }
+.injury-entry-info { display:flex; align-items:center; flex-wrap:wrap; gap:6px; }
+.injury-bodypart { font-size:14px; font-weight:700; color:var(--text); }
+.injury-side-tag { font-size:11px; font-weight:600; padding:2px 7px; border-radius:6px;
+    background:rgba(180,168,255,0.12); color:var(--accent); }
+.injury-pain-badge { font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; }
+.injury-date { font-size:12px; color:var(--text-muted); margin-bottom:6px; }
+.injury-notes { font-size:13px; color:var(--text-secondary); margin-bottom:8px; }
+.injury-pain-bar { width:100%; height:5px; background:rgba(255,255,255,0.06); border-radius:4px; overflow:hidden; }
+.injury-pain-fill { height:100%; border-radius:4px; transition:width 0.3s; }
+.injury-del-btn { color:var(--text-muted); background:none; border:none; padding:4px; cursor:pointer; opacity:0.5; transition:opacity 0.15s; }
+.injury-del-btn:hover { opacity:1; color:#F87171; }
+
+/* Injury stats */
+#injury-stats-card { margin-top:16px; }
+.injury-stats-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px; }
+.injury-stat { text-align:center; }
+.injury-stat-val { display:block; font-size:20px; font-weight:800; color:var(--text); }
+.injury-stat-label { font-size:11px; color:var(--text-muted); }
+
+.injury-freq-bars { display:flex; flex-direction:column; gap:6px; }
+.injury-freq-row { display:flex; align-items:center; gap:8px; }
+.injury-freq-label { font-size:12px; color:var(--text-secondary); width:100px; flex-shrink:0; text-align:right; }
+.injury-freq-bar-bg { flex:1; height:8px; background:rgba(255,255,255,0.06); border-radius:4px; overflow:hidden; }
+.injury-freq-bar-fill { height:100%; border-radius:4px; background:var(--accent); transition:width 0.3s; }
+.injury-freq-count { font-size:12px; font-weight:700; color:var(--text-muted); width:24px; }
+
+/* Injury modal */
+#injury-modal .pain-slider-wrap { display:flex; align-items:center; gap:12px; margin-bottom:4px; }
+#injury-modal input[type="range"] { flex:1; accent-color:var(--accent); }
+#injury-modal .pain-val { font-size:18px; font-weight:800; color:var(--accent); min-width:30px; text-align:center; }
+
+/* Side toggle */
+.toggle-row { display:flex; gap:6px; }
+.toggle-btn { flex:1; padding:8px; border-radius:8px; border:1px solid var(--border);
+    background:var(--bg-input); color:var(--text-secondary); font-size:13px; font-weight:600;
+    cursor:pointer; text-align:center; transition:all 0.15s; }
+.toggle-btn.active { background:rgba(180,168,255,0.15); border-color:var(--accent); color:var(--accent); }
+
+/* ================================================================
+   TRAININGSPLAN (COACH → ATHLETE)
+   ================================================================ */
+#plan-card { margin-bottom:16px; }
+.plan-week-label { font-size:13px; font-weight:700; color:var(--text-muted); margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px; }
+
+.plan-grid { display:flex; flex-direction:column; gap:6px; }
+.plan-grid-day { display:flex; align-items:baseline; gap:10px; padding:8px 12px; border-radius:8px; background:rgba(180,168,255,0.06); }
+.plan-grid-day-label { font-size:12px; font-weight:800; color:var(--accent); min-width:24px; }
+.plan-grid-day-val { font-size:13px; color:var(--text); }
+.plan-coach-notes { font-size:12px; color:var(--text-muted); font-style:italic; margin-top:10px; padding-top:8px;
+    border-top:1px solid var(--border); }
+
+/* Coach plan form */
+.coach-plan-section { margin-top:24px; padding-top:20px; border-top:1px solid var(--border); }
+.plan-day-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.plan-day-label { font-size:13px; font-weight:700; color:var(--text-secondary); min-width:28px; }
+.plan-day-input { flex:1; padding:8px 12px; border-radius:8px; border:1px solid var(--border);
+    background:var(--bg-input); color:var(--text); font-size:13px; }
+.plan-day-input::placeholder { color:var(--text-muted); opacity:0.5; }
