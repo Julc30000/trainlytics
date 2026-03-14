@@ -579,6 +579,7 @@ textarea { resize:vertical; min-height:48px; }
     letter-spacing:0.5px; text-transform:uppercase;
     background:rgba(96,165,250,0.12); color:var(--blue);
 }
+.sprint-cat-badge { background:rgba(180,168,255,0.12); color:var(--accent); }
 
 .entry-times { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
 .time-chip {

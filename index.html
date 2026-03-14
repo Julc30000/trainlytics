@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=build007">
+    <link rel="stylesheet" href="styles.css?v=build008">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -243,6 +243,18 @@
                         </select>
                     </div>
 
+                    <!-- Sprint category (only visible for Sprint 50m) -->
+                    <div class="form-group" id="sprint-cat-group" style="display:none">
+                        <label for="sprint-category">Kategorie</label>
+                        <select id="sprint-category">
+                            <option value="">-- Bitte wählen --</option>
+                            <option value="Locker">Locker</option>
+                            <option value="Sub-Max">Sub-Max</option>
+                            <option value="Max">Max</option>
+                            <option value="Seil">Seil</option>
+                        </select>
+                    </div>
+
                     <!-- Intensity (only visible for Tempolauf) -->
                     <div class="form-group" id="intensity-group" style="display:none">
                         <label for="training-intensity">Intensität</label>
@@ -425,6 +437,16 @@
                         <option value="Tempolauf (150m)">Tempolauf (150m)</option>
                         <option value="Kraft">💪 Kraft</option>
                         <option value="Joggen (5km)">🏃‍♀️ Joggen (5km)</option>
+                    </select>
+                </div>
+                <div class="form-group" id="analytics-sprint-cat-group" style="display:none;margin-bottom:0">
+                    <label for="analytics-sprint-cat">Kategorie</label>
+                    <select id="analytics-sprint-cat">
+                        <option value="all">Alle Kategorien</option>
+                        <option value="Locker">Locker</option>
+                        <option value="Sub-Max">Sub-Max</option>
+                        <option value="Max">Max</option>
+                        <option value="Seil">Seil</option>
                     </select>
                 </div>
                 <div class="form-group" id="analytics-intensity-group" style="display:none;margin-bottom:0">
@@ -809,6 +831,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=build007"></script>
+    <script src="app.js?v=build008"></script>
 </body>
 </html>

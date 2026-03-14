@@ -232,6 +232,8 @@ function resetAppUI() {
     document.getElementById('training-count').value = '';
     document.getElementById('telemark-count').value = '';
     intensityGroup.style.display = 'none';
+    document.getElementById('sprint-cat-group').style.display = 'none';
+    document.getElementById('sprint-category').value = '';
     document.getElementById('kraft-container').style.display = 'none';
     joggenContainer.style.display = 'none';
     timesContainer.style.display = '';
@@ -360,6 +362,9 @@ trainingType.addEventListener('change', () => {
     const isTempo = val.startsWith('Tempolauf');
     const isKraft = val === 'Kraft';
     const isJoggen = val === 'Joggen (5km)';
+    const isSprint = val === 'Sprint (50m)';
+    document.getElementById('sprint-cat-group').style.display = isSprint ? '' : 'none';
+    if (!isSprint) document.getElementById('sprint-category').value = '';
     intensityGroup.style.display = isTempo ? '' : 'none';
     document.getElementById('kraft-container').style.display = isKraft ? '' : 'none';
     joggenContainer.style.display = isJoggen ? '' : 'none';
@@ -512,10 +517,13 @@ form.addEventListener('submit', e => {
     const isTempo = type.startsWith('Tempolauf');
     const isKraft = type === 'Kraft';
     const isJoggen = type === 'Joggen (5km)';
+    const isSprint = type === 'Sprint (50m)';
     const intensity = isTempo ? trainingIntensity.value : '';
+    const sprintCategory = isSprint ? document.getElementById('sprint-category').value : '';
     const isCountMode = intensity === 'NI';
 
     if (isTempo && !intensity) { showToast('Bitte Intensität wählen'); return; }
+    if (isSprint && !sprintCategory) { showToast('Bitte Sprint-Kategorie wählen'); return; }
 
     let times = [];
     let count = null;
@@ -586,7 +594,7 @@ form.addEventListener('submit', e => {
         if (!ok || !times.length) { showToast('Bitte gültige Zeiten eingeben'); return; }
     }
 
-    const entry = { id: generateId(), date, time, type, intensity, times, count, telemarks, exercises, joggenTimeSec, notes };
+    const entry = { id: generateId(), date, time, type, intensity, sprintCategory, times, count, telemarks, exercises, joggenTimeSec, notes };
     const data = loadData();
     data.unshift(entry);
     saveData(data);
@@ -597,6 +605,8 @@ form.addEventListener('submit', e => {
     document.getElementById('joggen-min').value = '';
     document.getElementById('joggen-sec').value = '';
     intensityGroup.style.display = 'none';
+    document.getElementById('sprint-cat-group').style.display = 'none';
+    document.getElementById('sprint-category').value = '';
     telemarkContainer.style.display = 'none';
     telemarkYes.classList.add('active');
     telemarkNo.classList.remove('active');
@@ -674,6 +684,7 @@ function renderList() {
                 </div>
                 <div class="entry-badges">
                     <span class="type-badge ${typeCss(en.type)}">${escapeHtml(en.type)}</span>
+                    ${en.sprintCategory ? `<span class="intensity-badge sprint-cat-badge">${escapeHtml(en.sprintCategory)}</span>` : ''}
                     ${en.intensity ? `<span class="intensity-badge">${escapeHtml(en.intensity)}</span>` : ''}
                 </div>
             </div>
@@ -725,15 +736,22 @@ const analyticsTypeEl = document.getElementById('analytics-type');
 const analyticsIntGroup = document.getElementById('analytics-intensity-group');
 const analyticsIntEl = document.getElementById('analytics-intensity');
 
+const analyticsSprintCatGroup = document.getElementById('analytics-sprint-cat-group');
+const analyticsSprintCatEl = document.getElementById('analytics-sprint-cat');
+
 analyticsTypeEl.addEventListener('change', () => {
     const val = analyticsTypeEl.value;
     const isGeneral = val === 'Allgemein';
     const isTempo = val.startsWith('Tempolauf');
+    const isSprint = val === 'Sprint (50m)';
     analyticsIntGroup.style.display = (isTempo && !isGeneral) ? '' : 'none';
+    analyticsSprintCatGroup.style.display = isSprint ? '' : 'none';
     if (!isTempo) analyticsIntEl.value = 'all';
+    if (!isSprint) analyticsSprintCatEl.value = 'all';
     updateAnalytics();
 });
 analyticsIntEl.addEventListener('change', updateAnalytics);
+analyticsSprintCatEl.addEventListener('change', updateAnalytics);
 
 const chartInstances = {};
 const COLORS = {
@@ -809,10 +827,12 @@ function updateAnalytics() {
     }
 
     const intFilter = isTempo ? analyticsIntEl.value : 'all';
+    const sprintCatFilter = (type === 'Sprint (50m)') ? analyticsSprintCatEl.value : 'all';
     const isNI = intFilter === 'NI';
 
     let data = loadData().filter(d => d.type === type);
     if (intFilter !== 'all') data = data.filter(d => d.intensity === intFilter);
+    if (sprintCatFilter !== 'all') data = data.filter(d => d.sprintCategory === sprintCatFilter);
     data.sort((a,b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
 
     const timeData = data.filter(d => d.intensity !== 'NI');
