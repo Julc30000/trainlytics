@@ -135,12 +135,24 @@ if (!sessionStorage.getItem('trainlytics_splashed')) {
     loginScreen.style.display = '';
 }
 
+const MASTER_NAME = 'micky';
+const loginPwGroup = document.getElementById('login-pw-group');
+const loginPwInput = document.getElementById('login-pw');
+const coachApp = document.getElementById('coach-app');
+
+// Show password field when name is micky
+loginNameInput.addEventListener('input', () => {
+    const val = loginNameInput.value.trim().toLowerCase();
+    loginPwGroup.style.display = val === MASTER_NAME ? '' : 'none';
+    if (val !== MASTER_NAME) loginPwInput.value = '';
+});
+
 function renderSavedUsers() {
     const users = getUsers();
     if (!users.length) { savedUsersEl.innerHTML = ''; return; }
     savedUsersEl.innerHTML = `
         <p class="saved-users-title">Schnellzugang</p>
-        ${users.map(u => `<button type="button" class="user-chip" data-user="${escapeHtml(u)}">
+        ${users.filter(u => u !== MASTER_NAME).map(u => `<button type="button" class="user-chip" data-user="${escapeHtml(u)}">
             <span class="user-chip-icon">${escapeHtml(u.charAt(0).toUpperCase())}</span>
             ${escapeHtml(u.charAt(0).toUpperCase() + u.slice(1))}
         </button>`).join('')}`;
@@ -151,6 +163,32 @@ function renderSavedUsers() {
 async function loginAs(name) {
     const clean = name.trim();
     if (!clean) return;
+
+    // Coach login flow
+    if (clean.toLowerCase() === MASTER_NAME) {
+        const pw = loginPwInput.value;
+        if (!pw) { showToast('Bitte Passwort eingeben'); return; }
+        try {
+            const doc = await db.collection('meta').doc('coach').get();
+            if (doc.exists) {
+                // Verify password
+                if (doc.data().pw !== pw) { showToast('Falsches Passwort'); return; }
+            } else {
+                // First login — store password
+                await db.collection('meta').doc('coach').set({ pw });
+                showToast('Passwort gesetzt ✓');
+            }
+        } catch(e) { showToast('Fehler bei Coach-Login'); return; }
+        currentUser = clean;
+        addUser(clean);
+        loginScreen.style.display = 'none';
+        coachApp.style.display = '';
+        loginPwInput.value = '';
+        loginPwGroup.style.display = 'none';
+        await loadCoachDashboard();
+        return;
+    }
+
     currentUser = clean;
     addUser(clean);
     loginScreen.style.display = 'none';
@@ -170,7 +208,21 @@ document.getElementById('btn-logout').addEventListener('click', () => {
     loginScreen.style.display = '';
     loginScreen.classList.remove('fade-in');
     appEl.style.display = 'none';
+    coachApp.style.display = 'none';
     loginNameInput.value = '';
+    loginPwInput.value = '';
+    loginPwGroup.style.display = 'none';
+    renderSavedUsers();
+});
+
+document.getElementById('btn-coach-logout').addEventListener('click', () => {
+    currentUser = null;
+    loginScreen.style.display = '';
+    loginScreen.classList.remove('fade-in');
+    coachApp.style.display = 'none';
+    loginNameInput.value = '';
+    loginPwInput.value = '';
+    loginPwGroup.style.display = 'none';
     renderSavedUsers();
 });
 
@@ -983,6 +1035,14 @@ function buildKraftCharts(data) {
         drawKraftProgression(beugerData, 'beuger', 'beuger', {main:'#FBBF24', bg:'rgba(251,191,36,0.18)', g1:'rgba(251,191,36,0.35)', g2:'rgba(251,191,36,0.02)'});
     }
 
+    // 5b) Hip Thrust kg progression
+    const htData = data.filter(d => d.exercises?.hipthrust?.kg);
+    if (htData.length) {
+        const c5b = makeChartCard('Hip Thrust – Gewicht (kg)','Linie','ch-kraft-hipthrust',false);
+        container.appendChild(c5b);
+        drawKraftProgression(htData, 'hipthrust', 'hipthrust', {main:'#E879F9', bg:'rgba(232,121,249,0.18)', g1:'rgba(232,121,249,0.35)', g2:'rgba(232,121,249,0.02)'});
+    }
+
     // 6) Exercises per session trend
     const c6 = makeChartCard('Übungen pro Einheit','Linie','ch-kraft-ex-trend',false);
     container.appendChild(c6);
@@ -1475,6 +1535,285 @@ function prettyMonth(ym) { const [y,m]=ym.split('-'); return MONTH_NAMES[parseIn
 function emptyChart(ctx) {
     return new Chart(ctx,{type:'bar',data:{labels:['Keine Daten'],datasets:[{data:[0],backgroundColor:'rgba(255,255,255,0.03)'}]},
         options:{...BASE,scales:{x:{display:false},y:{display:false}}}});
+}
+
+// ================================================================
+//  COACH DASHBOARD
+// ================================================================
+let coachChartInstances = {};
+
+function destroyCoachCharts() {
+    Object.keys(coachChartInstances).forEach(k => { if(coachChartInstances[k]){coachChartInstances[k].destroy();coachChartInstances[k]=null;} });
+}
+
+async function loadCoachDashboard() {
+    // Get all users except micky
+    await syncUsers();
+    const users = getUsers().filter(u => u !== MASTER_NAME);
+
+    // Load all user data from Firestore
+    const allData = {};
+    for (const u of users) {
+        try {
+            const doc = await db.collection('users').doc(u).get();
+            allData[u] = doc.exists ? (doc.data().entries || []) : [];
+        } catch(e) { allData[u] = []; }
+    }
+
+    renderCoachRanking(users, allData);
+    populateCoachUserSelect(users);
+
+    const coachUserSelect = document.getElementById('coach-user-select');
+    coachUserSelect.addEventListener('change', () => {
+        const sel = coachUserSelect.value;
+        if (sel && allData[sel]) renderCoachUserStats(sel, allData[sel]);
+        else { document.getElementById('coach-stats-container').innerHTML = ''; document.getElementById('coach-charts-container').innerHTML = ''; destroyCoachCharts(); }
+    });
+}
+
+function populateCoachUserSelect(users) {
+    const sel = document.getElementById('coach-user-select');
+    sel.innerHTML = '<option value="">-- Bitte wählen --</option>' +
+        users.map(u => `<option value="${escapeHtml(u)}">${escapeHtml(u.charAt(0).toUpperCase() + u.slice(1))}</option>`).join('');
+}
+
+function renderCoachRanking(users, allData) {
+    const container = document.getElementById('coach-ranking');
+    if (!users.length) { container.innerHTML = '<p class="empty-chart-msg">Keine Athleten vorhanden.</p>'; return; }
+
+    const season = getCurrentSeason();
+
+    // Calculate stats per user
+    const stats = users.map(u => {
+        const entries = allData[u] || [];
+        const seasonEntries = entries.filter(d => d.date >= season.start && d.date <= season.end);
+        const total = entries.length;
+        const seasonTotal = seasonEntries.length;
+
+        // Avg per week (season)
+        let avgWeek = 0;
+        if (seasonTotal > 0) {
+            const seasonStart = new Date(season.start + 'T00:00:00');
+            const now = new Date();
+            const diffWeeks = Math.max(1, Math.ceil((now - seasonStart) / (7 * 86400000)));
+            avgWeek = seasonTotal / diffWeeks;
+        }
+
+        return { name: u, total, seasonTotal, avgWeek };
+    });
+
+    // Sort by total (absolute)
+    const byTotal = [...stats].sort((a, b) => b.total - a.total);
+    // Sort by avg per week
+    const byAvg = [...stats].sort((a, b) => b.avgWeek - a.avgWeek);
+
+    container.innerHTML = `
+        <div class="coach-ranking-section">
+            <h3>Einheiten Gesamt</h3>
+            <div class="coach-ranking-list">
+                ${byTotal.map((s, i) => `<div class="coach-rank-row">
+                    <span class="pb-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':'normal'}">${i+1}</span>
+                    <span class="coach-rank-name">${escapeHtml(s.name.charAt(0).toUpperCase() + s.name.slice(1))}</span>
+                    <span class="coach-rank-value">${s.total}</span>
+                </div>`).join('')}
+            </div>
+        </div>
+        <div class="coach-ranking-section" style="margin-top:16px">
+            <h3>Ø Einheiten pro Woche (Saison ${escapeHtml(season.label)})</h3>
+            <div class="coach-ranking-list">
+                ${byAvg.map((s, i) => `<div class="coach-rank-row">
+                    <span class="pb-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':'normal'}">${i+1}</span>
+                    <span class="coach-rank-name">${escapeHtml(s.name.charAt(0).toUpperCase() + s.name.slice(1))}</span>
+                    <span class="coach-rank-value">${s.avgWeek.toFixed(1)}</span>
+                </div>`).join('')}
+            </div>
+        </div>
+        <div class="coach-ranking-section" style="margin-top:16px">
+            <h3>Einheiten Saison (${escapeHtml(season.label)})</h3>
+            <div class="coach-ranking-list">
+                ${[...stats].sort((a,b) => b.seasonTotal - a.seasonTotal).map((s, i) => `<div class="coach-rank-row">
+                    <span class="pb-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':'normal'}">${i+1}</span>
+                    <span class="coach-rank-name">${escapeHtml(s.name.charAt(0).toUpperCase() + s.name.slice(1))}</span>
+                    <span class="coach-rank-value">${s.seasonTotal}</span>
+                </div>`).join('')}
+            </div>
+        </div>`;
+}
+
+function renderCoachUserStats(userName, entries) {
+    destroyCoachCharts();
+    const statsContainer = document.getElementById('coach-stats-container');
+    const chartsContainer = document.getElementById('coach-charts-container');
+    chartsContainer.innerHTML = '';
+
+    if (!entries.length) {
+        statsContainer.innerHTML = '<div class="card"><p class="empty-chart-msg">Keine Einträge vorhanden.</p></div>';
+        return;
+    }
+
+    const displayName = userName.charAt(0).toUpperCase() + userName.slice(1);
+    const season = getCurrentSeason();
+    const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+    const seasonData = sorted.filter(d => d.date >= season.start && d.date <= season.end);
+
+    // Overall stats
+    const total = entries.length;
+    const seasonTotal = seasonData.length;
+    let avgWeek = '--';
+    if (seasonTotal > 0) {
+        const diffWeeks = Math.max(1, Math.ceil((new Date() - new Date(season.start + 'T00:00:00')) / (7 * 86400000)));
+        avgWeek = (seasonTotal / diffWeeks).toFixed(1);
+    }
+
+    // Type breakdown
+    const types = {};
+    entries.forEach(d => { types[d.type] = (types[d.type] || 0) + 1; });
+    const typeStr = Object.entries(types).map(([k, v]) => `${k}: ${v}`).join(' · ');
+
+    // Last session
+    const lastEntry = [...entries].sort((a, b) => b.date.localeCompare(a.date))[0];
+    const lastDate = lastEntry ? fmtDate(lastEntry.date) : '--';
+
+    // Sprint PB
+    const sprintEntries = entries.filter(d => d.type === 'Sprint (50m)' && d.times && d.times.length);
+    const sprintPB = sprintEntries.length ? Math.min(...sprintEntries.flatMap(d => d.times)).toFixed(2) + 's' : '--';
+
+    // Kraft stats
+    const kraftEntries = entries.filter(d => d.type === 'Kraft');
+    let maxKB = '--';
+    kraftEntries.forEach(d => {
+        const kb = d.exercises?.kniebeugen;
+        if (!kb) return;
+        if (kb.pyramid) kb.pyramid.forEach(s => { if (s.kg && (maxKB === '--' || s.kg > parseFloat(maxKB))) maxKB = s.kg + 'kg'; });
+        else if (kb.kg && (maxKB === '--' || kb.kg > parseFloat(maxKB))) maxKB = kb.kg + 'kg';
+    });
+
+    statsContainer.innerHTML = `
+        <div class="card">
+            <div class="card-header"><h2>${escapeHtml(displayName)}</h2></div>
+            <div class="stats-row">
+                <div class="stat-card accent-purple">
+                    <span class="stat-icon">🏃</span>
+                    <span class="stat-value">${total}</span>
+                    <span class="stat-label">Gesamt</span>
+                </div>
+                <div class="stat-card accent-teal">
+                    <span class="stat-icon">📅</span>
+                    <span class="stat-value">${seasonTotal}</span>
+                    <span class="stat-label">Saison</span>
+                </div>
+                <div class="stat-card accent-gold">
+                    <span class="stat-icon">📆</span>
+                    <span class="stat-value">${avgWeek}</span>
+                    <span class="stat-label">Ø/Woche</span>
+                </div>
+                <div class="stat-card accent-blue">
+                    <span class="stat-icon">⏱️</span>
+                    <span class="stat-value">${escapeHtml(sprintPB)}</span>
+                    <span class="stat-label">Sprint PB</span>
+                </div>
+                <div class="stat-card accent-green">
+                    <span class="stat-icon">🏋️</span>
+                    <span class="stat-value">${escapeHtml(maxKB)}</span>
+                    <span class="stat-label">Max KB (kg)</span>
+                </div>
+                <div class="stat-card accent-red">
+                    <span class="stat-icon">📋</span>
+                    <span class="stat-value">${escapeHtml(lastDate)}</span>
+                    <span class="stat-label">Letzte Einheit</span>
+                </div>
+            </div>
+            <p style="font-size:12px;color:var(--text-tertiary);margin-top:4px">${escapeHtml(typeStr)}</p>
+        </div>`;
+
+    // Charts
+    const cPurple = {main:'#B4A8FF', bg:'rgba(180,168,255,0.18)', g1:'rgba(180,168,255,0.35)', g2:'rgba(180,168,255,0.02)'};
+    const cTeal = {main:'#22D3C5', bg:'rgba(34,211,197,0.18)', g1:'rgba(34,211,197,0.35)', g2:'rgba(34,211,197,0.02)'};
+
+    // Monthly sessions
+    if (seasonData.length) {
+        const c1 = makeChartCard(displayName + ' – Einheiten/Monat (Saison)', 'Balken', 'ch-coach-monthly', false);
+        chartsContainer.appendChild(c1);
+        const ctx1 = document.getElementById('ch-coach-monthly')?.getContext('2d');
+        if (ctx1) {
+            const g = groupByMonth(seasonData);
+            const labels = Object.keys(g);
+            coachChartInstances.coachMonthly = new Chart(ctx1, {
+                type:'bar',
+                data:{labels:labels.map(prettyMonth), datasets:[{data:labels.map(k=>g[k].length), backgroundColor:cPurple.bg, borderColor:cPurple.main, borderWidth:2, borderRadius:8, hoverBackgroundColor:cPurple.main}]},
+                options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:'Einheiten',color:'#555870',font:{size:11}}}}}
+            });
+        }
+    }
+
+    // Type distribution pie
+    if (seasonData.length) {
+        const c2 = makeChartCard(displayName + ' – Trainingsverteilung (Saison)', 'Kreis', 'ch-coach-types', false);
+        chartsContainer.appendChild(c2);
+        const ctx2 = document.getElementById('ch-coach-types')?.getContext('2d');
+        if (ctx2) {
+            const tMap = {};
+            seasonData.forEach(d => { tMap[d.type] = (tMap[d.type] || 0) + 1; });
+            const tLabels = Object.keys(tMap);
+            const tValues = Object.values(tMap);
+            const tColors = tLabels.map(l => (COLORS[l] || {main:'#8B8FA7'}).main);
+            coachChartInstances.coachTypes = new Chart(ctx2, {
+                type:'doughnut',
+                data:{labels:tLabels, datasets:[{data:tValues, backgroundColor:tColors, borderColor:'#12141C', borderWidth:3}]},
+                options:{responsive:true, maintainAspectRatio:false, animation:{duration:400},
+                    plugins:{legend:{display:true,position:'bottom',labels:{color:'#8B8FA7',font:{size:12,family:'Inter'},padding:16}},
+                        tooltip:{...BASE.plugins.tooltip, callbacks:{label:t=>t.label+': '+t.parsed}}}}
+            });
+        }
+    }
+
+    // Sprint best time trend
+    const sprintSorted = sprintEntries.sort((a,b) => a.date.localeCompare(b.date));
+    if (sprintSorted.length >= 2) {
+        const c3 = makeChartCard(displayName + ' – Sprint Bestzeit Trend', 'Linie', 'ch-coach-sprint', false);
+        chartsContainer.appendChild(c3);
+        const ctx3 = document.getElementById('ch-coach-sprint')?.getContext('2d');
+        if (ctx3) {
+            const labels = sprintSorted.map(d => shortDate(d.date));
+            const vals = sprintSorted.map(d => Math.min(...d.times));
+            coachChartInstances.coachSprint = new Chart(ctx3, {
+                type:'line',
+                data:{labels, datasets:[{data:vals, borderColor:cTeal.main, backgroundColor:grad(ctx3, cTeal),
+                    borderWidth:2.5, pointBackgroundColor:cTeal.main, pointRadius:4, fill:true, tension:0.35}]},
+                options:{...BASE, plugins:{...BASE.plugins, tooltip:{...BASE.plugins.tooltip,
+                    callbacks:{label:t=>t.parsed.y.toFixed(2)+'s'}
+                }}, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Sekunden',color:'#555870',font:{size:11}}}}}
+            });
+        }
+    }
+
+    // KB progression
+    const kbEntries = kraftEntries.filter(d => {
+        const kb = d.exercises?.kniebeugen;
+        return kb && (kb.kg || (kb.pyramid && kb.pyramid.length));
+    }).sort((a,b) => a.date.localeCompare(b.date));
+    if (kbEntries.length >= 2) {
+        const c4 = makeChartCard(displayName + ' – Kniebeugen Max kg', 'Linie', 'ch-coach-kb', false);
+        chartsContainer.appendChild(c4);
+        const ctx4 = document.getElementById('ch-coach-kb')?.getContext('2d');
+        if (ctx4) {
+            const labels = kbEntries.map(d => shortDate(d.date));
+            const vals = kbEntries.map(d => {
+                const kb = d.exercises.kniebeugen;
+                if (kb.pyramid && kb.pyramid.length) return Math.max(...kb.pyramid.map(s => s.kg));
+                return kb.kg || 0;
+            });
+            const cGold = {main:'#FBBF24', bg:'rgba(251,191,36,0.18)', g1:'rgba(251,191,36,0.35)', g2:'rgba(251,191,36,0.02)'};
+            coachChartInstances.coachKb = new Chart(ctx4, {
+                type:'line',
+                data:{labels, datasets:[{data:vals, borderColor:cGold.main, backgroundColor:grad(ctx4, cGold),
+                    borderWidth:2.5, pointBackgroundColor:cGold.main, pointRadius:4, fill:true, tension:0.35}]},
+                options:{...BASE, plugins:{...BASE.plugins, tooltip:{...BASE.plugins.tooltip,
+                    callbacks:{label:t=>t.parsed.y+'kg'}
+                }}, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Kilogramm',color:'#555870',font:{size:11}}}}}
+            });
+        }
+    }
 }
 
 // ---- Init ----
