@@ -215,9 +215,16 @@ const timesList = document.getElementById('times-list');
 
 // Show/hide intensity when type changes
 trainingType.addEventListener('change', () => {
-    const isTempo = trainingType.value.startsWith('Tempolauf');
+    const val = trainingType.value;
+    const isTempo = val.startsWith('Tempolauf');
+    const isKraft = val === 'Kraft';
     intensityGroup.style.display = isTempo ? '' : 'none';
-    if (!isTempo) {
+    document.getElementById('kraft-container').style.display = isKraft ? '' : 'none';
+    if (isKraft) {
+        timesContainer.style.display = 'none';
+        countContainer.style.display = 'none';
+        telemarkContainer.style.display = 'none';
+    } else if (!isTempo) {
         trainingIntensity.value = '';
         showTimesMode();
     } else {
@@ -259,6 +266,17 @@ telemarkNo.addEventListener('click', () => {
 });
 
 // ---- Time entries ----
+// Kraft exercise checkbox toggles
+const KRAFT_EXERCISES = ['kniebeugen','waden','beuger','bauch','ruecken','exzentrisch','hipthrust'];
+const KRAFT_LABELS = {kniebeugen:'Kniebeugen',waden:'Waden',beuger:'Beuger',bauch:'Bauch',ruecken:'Rücken',exzentrisch:'Exzentrisch',hipthrust:'Hip Thrust'};
+KRAFT_EXERCISES.forEach(ex => {
+    const cb = document.getElementById('kraft-' + ex);
+    const det = document.getElementById('kraft-' + ex + '-details');
+    if (cb && det) {
+        cb.addEventListener('change', () => { det.style.display = cb.checked ? '' : 'none'; });
+    }
+});
+
 function addTimeEntry(value = '') {
     const idx = timesList.querySelectorAll('.time-entry').length + 1;
     const e = document.createElement('div');
@@ -304,6 +322,7 @@ form.addEventListener('submit', e => {
     if (!date || !time || !type) { showToast('Bitte alle Felder ausfüllen'); return; }
 
     const isTempo = type.startsWith('Tempolauf');
+    const isKraft = type === 'Kraft';
     const intensity = isTempo ? trainingIntensity.value : '';
     const isCountMode = intensity === 'NI';
 
@@ -312,8 +331,25 @@ form.addEventListener('submit', e => {
     let times = [];
     let count = null;
     let telemarks = null;
+    let exercises = null;
 
-    if (isCountMode) {
+    if (isKraft) {
+        exercises = {};
+        let anyChecked = false;
+        KRAFT_EXERCISES.forEach(ex => {
+            const cb = document.getElementById('kraft-' + ex);
+            if (cb && cb.checked) {
+                anyChecked = true;
+                const exData = { done: true };
+                const kgEl = document.getElementById('kraft-' + ex + '-kg');
+                const repsEl = document.getElementById('kraft-' + ex + '-reps');
+                if (kgEl && kgEl.value) exData.kg = parseFloat(kgEl.value);
+                if (repsEl && repsEl.value) exData.reps = parseInt(repsEl.value, 10);
+                exercises[ex] = exData;
+            }
+        });
+        if (!anyChecked) { showToast('Bitte mindestens eine Übung abhaken'); return; }
+    } else if (isCountMode) {
         count = parseInt(document.getElementById('training-count').value, 10);
         if (!count || count < 1) { showToast('Bitte Anzahl eingeben'); return; }
         if (intensity === 'NI') {
@@ -336,7 +372,7 @@ form.addEventListener('submit', e => {
         if (!ok || !times.length) { showToast('Bitte gültige Zeiten eingeben'); return; }
     }
 
-    const entry = { id: generateId(), date, time, type, intensity, times, count, telemarks, notes };
+    const entry = { id: generateId(), date, time, type, intensity, times, count, telemarks, exercises, notes };
     const data = loadData();
     data.unshift(entry);
     saveData(data);
@@ -348,6 +384,11 @@ form.addEventListener('submit', e => {
     telemarkYes.classList.add('active');
     telemarkNo.classList.remove('active');
     telemarkCountGroup.style.display = '';
+    document.getElementById('kraft-container').style.display = 'none';
+    KRAFT_EXERCISES.forEach(ex => {
+        const det = document.getElementById('kraft-' + ex + '-details');
+        if (det) det.style.display = 'none';
+    });
     showTimesMode();
     timesList.innerHTML = '';
     addTimeEntry();
@@ -365,6 +406,7 @@ historyFilter.addEventListener('change', renderList);
 function typeCss(type) {
     if (type.startsWith('Sprint')) return 'sprint';
     if (type.includes('120')) return 'tempo120';
+    if (type === 'Kraft') return 'kraft';
     return 'tempo150';
 }
 
@@ -397,9 +439,17 @@ function renderList() {
                     ${en.intensity ? `<span class="intensity-badge">${escapeHtml(en.intensity)}</span>` : ''}
                 </div>
             </div>
-            ${en.intensity === 'NI'
+            ${en.type === 'Kraft' && en.exercises
+                ? `<div class="entry-kraft">${Object.entries(en.exercises).map(([k,v]) => {
+                    const label = KRAFT_LABELS[k] || k;
+                    let detail = '';
+                    if (v.kg) detail += v.kg + 'kg';
+                    if (v.reps) detail += (detail ? ' × ' : '') + v.reps + ' Wdh';
+                    return `<span class="kraft-chip">${escapeHtml(label)}${detail ? ` <span class="kraft-chip-detail">${escapeHtml(detail)}</span>` : ''}</span>`;
+                  }).join('')}</div>`
+                : en.intensity === 'NI'
                 ? `<div class="entry-count">Anzahl Läufe: <strong>${en.count || 0}</strong>${en.telemarks != null ? ` · Telemarks: <strong>${en.telemarks}</strong>` : ''}</div>`
-                : `<div class="entry-times">${en.times.map(t=>`<span class="time-chip">${escapeHtml(String(t))}s</span>`).join('')}</div>`
+                : `<div class="entry-times">${(en.times||[]).map(t=>`<span class="time-chip">${escapeHtml(String(t))}s</span>`).join('')}</div>`
             }
             ${en.notes ? `<div class="entry-notes">${escapeHtml(en.notes)}</div>` : ''}
             <div class="entry-footer">
@@ -446,6 +496,7 @@ const COLORS = {
     'Sprint (50m)':       { main:'#B4A8FF', bg:'rgba(180,168,255,0.18)', g1:'rgba(180,168,255,0.35)', g2:'rgba(180,168,255,0.02)' },
     'Tempolauf (120m)':   { main:'#22D3C5', bg:'rgba(34,211,197,0.18)',  g1:'rgba(34,211,197,0.35)',  g2:'rgba(34,211,197,0.02)' },
     'Tempolauf (150m)':   { main:'#FBBF24', bg:'rgba(251,191,36,0.18)',  g1:'rgba(251,191,36,0.35)',  g2:'rgba(251,191,36,0.02)' },
+    'Kraft':              { main:'#F87171', bg:'rgba(248,113,113,0.18)', g1:'rgba(248,113,113,0.35)', g2:'rgba(248,113,113,0.02)' },
 };
 
 function grad(ctx, c) {
@@ -477,20 +528,29 @@ function destroyAll() { Object.keys(chartInstances).forEach(k => { if(chartInsta
 function updateAnalytics() {
     const type = analyticsTypeEl.value;
     const isGeneral = type === 'Allgemein';
+    const isKraft = type === 'Kraft';
     const isTempo = type.startsWith('Tempolauf');
-    analyticsIntGroup.style.display = (isTempo && !isGeneral) ? '' : 'none';
+    analyticsIntGroup.style.display = (isTempo && !isGeneral && !isKraft) ? '' : 'none';
 
-    // Show/hide general stats
+    // Show/hide stats rows
     document.getElementById('stats-row-general').style.display = isGeneral ? '' : 'none';
-    document.getElementById('stats-row').style.display = isGeneral ? 'none' : '';
+    document.getElementById('stats-row').style.display = (isGeneral || isKraft) ? 'none' : '';
     document.getElementById('stats-row-ni').style.display = 'none';
-    document.getElementById('pb-card').style.display = isGeneral ? 'none' : '';
+    document.getElementById('stats-row-kraft').style.display = isKraft ? '' : 'none';
+    document.getElementById('pb-card').style.display = (isGeneral || isKraft) ? 'none' : '';
 
     destroyAll();
 
     if (isGeneral) {
         updateGeneralStats();
         buildGeneralCharts();
+        return;
+    }
+
+    if (isKraft) {
+        const kraftData = loadData().filter(d => d.type === 'Kraft').sort((a,b) => a.date.localeCompare(b.date));
+        updateKraftStats(kraftData);
+        buildKraftCharts(kraftData);
         return;
     }
 
@@ -741,6 +801,164 @@ function drawGenIntensityPie(data) {
                 tooltip: { ...BASE.plugins.tooltip, callbacks: { label: t => t.label + ': ' + t.parsed + ' (' + Math.round(t.parsed / values.reduce((a, b) => a + b, 0) * 100) + '%)' } }
             }
         }
+    });
+}
+
+// ================================================================
+//  KRAFT ANALYTICS
+// ================================================================
+function updateKraftStats(data) {
+    const $ = id => document.getElementById(id);
+    $('stat-kraft-sessions').textContent = data.length;
+
+    if (!data.length) {
+        $('stat-kraft-avg-ex').textContent = '--';
+        $('stat-kraft-max-kb').textContent = '--';
+        $('stat-kraft-max-waden').textContent = '--';
+        $('stat-kraft-fav').textContent = '--';
+        $('stat-kraft-weekly').textContent = '--';
+        return;
+    }
+
+    // Avg exercises per session
+    const exCounts = data.map(d => d.exercises ? Object.keys(d.exercises).length : 0);
+    $('stat-kraft-avg-ex').textContent = (exCounts.reduce((a,b)=>a+b,0) / data.length).toFixed(1);
+
+    // Max Kniebeugen kg
+    const kbKgs = data.filter(d => d.exercises?.kniebeugen?.kg).map(d => d.exercises.kniebeugen.kg);
+    $('stat-kraft-max-kb').textContent = kbKgs.length ? Math.max(...kbKgs) + 'kg' : '--';
+
+    // Max Waden kg
+    const wadenKgs = data.filter(d => d.exercises?.waden?.kg).map(d => d.exercises.waden.kg);
+    $('stat-kraft-max-waden').textContent = wadenKgs.length ? Math.max(...wadenKgs) + 'kg' : '--';
+
+    // Most frequent exercise
+    const freq = {};
+    data.forEach(d => {
+        if (!d.exercises) return;
+        Object.keys(d.exercises).forEach(ex => { freq[ex] = (freq[ex]||0) + 1; });
+    });
+    const sorted = Object.entries(freq).sort((a,b) => b[1]-a[1]);
+    $('stat-kraft-fav').textContent = sorted.length ? KRAFT_LABELS[sorted[0][0]] || sorted[0][0] : '--';
+
+    // Avg per week (season)
+    const season = getCurrentSeason();
+    const seasonKraft = data.filter(d => d.date >= season.start && d.date <= season.end);
+    if (seasonKraft.length) {
+        const seasonStart = new Date(season.start + 'T00:00:00');
+        const now = new Date();
+        const diffWeeks = Math.max(1, Math.ceil((now - seasonStart) / (7 * 86400000)));
+        $('stat-kraft-weekly').textContent = (seasonKraft.length / diffWeeks).toFixed(1);
+    } else {
+        $('stat-kraft-weekly').textContent = '--';
+    }
+}
+
+function buildKraftCharts(data) {
+    const container = getChartsContainer();
+    if (!data.length) return;
+    const cK = { main:'#F87171', bg:'rgba(248,113,113,0.18)', g1:'rgba(248,113,113,0.35)', g2:'rgba(248,113,113,0.02)' };
+
+    // 1) Sessions per month
+    const c1 = makeChartCard('Krafteinheiten pro Monat','Balken','ch-kraft-monthly',false);
+    container.appendChild(c1);
+    drawKraftMonthly(data, cK);
+
+    // 2) Exercise frequency (bar)
+    const c2 = makeChartCard('Übungshäufigkeit (Gesamt)','Balken','ch-kraft-freq',false);
+    container.appendChild(c2);
+    drawKraftFrequency(data);
+
+    // 3) Kniebeugen kg progression
+    const kbData = data.filter(d => d.exercises?.kniebeugen?.kg);
+    if (kbData.length) {
+        const c3 = makeChartCard('Kniebeugen – Gewicht (kg)','Linie','ch-kraft-kb',false);
+        container.appendChild(c3);
+        drawKraftProgression(kbData, 'kniebeugen', 'kb', {main:'#B4A8FF', bg:'rgba(180,168,255,0.18)', g1:'rgba(180,168,255,0.35)', g2:'rgba(180,168,255,0.02)'});
+    }
+
+    // 4) Waden kg progression
+    const wadenData = data.filter(d => d.exercises?.waden?.kg);
+    if (wadenData.length) {
+        const c4 = makeChartCard('Waden – Gewicht (kg)','Linie','ch-kraft-waden',false);
+        container.appendChild(c4);
+        drawKraftProgression(wadenData, 'waden', 'waden', {main:'#22D3C5', bg:'rgba(34,211,197,0.18)', g1:'rgba(34,211,197,0.35)', g2:'rgba(34,211,197,0.02)'});
+    }
+
+    // 5) Beuger kg progression
+    const beugerData = data.filter(d => d.exercises?.beuger?.kg);
+    if (beugerData.length) {
+        const c5 = makeChartCard('Beuger – Gewicht (kg)','Linie','ch-kraft-beuger',false);
+        container.appendChild(c5);
+        drawKraftProgression(beugerData, 'beuger', 'beuger', {main:'#FBBF24', bg:'rgba(251,191,36,0.18)', g1:'rgba(251,191,36,0.35)', g2:'rgba(251,191,36,0.02)'});
+    }
+
+    // 6) Exercises per session trend
+    const c6 = makeChartCard('Übungen pro Einheit','Linie','ch-kraft-ex-trend',false);
+    container.appendChild(c6);
+    drawKraftExTrend(data, cK);
+}
+
+function drawKraftMonthly(data, c) {
+    const ctx = document.getElementById('ch-kraft-monthly')?.getContext('2d');
+    if (!ctx) return;
+    const g = groupByMonth(data);
+    const labels = Object.keys(g);
+    const counts = labels.map(k => g[k].length);
+    chartInstances.kraftMonthly = new Chart(ctx, {
+        type:'bar',
+        data:{labels:labels.map(prettyMonth), datasets:[{data:counts, backgroundColor:c.bg, borderColor:c.main, borderWidth:2, borderRadius:8, hoverBackgroundColor:c.main}]},
+        options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:'Einheiten',color:'#555870',font:{size:11}}}}}
+    });
+}
+
+function drawKraftFrequency(data) {
+    const ctx = document.getElementById('ch-kraft-freq')?.getContext('2d');
+    if (!ctx) return;
+    const freq = {};
+    data.forEach(d => {
+        if (!d.exercises) return;
+        Object.keys(d.exercises).forEach(ex => { freq[ex] = (freq[ex]||0) + 1; });
+    });
+    const sorted = Object.entries(freq).sort((a,b) => b[1]-a[1]);
+    const labels = sorted.map(e => KRAFT_LABELS[e[0]] || e[0]);
+    const values = sorted.map(e => e[1]);
+    const colors = ['#B4A8FF','#22D3C5','#FBBF24','#F87171','#60A5FA','#34D399','#E879F9'];
+    chartInstances.kraftFreq = new Chart(ctx, {
+        type:'bar',
+        data:{labels, datasets:[{data:values, backgroundColor:colors.slice(0,labels.length).map(c=>c+'30'), borderColor:colors.slice(0,labels.length), borderWidth:2, borderRadius:8}]},
+        options:{...BASE, indexAxis:'y', scales:{
+            x:{...BASE.scales.x, ticks:{...BASE.scales.x.ticks,stepSize:1}, title:{display:true,text:'Anzahl',color:'#555870',font:{size:11}}},
+            y:{...BASE.scales.y}
+        }}
+    });
+}
+
+function drawKraftProgression(data, exercise, key, c) {
+    const ctx = document.getElementById('ch-kraft-' + key)?.getContext('2d');
+    if (!ctx) return;
+    const labels = data.map(d => shortDate(d.date));
+    const values = data.map(d => d.exercises[exercise].kg);
+    chartInstances['kraft_' + key] = new Chart(ctx, {
+        type:'line',
+        data:{labels, datasets:[{data:values, borderColor:c.main, backgroundColor:grad(ctx,c),
+            borderWidth:2.5, pointBackgroundColor:c.main, pointRadius:4, pointHoverRadius:7, fill:true, tension:0.35}]},
+        options:{...BASE, plugins:{...BASE.plugins, tooltip:{...BASE.plugins.tooltip,
+            callbacks:{label:t => t.parsed.y + 'kg'}
+        }}, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Kilogramm',color:'#555870',font:{size:11}}}}}
+    });
+}
+
+function drawKraftExTrend(data, c) {
+    const ctx = document.getElementById('ch-kraft-ex-trend')?.getContext('2d');
+    if (!ctx) return;
+    const labels = data.map(d => shortDate(d.date));
+    const values = data.map(d => d.exercises ? Object.keys(d.exercises).length : 0);
+    chartInstances.kraftExTrend = new Chart(ctx, {
+        type:'line',
+        data:{labels, datasets:[{data:values, borderColor:c.main, backgroundColor:grad(ctx,c),
+            borderWidth:2.5, pointBackgroundColor:c.main, pointRadius:3.5, fill:true, tension:0.35}]},
+        options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:'Übungen',color:'#555870',font:{size:11}}}}}
     });
 }
 

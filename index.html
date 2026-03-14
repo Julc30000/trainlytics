@@ -148,6 +148,7 @@
                             <option value="Sprint (50m)">Sprint (50m)</option>
                             <option value="Tempolauf (120m)">Tempolauf (120m)</option>
                             <option value="Tempolauf (150m)">Tempolauf (150m)</option>
+                            <option value="Kraft">Kraft</option>
                         </select>
                     </div>
 
@@ -202,6 +203,50 @@
                         </div>
                     </div>
 
+                    <!-- Kraft exercises (only visible for Kraft) -->
+                    <div id="kraft-container" style="display:none">
+                        <label>Übungen <span class="label-hint">(abhaken was gemacht wurde)</span></label>
+                        <div class="kraft-exercises">
+                            <div class="kraft-exercise">
+                                <label class="kraft-check"><input type="checkbox" id="kraft-kniebeugen"> Kniebeugen</label>
+                                <div class="kraft-details" id="kraft-kniebeugen-details" style="display:none">
+                                    <div class="kraft-inputs">
+                                        <div class="kraft-field"><label>Kilo</label><input type="number" id="kraft-kniebeugen-kg" min="0" step="0.5" placeholder="kg"></div>
+                                        <div class="kraft-field"><label>Wdh.</label><input type="number" id="kraft-kniebeugen-reps" min="1" step="1" placeholder="Wdh"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="kraft-exercise">
+                                <label class="kraft-check"><input type="checkbox" id="kraft-waden"> Waden</label>
+                                <div class="kraft-details" id="kraft-waden-details" style="display:none">
+                                    <div class="kraft-inputs">
+                                        <div class="kraft-field"><label>Kilo</label><input type="number" id="kraft-waden-kg" min="0" step="0.5" placeholder="kg"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="kraft-exercise">
+                                <label class="kraft-check"><input type="checkbox" id="kraft-beuger"> Beuger</label>
+                                <div class="kraft-details" id="kraft-beuger-details" style="display:none">
+                                    <div class="kraft-inputs">
+                                        <div class="kraft-field"><label>Kilo</label><input type="number" id="kraft-beuger-kg" min="0" step="0.5" placeholder="kg"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="kraft-exercise">
+                                <label class="kraft-check"><input type="checkbox" id="kraft-bauch"> Bauch</label>
+                            </div>
+                            <div class="kraft-exercise">
+                                <label class="kraft-check"><input type="checkbox" id="kraft-ruecken"> Rücken</label>
+                            </div>
+                            <div class="kraft-exercise">
+                                <label class="kraft-check"><input type="checkbox" id="kraft-exzentrisch"> Exzentrisch</label>
+                            </div>
+                            <div class="kraft-exercise">
+                                <label class="kraft-check"><input type="checkbox" id="kraft-hipthrust"> Hip Thrust</label>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-group">
                         <label for="training-notes">Notizen <span class="label-hint">(optional)</span></label>
                         <textarea id="training-notes" rows="2" placeholder="Wetter, Gefühl, Untergrund …"></textarea>
@@ -222,6 +267,7 @@
                         <option value="Sprint (50m)">Sprint (50m)</option>
                         <option value="Tempolauf (120m)">Tempolauf (120m)</option>
                         <option value="Tempolauf (150m)">Tempolauf (150m)</option>
+                        <option value="Kraft">Kraft</option>
                     </select>
                 </div>
                 <div id="training-list" class="training-list">
@@ -244,6 +290,7 @@
                         <option value="Sprint (50m)">Sprint (50m)</option>
                         <option value="Tempolauf (120m)">Tempolauf (120m)</option>
                         <option value="Tempolauf (150m)">Tempolauf (150m)</option>
+                        <option value="Kraft">💪 Kraft</option>
                     </select>
                 </div>
                 <div class="form-group" id="analytics-intensity-group" style="display:none;margin-bottom:0">
@@ -289,6 +336,40 @@
                     <span class="stat-icon">⏱️</span>
                     <span class="stat-value" id="stat-gen-last">--</span>
                     <span class="stat-label">Letzte Einheit</span>
+                </div>
+            </div>
+
+            <!-- Kraft Stats -->
+            <div class="stats-row" id="stats-row-kraft" style="display:none">
+                <div class="stat-card accent-purple">
+                    <span class="stat-icon">💪</span>
+                    <span class="stat-value" id="stat-kraft-sessions">0</span>
+                    <span class="stat-label">Einheiten</span>
+                </div>
+                <div class="stat-card accent-teal">
+                    <span class="stat-icon">📋</span>
+                    <span class="stat-value" id="stat-kraft-avg-ex">--</span>
+                    <span class="stat-label">Ø Übungen/Einheit</span>
+                </div>
+                <div class="stat-card accent-gold">
+                    <span class="stat-icon">🏋️</span>
+                    <span class="stat-value" id="stat-kraft-max-kb">--</span>
+                    <span class="stat-label">Max Kniebeugen (kg)</span>
+                </div>
+                <div class="stat-card accent-blue">
+                    <span class="stat-icon">🦵</span>
+                    <span class="stat-value" id="stat-kraft-max-waden">--</span>
+                    <span class="stat-label">Max Waden (kg)</span>
+                </div>
+                <div class="stat-card accent-green">
+                    <span class="stat-icon">🔥</span>
+                    <span class="stat-value" id="stat-kraft-fav">--</span>
+                    <span class="stat-label">Häufigste Übung</span>
+                </div>
+                <div class="stat-card accent-red">
+                    <span class="stat-icon">📅</span>
+                    <span class="stat-value" id="stat-kraft-weekly">--</span>
+                    <span class="stat-label">Ø pro Woche</span>
                 </div>
             </div>
 
