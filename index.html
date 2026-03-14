@@ -210,9 +210,30 @@
                             <div class="kraft-exercise">
                                 <label class="kraft-check"><input type="checkbox" id="kraft-kniebeugen"> Kniebeugen</label>
                                 <div class="kraft-details" id="kraft-kniebeugen-details" style="display:none">
-                                    <div class="kraft-inputs">
-                                        <div class="kraft-field"><label>Kilo</label><input type="number" id="kraft-kniebeugen-kg" min="0" step="0.5" placeholder="kg"></div>
-                                        <div class="kraft-field"><label>Wdh.</label><input type="number" id="kraft-kniebeugen-reps" min="1" step="1" placeholder="Wdh"></div>
+                                    <div class="kraft-mode-toggle">
+                                        <button type="button" class="toggle-btn active" id="kb-mode-normal">Normal</button>
+                                        <button type="button" class="toggle-btn" id="kb-mode-pyramid">Pyramide</button>
+                                    </div>
+                                    <div id="kb-normal-fields">
+                                        <div class="kraft-inputs">
+                                            <div class="kraft-field"><label>Kilo</label><input type="number" id="kraft-kniebeugen-kg" min="0" step="0.5" placeholder="kg"></div>
+                                            <div class="kraft-field"><label>Wdh.</label><input type="number" id="kraft-kniebeugen-reps" min="1" step="1" placeholder="Wdh"></div>
+                                        </div>
+                                    </div>
+                                    <div id="kb-pyramid-fields" style="display:none">
+                                        <div id="kb-pyramid-sets">
+                                            <div class="pyramid-set">
+                                                <span class="pyramid-set-label">Satz 1</span>
+                                                <div class="kraft-inputs">
+                                                    <div class="kraft-field"><label>Wdh.</label><input type="number" class="kb-pyr-reps" min="1" step="1" placeholder="Wdh"></div>
+                                                    <div class="kraft-field"><label>Kilo</label><input type="number" class="kb-pyr-kg" min="0" step="0.5" placeholder="kg"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button type="button" id="kb-add-set" class="btn-ghost btn-ghost-sm">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                            Satz hinzufügen
+                                        </button>
                                     </div>
                                 </div>
                             </div>

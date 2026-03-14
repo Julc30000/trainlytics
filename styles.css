@@ -528,6 +528,26 @@ textarea { resize:vertical; min-height:48px; }
     box-shadow:0 0 0 3px rgba(124,106,239,0.15);
 }
 
+/* Kraft mode toggle & pyramid */
+.kraft-mode-toggle {
+    display:flex; gap:6px; margin-bottom:10px;
+}
+.kraft-mode-toggle .toggle-btn {
+    flex:1; font-size:12px; padding:6px 0;
+}
+.pyramid-set {
+    display:flex; align-items:center; gap:8px;
+    margin-bottom:8px;
+}
+.pyramid-set-label {
+    font-size:11px; font-weight:700; color:var(--text-tertiary);
+    min-width:42px; flex-shrink:0;
+}
+.pyramid-set .kraft-inputs { flex:1; }
+.btn-ghost-sm {
+    font-size:12px; padding:6px 12px;
+}
+
 /* Kraft entry in history */
 .entry-kraft {
     display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;

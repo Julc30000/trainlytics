@@ -277,6 +277,51 @@ KRAFT_EXERCISES.forEach(ex => {
     }
 });
 
+// Kniebeugen pyramid mode
+let kbPyramidMode = false;
+const kbModeNormal = document.getElementById('kb-mode-normal');
+const kbModePyramid = document.getElementById('kb-mode-pyramid');
+const kbNormalFields = document.getElementById('kb-normal-fields');
+const kbPyramidFields = document.getElementById('kb-pyramid-fields');
+const kbPyramidSets = document.getElementById('kb-pyramid-sets');
+
+kbModeNormal.addEventListener('click', () => {
+    kbPyramidMode = false;
+    kbModeNormal.classList.add('active');
+    kbModePyramid.classList.remove('active');
+    kbNormalFields.style.display = '';
+    kbPyramidFields.style.display = 'none';
+});
+kbModePyramid.addEventListener('click', () => {
+    kbPyramidMode = true;
+    kbModePyramid.classList.add('active');
+    kbModeNormal.classList.remove('active');
+    kbNormalFields.style.display = 'none';
+    kbPyramidFields.style.display = '';
+});
+
+function addPyramidSet() {
+    const count = kbPyramidSets.querySelectorAll('.pyramid-set').length + 1;
+    const row = document.createElement('div');
+    row.className = 'pyramid-set';
+    row.innerHTML = `<span class="pyramid-set-label">Satz ${count}</span>
+        <div class="kraft-inputs">
+            <div class="kraft-field"><label>Wdh.</label><input type="number" class="kb-pyr-reps" min="1" step="1" placeholder="Wdh"></div>
+            <div class="kraft-field"><label>Kilo</label><input type="number" class="kb-pyr-kg" min="0" step="0.5" placeholder="kg"></div>
+        </div>
+        <button type="button" class="btn-remove-time" title="Entfernen" style="margin-left:4px">&times;</button>`;
+    row.querySelector('.btn-remove-time').addEventListener('click', () => { row.remove(); refreshPyramidLabels(); });
+    kbPyramidSets.appendChild(row);
+}
+
+function refreshPyramidLabels() {
+    kbPyramidSets.querySelectorAll('.pyramid-set').forEach((el, i) => {
+        el.querySelector('.pyramid-set-label').textContent = 'Satz ' + (i + 1);
+    });
+}
+
+document.getElementById('kb-add-set').addEventListener('click', addPyramidSet);
+
 function addTimeEntry(value = '') {
     const idx = timesList.querySelectorAll('.time-entry').length + 1;
     const e = document.createElement('div');
@@ -341,10 +386,29 @@ form.addEventListener('submit', e => {
             if (cb && cb.checked) {
                 anyChecked = true;
                 const exData = { done: true };
-                const kgEl = document.getElementById('kraft-' + ex + '-kg');
-                const repsEl = document.getElementById('kraft-' + ex + '-reps');
-                if (kgEl && kgEl.value) exData.kg = parseFloat(kgEl.value);
-                if (repsEl && repsEl.value) exData.reps = parseInt(repsEl.value, 10);
+                if (ex === 'kniebeugen') {
+                    if (kbPyramidMode) {
+                        const sets = [];
+                        kbPyramidSets.querySelectorAll('.pyramid-set').forEach(row => {
+                            const reps = parseInt(row.querySelector('.kb-pyr-reps').value, 10) || 0;
+                            const kg = parseFloat(row.querySelector('.kb-pyr-kg').value) || 0;
+                            if (reps > 0 && kg > 0) sets.push({ reps, kg });
+                        });
+                        if (sets.length) exData.pyramid = sets;
+                        exData.mode = 'pyramid';
+                    } else {
+                        const kgEl = document.getElementById('kraft-kniebeugen-kg');
+                        const repsEl = document.getElementById('kraft-kniebeugen-reps');
+                        if (kgEl && kgEl.value) exData.kg = parseFloat(kgEl.value);
+                        if (repsEl && repsEl.value) exData.reps = parseInt(repsEl.value, 10);
+                        exData.mode = 'normal';
+                    }
+                } else {
+                    const kgEl = document.getElementById('kraft-' + ex + '-kg');
+                    const repsEl = document.getElementById('kraft-' + ex + '-reps');
+                    if (kgEl && kgEl.value) exData.kg = parseFloat(kgEl.value);
+                    if (repsEl && repsEl.value) exData.reps = parseInt(repsEl.value, 10);
+                }
                 exercises[ex] = exData;
             }
         });
@@ -389,6 +453,19 @@ form.addEventListener('submit', e => {
         const det = document.getElementById('kraft-' + ex + '-details');
         if (det) det.style.display = 'none';
     });
+    // Reset pyramid mode
+    kbPyramidMode = false;
+    kbModeNormal.classList.add('active');
+    kbModePyramid.classList.remove('active');
+    kbNormalFields.style.display = '';
+    kbPyramidFields.style.display = 'none';
+    kbPyramidSets.innerHTML = `<div class="pyramid-set">
+        <span class="pyramid-set-label">Satz 1</span>
+        <div class="kraft-inputs">
+            <div class="kraft-field"><label>Wdh.</label><input type="number" class="kb-pyr-reps" min="1" step="1" placeholder="Wdh"></div>
+            <div class="kraft-field"><label>Kilo</label><input type="number" class="kb-pyr-kg" min="0" step="0.5" placeholder="kg"></div>
+        </div>
+    </div>`;
     showTimesMode();
     timesList.innerHTML = '';
     addTimeEntry();
@@ -443,8 +520,12 @@ function renderList() {
                 ? `<div class="entry-kraft">${Object.entries(en.exercises).map(([k,v]) => {
                     const label = KRAFT_LABELS[k] || k;
                     let detail = '';
-                    if (v.kg) detail += v.kg + 'kg';
-                    if (v.reps) detail += (detail ? ' × ' : '') + v.reps + ' Wdh';
+                    if (v.pyramid && v.pyramid.length) {
+                        detail = v.pyramid.map(s => s.reps + '×' + s.kg + 'kg').join(', ');
+                    } else {
+                        if (v.kg) detail += v.kg + 'kg';
+                        if (v.reps) detail += (detail ? ' × ' : '') + v.reps + ' Wdh';
+                    }
                     return `<span class="kraft-chip">${escapeHtml(label)}${detail ? ` <span class="kraft-chip-detail">${escapeHtml(detail)}</span>` : ''}</span>`;
                   }).join('')}</div>`
                 : en.intensity === 'NI'
@@ -824,8 +905,14 @@ function updateKraftStats(data) {
     const exCounts = data.map(d => d.exercises ? Object.keys(d.exercises).length : 0);
     $('stat-kraft-avg-ex').textContent = (exCounts.reduce((a,b)=>a+b,0) / data.length).toFixed(1);
 
-    // Max Kniebeugen kg
-    const kbKgs = data.filter(d => d.exercises?.kniebeugen?.kg).map(d => d.exercises.kniebeugen.kg);
+    // Max Kniebeugen kg (including pyramid sets)
+    const kbKgs = [];
+    data.forEach(d => {
+        const kb = d.exercises?.kniebeugen;
+        if (!kb) return;
+        if (kb.pyramid) kb.pyramid.forEach(s => { if (s.kg) kbKgs.push(s.kg); });
+        else if (kb.kg) kbKgs.push(kb.kg);
+    });
     $('stat-kraft-max-kb').textContent = kbKgs.length ? Math.max(...kbKgs) + 'kg' : '--';
 
     // Max Waden kg
@@ -869,12 +956,15 @@ function buildKraftCharts(data) {
     container.appendChild(c2);
     drawKraftFrequency(data);
 
-    // 3) Kniebeugen kg progression
-    const kbData = data.filter(d => d.exercises?.kniebeugen?.kg);
+    // 3) Kniebeugen kg progression (use max kg for pyramid)
+    const kbData = data.filter(d => {
+        const kb = d.exercises?.kniebeugen;
+        return kb && (kb.kg || (kb.pyramid && kb.pyramid.length));
+    });
     if (kbData.length) {
-        const c3 = makeChartCard('Kniebeugen – Gewicht (kg)','Linie','ch-kraft-kb',false);
+        const c3 = makeChartCard('Kniebeugen – Max Gewicht (kg)','Linie','ch-kraft-kb',false);
         container.appendChild(c3);
-        drawKraftProgression(kbData, 'kniebeugen', 'kb', {main:'#B4A8FF', bg:'rgba(180,168,255,0.18)', g1:'rgba(180,168,255,0.35)', g2:'rgba(180,168,255,0.02)'});
+        drawKraftKbProgression(kbData);
     }
 
     // 4) Waden kg progression
@@ -931,6 +1021,26 @@ function drawKraftFrequency(data) {
             x:{...BASE.scales.x, ticks:{...BASE.scales.x.ticks,stepSize:1}, title:{display:true,text:'Anzahl',color:'#555870',font:{size:11}}},
             y:{...BASE.scales.y}
         }}
+    });
+}
+
+function drawKraftKbProgression(data) {
+    const ctx = document.getElementById('ch-kraft-kb')?.getContext('2d');
+    if (!ctx) return;
+    const c = {main:'#B4A8FF', bg:'rgba(180,168,255,0.18)', g1:'rgba(180,168,255,0.35)', g2:'rgba(180,168,255,0.02)'};
+    const labels = data.map(d => shortDate(d.date));
+    const values = data.map(d => {
+        const kb = d.exercises.kniebeugen;
+        if (kb.pyramid && kb.pyramid.length) return Math.max(...kb.pyramid.map(s => s.kg));
+        return kb.kg || 0;
+    });
+    chartInstances.kraft_kb = new Chart(ctx, {
+        type:'line',
+        data:{labels, datasets:[{data:values, borderColor:c.main, backgroundColor:grad(ctx,c),
+            borderWidth:2.5, pointBackgroundColor:c.main, pointRadius:4, pointHoverRadius:7, fill:true, tension:0.35}]},
+        options:{...BASE, plugins:{...BASE.plugins, tooltip:{...BASE.plugins.tooltip,
+            callbacks:{label:t => t.parsed.y + 'kg'}
+        }}, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Kilogramm',color:'#555870',font:{size:11}}}}}
     });
 }
 
