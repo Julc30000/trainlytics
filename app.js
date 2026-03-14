@@ -2445,11 +2445,14 @@ document.getElementById('btn-save-plan')?.addEventListener('click', async () => 
     if (!Object.keys(days).length) { showToast('Bitte mindestens einen Tag ausfüllen'); return; }
 
     const plan = { weekStart, days, notes, createdAt: new Date().toISOString() };
+    const targets = user === '__alle__' ? _planUsers : [user];
 
     try {
-        await db.collection('users').doc(user.toLowerCase().trim())
-          .set({ trainingPlan: plan }, { merge: true });
-        showToast('Plan zugewiesen ✓');
+        await Promise.all(targets.map(u =>
+            db.collection('users').doc(u.toLowerCase().trim())
+              .set({ trainingPlan: plan }, { merge: true })
+        ));
+        showToast(targets.length > 1 ? `Plan an ${targets.length} Athleten zugewiesen ✓` : 'Plan zugewiesen ✓');
         // Reset form
         document.querySelectorAll('#plan-days .plan-day-input').forEach(inp => { inp.value = ''; });
         document.getElementById('plan-notes').value = '';
@@ -2459,10 +2462,13 @@ document.getElementById('btn-save-plan')?.addEventListener('click', async () => 
 });
 
 // Populate plan user select alongside coach user select
+let _planUsers = [];
 function populatePlanUserSelect(users) {
+    _planUsers = users;
     const sel = document.getElementById('plan-user-select');
     if (!sel) return;
     sel.innerHTML = '<option value="">-- Bitte wählen --</option>' +
+        '<option value="__alle__">📢 Alle Athleten</option>' +
         users.map(u => `<option value="${escapeHtml(u)}">${escapeHtml(u.charAt(0).toUpperCase() + u.slice(1))}</option>`).join('');
 }
 
