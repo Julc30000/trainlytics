@@ -67,7 +67,7 @@ function saveData(data) {
     if (!currentUser) return;
     localStorage.setItem(storageKeyFor(currentUser), JSON.stringify(data));
     db.collection('users').doc(currentUser.toLowerCase().trim())
-      .set({ entries: data }).catch(() => {});
+      .set({ entries: data }, { merge: true }).catch(() => {});
 }
 
 async function loadFromFirestore(user) {
@@ -446,9 +446,9 @@ trainingType.addEventListener('change', () => {
         telemarkContainer.style.display = 'none';
     } else if (customType) {
         timesContainer.style.display = customType.trackTimes ? '' : 'none';
-        countContainer.style.display = 'none';
+        countContainer.style.display = customType.trackCount ? '' : 'none';
         telemarkContainer.style.display = 'none';
-        if (!customType.trackTimes) {
+        if (!customType.trackTimes && !customType.trackCount) {
             trainingIntensity.value = '';
         }
     } else if (!isTempo) {
@@ -668,7 +668,7 @@ form.addEventListener('submit', e => {
     } else if (isTechnik) {
         // Technik has no times/count — just category + notes
     } else if (customType) {
-        // Custom type: optionally track times
+        // Custom type: optionally track times or count
         if (customType.trackTimes) {
             const inputs = timesList.querySelectorAll('.time-input');
             let ok = true;
@@ -678,6 +678,10 @@ form.addEventListener('submit', e => {
                 else { inp.style.borderColor = ''; times.push(v); }
             });
             if (!ok || !times.length) { showToast('Bitte gültige Zeiten eingeben'); return; }
+        }
+        if (customType.trackCount) {
+            count = parseInt(document.getElementById('training-count').value, 10);
+            if (!count || count < 1) { showToast('Bitte Anzahl eingeben'); return; }
         }
     } else if (isCountMode) {
         count = parseInt(document.getElementById('training-count').value, 10);
@@ -822,8 +826,10 @@ function renderList() {
                   }).join('')}</div>`
                 : en.type === 'Joggen (5km)' && en.joggenTimeSec
                 ? `<div class="entry-times"><span class="time-chip joggen-chip">${fmtJoggenTime(en.joggenTimeSec)}</span></div>`
-                : getCustomType(en.type) && !getCustomType(en.type).trackTimes
+                : getCustomType(en.type) && !getCustomType(en.type).trackTimes && !getCustomType(en.type).trackCount
                 ? ''
+                : getCustomType(en.type) && getCustomType(en.type).trackCount && en.count
+                ? `<div class="entry-count">Anzahl: <strong>${en.count}</strong></div>`
                 : en.intensity === 'NI'
                 ? `<div class="entry-count">Anzahl Läufe: <strong>${en.count || 0}</strong>${en.telemarks != null ? ` · Telemarks: <strong>${en.telemarks}</strong>` : ''}</div>`
                 : (en.times && en.times.length) ? `<div class="entry-times">${en.times.map(t=>`<span class="time-chip">${escapeHtml(String(t))}s</span>`).join('')}</div>` : ''
@@ -2440,6 +2446,7 @@ const ctListEl = document.getElementById('custom-types-list');
 let ctEditId = null;
 let ctSelectedColor = '#B4A8FF';
 let ctTrackTimes = true;
+let ctTrackCount = false;
 
 document.getElementById('btn-settings').addEventListener('click', () => {
     renderCustomTypesList();
@@ -2845,13 +2852,31 @@ document.querySelectorAll('.ct-color-opt').forEach(el => {
 // Times toggle
 document.getElementById('ct-times-yes').addEventListener('click', () => {
     ctTrackTimes = true;
+    ctTrackCount = false;
     document.getElementById('ct-times-yes').classList.add('active');
     document.getElementById('ct-times-no').classList.remove('active');
+    document.getElementById('ct-count-yes').classList.remove('active');
+    document.getElementById('ct-count-no').classList.add('active');
 });
 document.getElementById('ct-times-no').addEventListener('click', () => {
     ctTrackTimes = false;
     document.getElementById('ct-times-no').classList.add('active');
     document.getElementById('ct-times-yes').classList.remove('active');
+});
+
+// Count toggle
+document.getElementById('ct-count-yes').addEventListener('click', () => {
+    ctTrackCount = true;
+    ctTrackTimes = false;
+    document.getElementById('ct-count-yes').classList.add('active');
+    document.getElementById('ct-count-no').classList.remove('active');
+    document.getElementById('ct-times-yes').classList.remove('active');
+    document.getElementById('ct-times-no').classList.add('active');
+});
+document.getElementById('ct-count-no').addEventListener('click', () => {
+    ctTrackCount = false;
+    document.getElementById('ct-count-no').classList.add('active');
+    document.getElementById('ct-count-yes').classList.remove('active');
 });
 
 function resetCtForm() {
@@ -2861,10 +2886,13 @@ function resetCtForm() {
     document.getElementById('ct-subcategories').value = '';
     ctSelectedColor = '#B4A8FF';
     ctTrackTimes = true;
+    ctTrackCount = false;
     document.querySelectorAll('.ct-color-opt').forEach(o => o.classList.remove('selected'));
     document.querySelector('.ct-color-opt[data-color="#B4A8FF"]').classList.add('selected');
     document.getElementById('ct-times-yes').classList.add('active');
     document.getElementById('ct-times-no').classList.remove('active');
+    document.getElementById('ct-count-yes').classList.remove('active');
+    document.getElementById('ct-count-no').classList.add('active');
     document.getElementById('ct-form-title').textContent = 'Neue Trainingsart';
     document.getElementById('ct-save').textContent = 'Hinzufügen';
     document.getElementById('ct-cancel-edit').style.display = 'none';
@@ -2893,12 +2921,12 @@ document.getElementById('ct-save').addEventListener('click', () => {
         if (idx >= 0) {
             // Check name uniqueness (exclude current)
             if (list.some((ct, i) => i !== idx && ct.name === name)) { showToast('Name bereits vergeben'); return; }
-            list[idx] = { ...list[idx], name, emoji, color: ctSelectedColor, subcategories, trackTimes: ctTrackTimes };
+            list[idx] = { ...list[idx], name, emoji, color: ctSelectedColor, subcategories, trackTimes: ctTrackTimes, trackCount: ctTrackCount };
         }
     } else {
         // Check name uniqueness
         if (list.some(ct => ct.name === name)) { showToast('Name bereits vergeben'); return; }
-        list.push({ id: generateId(), name, emoji, color: ctSelectedColor, subcategories, trackTimes: ctTrackTimes });
+        list.push({ id: generateId(), name, emoji, color: ctSelectedColor, subcategories, trackTimes: ctTrackTimes, trackCount: ctTrackCount });
     }
 
     saveCustomTypes(list);
@@ -2921,6 +2949,7 @@ function renderCustomTypesList() {
                 <span class="ct-item-name">${escapeHtml(ct.name)}</span>
                 ${ct.subcategories && ct.subcategories.length ? '<span class="ct-item-subs">' + ct.subcategories.length + ' Kat.</span>' : ''}
                 ${ct.trackTimes ? '<span class="ct-item-times">⏱️</span>' : ''}
+                ${ct.trackCount ? '<span class="ct-item-times">🔢</span>' : ''}
             </div>
             <div class="ct-item-actions">
                 <button class="btn-icon ct-edit-btn" data-ctid="${escapeHtml(ct.id)}" title="Bearbeiten">
@@ -2942,11 +2971,14 @@ function renderCustomTypesList() {
             document.getElementById('ct-subcategories').value = (ct.subcategories || []).join(', ');
             ctSelectedColor = ct.color || '#B4A8FF';
             ctTrackTimes = ct.trackTimes !== false;
+            ctTrackCount = ct.trackCount === true;
             document.querySelectorAll('.ct-color-opt').forEach(o => {
                 o.classList.toggle('selected', o.dataset.color === ctSelectedColor);
             });
             document.getElementById('ct-times-yes').classList.toggle('active', ctTrackTimes);
             document.getElementById('ct-times-no').classList.toggle('active', !ctTrackTimes);
+            document.getElementById('ct-count-yes').classList.toggle('active', ctTrackCount);
+            document.getElementById('ct-count-no').classList.toggle('active', !ctTrackCount);
             document.getElementById('ct-form-title').textContent = 'Trainingsart bearbeiten';
             document.getElementById('ct-save').textContent = 'Speichern';
             document.getElementById('ct-cancel-edit').style.display = '';
