@@ -580,6 +580,8 @@ textarea { resize:vertical; min-height:48px; }
     background:rgba(96,165,250,0.12); color:var(--blue);
 }
 .sprint-cat-badge { background:rgba(180,168,255,0.12); color:var(--accent); }
+.technik-cat-badge { background:rgba(251,146,60,0.12); color:#FB923C; }
+.type-badge.technik { background:rgba(251,146,60,0.12); color:#FB923C; }
 
 .entry-times { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
 .time-chip {

@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=build008">
+    <link rel="stylesheet" href="styles.css?v=build009">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -239,6 +239,7 @@
                             <option value="Tempolauf (120m)">Tempolauf (120m)</option>
                             <option value="Tempolauf (150m)">Tempolauf (150m)</option>
                             <option value="Kraft">Kraft</option>
+                            <option value="Technik">Technik</option>
                             <option value="Joggen (5km)">Joggen (5km)</option>
                         </select>
                     </div>
@@ -253,6 +254,21 @@
                             <option value="Max">Max</option>
                             <option value="Seil">Seil</option>
                         </select>
+                    </div>
+
+                    <!-- Technik category (only visible for Technik) -->
+                    <div class="form-group" id="technik-cat-group" style="display:none">
+                        <label for="technik-category">Kategorie</label>
+                        <select id="technik-category">
+                            <option value="">-- Bitte wählen --</option>
+                            <option value="Hütchen">Hütchen</option>
+                            <option value="Schirm">Schirm</option>
+                            <option value="Sonstiges">Sonstiges</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="technik-custom-group" style="display:none">
+                        <label for="technik-custom">Beschreibung</label>
+                        <input type="text" id="technik-custom" placeholder="z.B. Koordination, Hürden...">
                     </div>
 
                     <!-- Intensity (only visible for Tempolauf) -->
@@ -412,6 +428,7 @@
                         <option value="Tempolauf (120m)">Tempolauf (120m)</option>
                         <option value="Tempolauf (150m)">Tempolauf (150m)</option>
                         <option value="Kraft">Kraft</option>
+                        <option value="Technik">Technik</option>
                         <option value="Joggen (5km)">Joggen (5km)</option>
                     </select>
                 </div>
@@ -436,6 +453,7 @@
                         <option value="Tempolauf (120m)">Tempolauf (120m)</option>
                         <option value="Tempolauf (150m)">Tempolauf (150m)</option>
                         <option value="Kraft">💪 Kraft</option>
+                        <option value="Technik">🎯 Technik</option>
                         <option value="Joggen (5km)">🏃‍♀️ Joggen (5km)</option>
                     </select>
                 </div>
@@ -526,6 +544,30 @@
                     <span class="stat-icon">📅</span>
                     <span class="stat-value" id="stat-kraft-weekly">--</span>
                     <span class="stat-label">Ø pro Woche</span>
+                </div>
+            </div>
+
+            <!-- Technik Stats -->
+            <div class="stats-row" id="stats-row-technik" style="display:none">
+                <div class="stat-card accent-purple">
+                    <span class="stat-icon">🎯</span>
+                    <span class="stat-value" id="stat-tech-sessions">0</span>
+                    <span class="stat-label">Einheiten</span>
+                </div>
+                <div class="stat-card accent-teal">
+                    <span class="stat-icon">📊</span>
+                    <span class="stat-value" id="stat-tech-fav">--</span>
+                    <span class="stat-label">Häufigste Kategorie</span>
+                </div>
+                <div class="stat-card accent-gold">
+                    <span class="stat-icon">📅</span>
+                    <span class="stat-value" id="stat-tech-weekly">--</span>
+                    <span class="stat-label">Ø pro Woche</span>
+                </div>
+                <div class="stat-card accent-blue">
+                    <span class="stat-icon">🗓️</span>
+                    <span class="stat-value" id="stat-tech-last">--</span>
+                    <span class="stat-label">Letzte Einheit</span>
                 </div>
             </div>
 
@@ -831,6 +873,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=build008"></script>
+    <script src="app.js?v=build009"></script>
 </body>
 </html>

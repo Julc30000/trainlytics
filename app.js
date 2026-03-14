@@ -234,6 +234,10 @@ function resetAppUI() {
     intensityGroup.style.display = 'none';
     document.getElementById('sprint-cat-group').style.display = 'none';
     document.getElementById('sprint-category').value = '';
+    document.getElementById('technik-cat-group').style.display = 'none';
+    document.getElementById('technik-category').value = '';
+    document.getElementById('technik-custom-group').style.display = 'none';
+    document.getElementById('technik-custom').value = '';
     document.getElementById('kraft-container').style.display = 'none';
     joggenContainer.style.display = 'none';
     timesContainer.style.display = '';
@@ -339,9 +343,9 @@ function applyUserRestrictions(userName) {
         aType.innerHTML = '<option value="Allgemein">📊 Allgemein</option><option value="Joggen (5km)">🏃‍♀️ Joggen (5km)</option>';
     } else {
         // Restore all options (excluding Joggen for non-Angelika)
-        sel.innerHTML = '<option value="">-- Bitte wählen --</option><option value="Sprint (50m)">Sprint (50m)</option><option value="Tempolauf (120m)">Tempolauf (120m)</option><option value="Tempolauf (150m)">Tempolauf (150m)</option><option value="Kraft">Kraft</option>';
-        hFilter.innerHTML = '<option value="all">Alle</option><option value="Sprint (50m)">Sprint (50m)</option><option value="Tempolauf (120m)">Tempolauf (120m)</option><option value="Tempolauf (150m)">Tempolauf (150m)</option><option value="Kraft">Kraft</option>';
-        aType.innerHTML = '<option value="Allgemein">📊 Allgemein</option><option value="Sprint (50m)">Sprint (50m)</option><option value="Tempolauf (120m)">Tempolauf (120m)</option><option value="Tempolauf (150m)">Tempolauf (150m)</option><option value="Kraft">💪 Kraft</option>';
+        sel.innerHTML = '<option value="">-- Bitte wählen --</option><option value="Sprint (50m)">Sprint (50m)</option><option value="Tempolauf (120m)">Tempolauf (120m)</option><option value="Tempolauf (150m)">Tempolauf (150m)</option><option value="Kraft">Kraft</option><option value="Technik">Technik</option>';
+        hFilter.innerHTML = '<option value="all">Alle</option><option value="Sprint (50m)">Sprint (50m)</option><option value="Tempolauf (120m)">Tempolauf (120m)</option><option value="Tempolauf (150m)">Tempolauf (150m)</option><option value="Kraft">Kraft</option><option value="Technik">Technik</option>';
+        aType.innerHTML = '<option value="Allgemein">📊 Allgemein</option><option value="Sprint (50m)">Sprint (50m)</option><option value="Tempolauf (120m)">Tempolauf (120m)</option><option value="Tempolauf (150m)">Tempolauf (150m)</option><option value="Kraft">💪 Kraft</option><option value="Technik">🎯 Technik</option>';
     }
 }
 
@@ -363,12 +367,16 @@ trainingType.addEventListener('change', () => {
     const isKraft = val === 'Kraft';
     const isJoggen = val === 'Joggen (5km)';
     const isSprint = val === 'Sprint (50m)';
+    const isTechnik = val === 'Technik';
     document.getElementById('sprint-cat-group').style.display = isSprint ? '' : 'none';
     if (!isSprint) document.getElementById('sprint-category').value = '';
+    document.getElementById('technik-cat-group').style.display = isTechnik ? '' : 'none';
+    document.getElementById('technik-custom-group').style.display = 'none';
+    if (!isTechnik) { document.getElementById('technik-category').value = ''; document.getElementById('technik-custom').value = ''; }
     intensityGroup.style.display = isTempo ? '' : 'none';
     document.getElementById('kraft-container').style.display = isKraft ? '' : 'none';
     joggenContainer.style.display = isJoggen ? '' : 'none';
-    if (isKraft || isJoggen) {
+    if (isKraft || isJoggen || isTechnik) {
         timesContainer.style.display = 'none';
         countContainer.style.display = 'none';
         telemarkContainer.style.display = 'none';
@@ -382,6 +390,13 @@ trainingType.addEventListener('change', () => {
 
 // Show/hide times vs count when intensity changes
 trainingIntensity.addEventListener('change', updateFormMode);
+
+// Show/hide Technik custom input when Sonstiges selected
+document.getElementById('technik-category').addEventListener('change', () => {
+    const val = document.getElementById('technik-category').value;
+    document.getElementById('technik-custom-group').style.display = val === 'Sonstiges' ? '' : 'none';
+    if (val !== 'Sonstiges') document.getElementById('technik-custom').value = '';
+});
 
 function updateFormMode() {
     const int = trainingIntensity.value;
@@ -518,12 +533,17 @@ form.addEventListener('submit', e => {
     const isKraft = type === 'Kraft';
     const isJoggen = type === 'Joggen (5km)';
     const isSprint = type === 'Sprint (50m)';
+    const isTechnik = type === 'Technik';
     const intensity = isTempo ? trainingIntensity.value : '';
     const sprintCategory = isSprint ? document.getElementById('sprint-category').value : '';
+    const technikCategory = isTechnik ? document.getElementById('technik-category').value : '';
+    const technikCustom = (isTechnik && technikCategory === 'Sonstiges') ? document.getElementById('technik-custom').value.trim() : '';
     const isCountMode = intensity === 'NI';
 
     if (isTempo && !intensity) { showToast('Bitte Intensität wählen'); return; }
     if (isSprint && !sprintCategory) { showToast('Bitte Sprint-Kategorie wählen'); return; }
+    if (isTechnik && !technikCategory) { showToast('Bitte Technik-Kategorie wählen'); return; }
+    if (isTechnik && technikCategory === 'Sonstiges' && !technikCustom) { showToast('Bitte Beschreibung eingeben'); return; }
 
     let times = [];
     let count = null;
@@ -594,7 +614,7 @@ form.addEventListener('submit', e => {
         if (!ok || !times.length) { showToast('Bitte gültige Zeiten eingeben'); return; }
     }
 
-    const entry = { id: generateId(), date, time, type, intensity, sprintCategory, times, count, telemarks, exercises, joggenTimeSec, notes };
+    const entry = { id: generateId(), date, time, type, intensity, sprintCategory, technikCategory, technikCustom, times, count, telemarks, exercises, joggenTimeSec, notes };
     const data = loadData();
     data.unshift(entry);
     saveData(data);
@@ -607,6 +627,10 @@ form.addEventListener('submit', e => {
     intensityGroup.style.display = 'none';
     document.getElementById('sprint-cat-group').style.display = 'none';
     document.getElementById('sprint-category').value = '';
+    document.getElementById('technik-cat-group').style.display = 'none';
+    document.getElementById('technik-category').value = '';
+    document.getElementById('technik-custom-group').style.display = 'none';
+    document.getElementById('technik-custom').value = '';
     telemarkContainer.style.display = 'none';
     telemarkYes.classList.add('active');
     telemarkNo.classList.remove('active');
@@ -648,6 +672,7 @@ function typeCss(type) {
     if (type.startsWith('Sprint')) return 'sprint';
     if (type.includes('120')) return 'tempo120';
     if (type === 'Kraft') return 'kraft';
+    if (type === 'Technik') return 'technik';
     if (type.startsWith('Joggen')) return 'joggen';
     return 'tempo150';
 }
@@ -685,10 +710,13 @@ function renderList() {
                 <div class="entry-badges">
                     <span class="type-badge ${typeCss(en.type)}">${escapeHtml(en.type)}</span>
                     ${en.sprintCategory ? `<span class="intensity-badge sprint-cat-badge">${escapeHtml(en.sprintCategory)}</span>` : ''}
+                    ${en.technikCategory ? `<span class="intensity-badge technik-cat-badge">${escapeHtml(en.technikCategory === 'Sonstiges' && en.technikCustom ? en.technikCustom : en.technikCategory)}</span>` : ''}
                     ${en.intensity ? `<span class="intensity-badge">${escapeHtml(en.intensity)}</span>` : ''}
                 </div>
             </div>
-            ${en.type === 'Kraft' && en.exercises
+            ${en.type === 'Technik'
+                ? ''
+                : en.type === 'Kraft' && en.exercises
                 ? `<div class="entry-kraft">${Object.entries(en.exercises).map(([k,v]) => {
                     const label = KRAFT_LABELS[k] || k;
                     let detail = '';
@@ -759,6 +787,7 @@ const COLORS = {
     'Tempolauf (120m)':   { main:'#22D3C5', bg:'rgba(34,211,197,0.18)',  g1:'rgba(34,211,197,0.35)',  g2:'rgba(34,211,197,0.02)' },
     'Tempolauf (150m)':   { main:'#FBBF24', bg:'rgba(251,191,36,0.18)',  g1:'rgba(251,191,36,0.35)',  g2:'rgba(251,191,36,0.02)' },
     'Kraft':              { main:'#F87171', bg:'rgba(248,113,113,0.18)', g1:'rgba(248,113,113,0.35)', g2:'rgba(248,113,113,0.02)' },
+    'Technik':            { main:'#FB923C', bg:'rgba(251,146,60,0.18)',  g1:'rgba(251,146,60,0.35)',  g2:'rgba(251,146,60,0.02)' },
     'Joggen (5km)':       { main:'#34D399', bg:'rgba(52,211,153,0.18)',  g1:'rgba(52,211,153,0.35)',  g2:'rgba(52,211,153,0.02)' },
 };
 
@@ -792,17 +821,19 @@ function updateAnalytics() {
     const type = analyticsTypeEl.value;
     const isGeneral = type === 'Allgemein';
     const isKraft = type === 'Kraft';
+    const isTechnik = type === 'Technik';
     const isJoggen = type === 'Joggen (5km)';
     const isTempo = type.startsWith('Tempolauf');
     analyticsIntGroup.style.display = (isTempo && !isGeneral && !isKraft && !isJoggen) ? '' : 'none';
 
     // Show/hide stats rows
     document.getElementById('stats-row-general').style.display = isGeneral ? '' : 'none';
-    document.getElementById('stats-row').style.display = (isGeneral || isKraft || isJoggen) ? 'none' : '';
+    document.getElementById('stats-row').style.display = (isGeneral || isKraft || isJoggen || isTechnik) ? 'none' : '';
     document.getElementById('stats-row-ni').style.display = 'none';
     document.getElementById('stats-row-kraft').style.display = isKraft ? '' : 'none';
+    document.getElementById('stats-row-technik').style.display = isTechnik ? '' : 'none';
     document.getElementById('stats-row-joggen').style.display = isJoggen ? '' : 'none';
-    document.getElementById('pb-card').style.display = (isGeneral || isKraft || isJoggen) ? 'none' : '';
+    document.getElementById('pb-card').style.display = (isGeneral || isKraft || isJoggen || isTechnik) ? 'none' : '';
 
     destroyAll();
 
@@ -816,6 +847,13 @@ function updateAnalytics() {
         const kraftData = loadData().filter(d => d.type === 'Kraft').sort((a,b) => a.date.localeCompare(b.date));
         updateKraftStats(kraftData);
         buildKraftCharts(kraftData);
+        return;
+    }
+
+    if (isTechnik) {
+        const technikData = loadData().filter(d => d.type === 'Technik').sort((a,b) => a.date.localeCompare(b.date));
+        updateTechnikStats(technikData);
+        buildTechnikCharts(technikData);
         return;
     }
 
@@ -1270,6 +1308,80 @@ function drawKraftExTrend(data, c) {
         data:{labels, datasets:[{data:values, borderColor:c.main, backgroundColor:grad(ctx,c),
             borderWidth:2.5, pointBackgroundColor:c.main, pointRadius:3.5, fill:true, tension:0.35}]},
         options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:'Übungen',color:'#555870',font:{size:11}}}}}
+    });
+}
+
+// ================================================================
+//  TECHNIK ANALYTICS
+// ================================================================
+function updateTechnikStats(data) {
+    const $ = id => document.getElementById(id);
+    $('stat-tech-sessions').textContent = data.length;
+    if (!data.length) {
+        $('stat-tech-fav').textContent = '--';
+        $('stat-tech-weekly').textContent = '--';
+        $('stat-tech-last').textContent = '--';
+        return;
+    }
+    // Most frequent category
+    const freq = {};
+    data.forEach(d => {
+        const cat = d.technikCategory || 'Unbekannt';
+        freq[cat] = (freq[cat]||0) + 1;
+    });
+    const sorted = Object.entries(freq).sort((a,b) => b[1]-a[1]);
+    $('stat-tech-fav').textContent = sorted[0][0];
+    // Avg per week (season)
+    const season = getCurrentSeason();
+    const seasonData = data.filter(d => d.date >= season.start && d.date <= season.end);
+    if (seasonData.length) {
+        const seasonStart = new Date(season.start + 'T00:00:00');
+        const now = new Date();
+        const diffWeeks = Math.max(1, Math.ceil((now - seasonStart) / (7 * 86400000)));
+        $('stat-tech-weekly').textContent = (seasonData.length / diffWeeks).toFixed(1);
+    } else {
+        $('stat-tech-weekly').textContent = '--';
+    }
+    // Last session
+    const last = [...data].sort((a,b) => b.date.localeCompare(a.date))[0];
+    $('stat-tech-last').textContent = fmtDate(last.date);
+}
+
+function buildTechnikCharts(data) {
+    const container = getChartsContainer();
+    if (!data.length) return;
+    const cT = COLORS['Technik'];
+
+    // 1) Sessions per month
+    const c1 = makeChartCard('Technikeinheiten pro Monat','Balken','ch-tech-monthly',false);
+    container.appendChild(c1);
+    const monthly = {};
+    data.forEach(d => { const m = d.date.slice(0,7); monthly[m] = (monthly[m]||0) + 1; });
+    const mLabels = Object.keys(monthly).sort();
+    const mValues = mLabels.map(m => monthly[m]);
+    chartInstances['ch-tech-monthly'] = new Chart(document.getElementById('ch-tech-monthly'), {
+        type:'bar',
+        data:{ labels:mLabels.map(m => { const [y,mo]=m.split('-'); return MONTH_NAMES[parseInt(mo,10)-1]+' '+y.slice(2); }),
+               datasets:[{ data:mValues, backgroundColor:cT.bg, borderColor:cT.main, borderWidth:1, borderRadius:4 }] },
+        options:{...BASE, plugins:{...BASE.plugins,legend:{display:false}}, scales:{...BASE.scales, y:{...BASE.scales.y, beginAtZero:true, ticks:{...BASE.scales.y.ticks, stepSize:1}}}}
+    });
+
+    // 2) Category distribution (doughnut)
+    const c2 = makeChartCard('Verteilung nach Kategorie','Kreis','ch-tech-dist',false);
+    container.appendChild(c2);
+    const catFreq = {};
+    data.forEach(d => {
+        const label = d.technikCategory === 'Sonstiges' && d.technikCustom ? d.technikCustom : (d.technikCategory || 'Unbekannt');
+        catFreq[label] = (catFreq[label]||0) + 1;
+    });
+    const catLabels = Object.keys(catFreq);
+    const catValues = catLabels.map(k => catFreq[k]);
+    const catColors = ['#FB923C','#B4A8FF','#22D3C5','#FBBF24','#F87171','#34D399'];
+    chartInstances['ch-tech-dist'] = new Chart(document.getElementById('ch-tech-dist'), {
+        type:'doughnut',
+        data:{ labels:catLabels, datasets:[{ data:catValues, backgroundColor:catColors.slice(0,catLabels.length), borderWidth:0 }] },
+        options:{ responsive:true, maintainAspectRatio:false, animation:{duration:400},
+            plugins:{ legend:{ display:true, position:'bottom', labels:{ color:'#EAEDF3', font:{size:11,family:'Inter'}, padding:12 } } } }
     });
 }
 
