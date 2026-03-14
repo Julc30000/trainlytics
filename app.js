@@ -4,6 +4,7 @@
 
 const MONTH_NAMES = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
 const INTENSITIES = ['NI','I3','I2','I1'];
+const WEEKLY_TRACK_START = '2026-03-09';
 
 // ================================================================
 //  FIREBASE
@@ -931,13 +932,13 @@ function updateGeneralStats() {
     $('stat-gen-total').textContent = seasonData.length;
     $('stat-gen-total-all').textContent = all.length;
 
-    // Avg per week in season
-    if (seasonData.length) {
-        const weeks = new Set(seasonData.map(d => getWeekKey(d.date)));
-        const seasonStart = new Date(season.start + 'T00:00:00');
+    // Avg per week (from tracking start)
+    const weeklyData = seasonData.filter(d => d.date >= WEEKLY_TRACK_START);
+    if (weeklyData.length) {
+        const trackStart = new Date(WEEKLY_TRACK_START + 'T00:00:00');
         const now = new Date();
-        const diffWeeks = Math.max(1, Math.ceil((now - seasonStart) / (7 * 86400000)));
-        $('stat-gen-weekly').textContent = (seasonData.length / diffWeeks).toFixed(1);
+        const diffWeeks = Math.max(1, Math.ceil((now - trackStart) / (7 * 86400000)));
+        $('stat-gen-weekly').textContent = (weeklyData.length / diffWeeks).toFixed(1);
     } else {
         $('stat-gen-weekly').textContent = '--';
     }
@@ -1161,13 +1162,13 @@ function updateKraftStats(data) {
     const sorted = Object.entries(freq).sort((a,b) => b[1]-a[1]);
     $('stat-kraft-fav').textContent = sorted.length ? KRAFT_LABELS[sorted[0][0]] || sorted[0][0] : '--';
 
-    // Avg per week (season)
+    // Avg per week (from tracking start)
     const season = getCurrentSeason();
-    const seasonKraft = data.filter(d => d.date >= season.start && d.date <= season.end);
+    const seasonKraft = data.filter(d => d.date >= WEEKLY_TRACK_START && d.date >= season.start && d.date <= season.end);
     if (seasonKraft.length) {
-        const seasonStart = new Date(season.start + 'T00:00:00');
+        const trackStart = new Date(WEEKLY_TRACK_START + 'T00:00:00');
         const now = new Date();
-        const diffWeeks = Math.max(1, Math.ceil((now - seasonStart) / (7 * 86400000)));
+        const diffWeeks = Math.max(1, Math.ceil((now - trackStart) / (7 * 86400000)));
         $('stat-kraft-weekly').textContent = (seasonKraft.length / diffWeeks).toFixed(1);
     } else {
         $('stat-kraft-weekly').textContent = '--';
@@ -1333,13 +1334,13 @@ function updateTechnikStats(data) {
     });
     const sorted = Object.entries(freq).sort((a,b) => b[1]-a[1]);
     $('stat-tech-fav').textContent = sorted[0][0];
-    // Avg per week (season)
+    // Avg per week (from tracking start)
     const season = getCurrentSeason();
-    const seasonData = data.filter(d => d.date >= season.start && d.date <= season.end);
+    const seasonData = data.filter(d => d.date >= WEEKLY_TRACK_START && d.date >= season.start && d.date <= season.end);
     if (seasonData.length) {
-        const seasonStart = new Date(season.start + 'T00:00:00');
+        const trackStart = new Date(WEEKLY_TRACK_START + 'T00:00:00');
         const now = new Date();
-        const diffWeeks = Math.max(1, Math.ceil((now - seasonStart) / (7 * 86400000)));
+        const diffWeeks = Math.max(1, Math.ceil((now - trackStart) / (7 * 86400000)));
         $('stat-tech-weekly').textContent = (seasonData.length / diffWeeks).toFixed(1);
     } else {
         $('stat-tech-weekly').textContent = '--';
@@ -1420,13 +1421,13 @@ function updateJoggenStats(data) {
         else if (diff > 10) { tEl.textContent = '↑ Langsamer'; tEl.style.color = '#F87171'; }
         else { tEl.textContent = '→ Stabil'; tEl.style.color = '#B4A8FF'; }
     } else { tEl.textContent = '--'; tEl.style.color = ''; }
-    // Weekly avg
+    // Weekly avg (from tracking start)
     const season = getCurrentSeason();
-    const seasonData = data.filter(d => d.date >= season.start && d.date <= season.end);
+    const seasonData = data.filter(d => d.date >= WEEKLY_TRACK_START && d.date >= season.start && d.date <= season.end);
     if (seasonData.length) {
-        const seasonStart = new Date(season.start + 'T00:00:00');
+        const trackStart = new Date(WEEKLY_TRACK_START + 'T00:00:00');
         const now = new Date();
-        const diffWeeks = Math.max(1, Math.ceil((now - seasonStart) / (7 * 86400000)));
+        const diffWeeks = Math.max(1, Math.ceil((now - trackStart) / (7 * 86400000)));
         $('stat-jog-weekly').textContent = (seasonData.length / diffWeeks).toFixed(1) + '/Wo';
     } else { $('stat-jog-weekly').textContent = '--'; }
 }
