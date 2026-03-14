@@ -219,6 +219,7 @@ async function loginAs(name) {
     applyUserRestrictions(clean);
 
     await loadFromFirestore(clean);
+    await loadCompetitionsFromFirestore(clean);
     startListener(clean);
     renderList();
 }
@@ -260,9 +261,9 @@ function resetAppUI() {
     // Reset to Training tab
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    const firstTab = document.querySelector('.tab-btn[data-tab="tab-training"]');
+    const firstTab = document.querySelector('.tab-btn[data-tab="training"]');
     if (firstTab) firstTab.classList.add('active');
-    const firstContent = document.getElementById('tab-training');
+    const firstContent = document.getElementById('training');
     if (firstContent) firstContent.classList.add('active');
     // Clear stale training list
     trainingListEl.innerHTML = '';
@@ -272,6 +273,7 @@ document.getElementById('btn-logout').addEventListener('click', () => {
     if (_unsubscribe) { _unsubscribe(); _unsubscribe = null; }
     currentUser = null;
     _cachedEntries = [];
+    _competitions = [];
     resetAppUI();
     loginScreen.style.display = '';
     loginScreen.classList.remove('fade-in');
@@ -306,6 +308,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.add('active');
         document.getElementById(btn.dataset.tab).classList.add('active');
         if (btn.dataset.tab === 'analytics') updateAnalytics();
+        if (btn.dataset.tab === 'kalender') renderCalendar();
     });
 });
 
@@ -2078,3 +2081,183 @@ function renderCoachUserStats(userName, entries) {
 
 // ---- Init ----
 renderList();
+
+// ================================================================
+//  KALENDER / WETTKÄMPFE
+// ================================================================
+let _competitions = [];
+
+function competitionsKey() { return 'trainlytics_wk_' + (currentUser || '').toLowerCase().trim(); }
+
+function loadCompetitions() {
+    try { _competitions = JSON.parse(localStorage.getItem(competitionsKey())) || []; }
+    catch { _competitions = []; }
+    return _competitions;
+}
+
+function saveCompetitions(list) {
+    _competitions = list;
+    if (!currentUser) return;
+    localStorage.setItem(competitionsKey(), JSON.stringify(list));
+    db.collection('users').doc(currentUser.toLowerCase().trim())
+      .update({ competitions: list }).catch(() => {
+        db.collection('users').doc(currentUser.toLowerCase().trim())
+          .set({ competitions: list }, { merge: true }).catch(() => {});
+      });
+}
+
+async function loadCompetitionsFromFirestore(user) {
+    try {
+        const doc = await db.collection('users').doc(user.toLowerCase().trim()).get();
+        if (doc.exists && doc.data().competitions) {
+            _competitions = doc.data().competitions;
+            localStorage.setItem(competitionsKey(), JSON.stringify(_competitions));
+        } else {
+            loadCompetitions();
+        }
+    } catch { loadCompetitions(); }
+}
+
+// ---- Competition Modal ----
+const wkModal = document.getElementById('wk-modal');
+const wkForm = document.getElementById('wk-form');
+
+document.getElementById('btn-add-wk').addEventListener('click', () => {
+    wkForm.reset();
+    wkModal.classList.add('show');
+});
+document.getElementById('wk-cancel').addEventListener('click', () => { wkModal.classList.remove('show'); });
+wkModal.addEventListener('click', e => { if (e.target === wkModal) wkModal.classList.remove('show'); });
+
+wkForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const name = document.getElementById('wk-name').value.trim();
+    const date = document.getElementById('wk-date').value;
+    const time = document.getElementById('wk-time').value;
+    const discs = [];
+    wkForm.querySelectorAll('.wk-disciplines input:checked').forEach(cb => discs.push(cb.value));
+
+    if (!name || !date || !time) { showToast('Bitte alle Felder ausfüllen'); return; }
+    if (!discs.length) { showToast('Bitte mindestens eine Disziplin wählen'); return; }
+
+    const list = loadCompetitions();
+    list.push({ id: generateId(), name, date, time, disciplines: discs });
+    list.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+    saveCompetitions(list);
+    wkModal.classList.remove('show');
+    showToast('Wettkampf gespeichert ✓');
+    renderCalendar();
+});
+
+// ---- Delete Competition ----
+let wkDelTarget = null;
+function deleteCompetition(id) {
+    const list = loadCompetitions().filter(w => w.id !== id);
+    saveCompetitions(list);
+    renderCalendar();
+    showToast('Wettkampf gelöscht');
+}
+
+// ---- Calendar Rendering ----
+function renderCalendar() {
+    const season = getCurrentSeason();
+    document.getElementById('cal-season-label').textContent = 'Saison ' + season.label;
+
+    const trainings = loadData();
+    const competitions = loadCompetitions();
+    const today = new Date().toISOString().split('T')[0];
+
+    // Build sets for quick lookup
+    const trainingDays = new Set(trainings.map(t => t.date));
+    const wkDays = {};
+    competitions.forEach(w => {
+        if (!wkDays[w.date]) wkDays[w.date] = [];
+        wkDays[w.date].push(w);
+    });
+
+    // Countdown to next competition
+    const upcoming = competitions.filter(w => w.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+    const countdownEl = document.getElementById('wk-countdown');
+    if (upcoming.length) {
+        const next = upcoming[0];
+        const daysLeft = Math.ceil((new Date(next.date + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000);
+        const daysText = daysLeft === 0 ? 'Heute!' : daysLeft === 1 ? 'Morgen!' : 'Noch ' + daysLeft + ' Tage';
+        countdownEl.innerHTML = `
+            <div class="countdown-name">${escapeHtml(next.name)}</div>
+            <div class="countdown-days">${daysText}</div>
+            <div class="countdown-date">${escapeHtml(fmtDate(next.date))} · ${escapeHtml(next.time)} Uhr</div>
+            <div class="countdown-discs">${next.disciplines.map(d => '<span class="wk-disc-tag">' + escapeHtml(d) + '</span>').join('')}</div>`;
+    } else {
+        countdownEl.innerHTML = '<span class="countdown-none">Kein Wettkampf geplant</span>';
+    }
+
+    // Build month grid (Sep to Aug)
+    const calGrid = document.getElementById('cal-grid');
+    calGrid.innerHTML = '';
+    const startYear = parseInt(season.label.split('/')[0], 10);
+    const months = [];
+    for (let m = 8; m < 12; m++) months.push({ year: startYear, month: m });
+    for (let m = 0; m < 8; m++) months.push({ year: startYear + 1, month: m });
+
+    const dayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+    months.forEach(({ year, month }) => {
+        const monthEl = document.createElement('div');
+        monthEl.className = 'cal-month';
+        const mLabel = MONTH_NAMES[month] + ' ' + year;
+        let html = '<div class="cal-month-label">' + mLabel + '</div>';
+        html += '<div class="cal-days-header">' + dayNames.map(d => '<span>' + d + '</span>').join('') + '</div>';
+        html += '<div class="cal-days">';
+
+        const firstDay = new Date(year, month, 1);
+        let startDow = firstDay.getDay(); // 0=Sun
+        startDow = startDow === 0 ? 6 : startDow - 1; // convert to Mon=0
+
+        // Empty cells before first day
+        for (let i = 0; i < startDow; i++) html += '<span class="cal-day empty"></span>';
+
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+            const isToday = dateStr === today;
+            const hasTrain = trainingDays.has(dateStr);
+            const hasWk = wkDays[dateStr];
+            let cls = 'cal-day';
+            if (isToday) cls += ' today';
+            if (hasTrain) cls += ' trained';
+            if (hasWk) cls += ' wk';
+            const tooltip = [];
+            if (hasTrain) tooltip.push('🏃 Training');
+            if (hasWk) tooltip.push('🏆 ' + hasWk.map(w => w.name).join(', '));
+            html += '<span class="' + cls + '"' + (tooltip.length ? ' title="' + escapeHtml(tooltip.join(' | ')) + '"' : '') + '>' + d + '</span>';
+        }
+        html += '</div>';
+        monthEl.innerHTML = html;
+        calGrid.appendChild(monthEl);
+    });
+
+    // Competition list
+    const wkListEl = document.getElementById('wk-list');
+    if (!competitions.length) {
+        wkListEl.innerHTML = '<div class="empty-state"><p>Noch keine Wettkämpfe eingetragen.</p></div>';
+    } else {
+        wkListEl.innerHTML = competitions.sort((a, b) => a.date.localeCompare(b.date)).map(w => {
+            const isPast = w.date < today;
+            return `<div class="wk-entry ${isPast ? 'wk-past' : ''}">
+                <div class="wk-entry-header">
+                    <div>
+                        <div class="wk-entry-name">${escapeHtml(w.name)}</div>
+                        <div class="wk-entry-date">${escapeHtml(fmtDate(w.date))} · ${escapeHtml(w.time)} Uhr</div>
+                    </div>
+                    <button class="btn-icon btn-del wk-del-btn" data-wkid="${escapeHtml(w.id)}" title="Löschen">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                    </button>
+                </div>
+                <div class="wk-entry-discs">${w.disciplines.map(d => '<span class="wk-disc-tag">' + escapeHtml(d) + '</span>').join('')}</div>
+            </div>`;
+        }).join('');
+        wkListEl.querySelectorAll('.wk-del-btn').forEach(b => {
+            b.addEventListener('click', () => deleteCompetition(b.dataset.wkid));
+        });
+    }
+}

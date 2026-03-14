@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20260314b">
+    <link rel="stylesheet" href="styles.css?v=20260314c">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -171,6 +171,10 @@
             <button class="tab-btn" data-tab="analytics">
                 <svg class="tab-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                 <span>Analytics</span>
+            </button>
+            <button class="tab-btn" data-tab="kalender">
+                <svg class="tab-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <span>Kalender</span>
             </button>
         </nav>
 
@@ -579,6 +583,46 @@
                 <div id="pb-table-container"></div>
             </div>
         </section>
+
+        <!-- ============ KALENDER TAB ============ -->
+        <section id="kalender" class="tab-content">
+            <!-- Countdown -->
+            <div class="card glass-card countdown-card">
+                <div class="card-header"><h2>Nächster Wettkampf</h2></div>
+                <div id="wk-countdown" class="wk-countdown">
+                    <span class="countdown-none">Kein Wettkampf geplant</span>
+                </div>
+            </div>
+
+            <!-- Add competition button -->
+            <button class="btn-primary btn-add-wk" id="btn-add-wk">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Wettkampf eintragen
+            </button>
+
+            <!-- Season month grid -->
+            <div class="card glass-card">
+                <div class="card-header">
+                    <h2 id="cal-season-label">Saison</h2>
+                </div>
+                <div id="cal-grid" class="cal-grid"></div>
+            </div>
+
+            <!-- Legend -->
+            <div class="cal-legend">
+                <span class="cal-legend-item"><span class="cal-dot cal-dot-training"></span> Training</span>
+                <span class="cal-legend-item"><span class="cal-dot cal-dot-wk"></span> Wettkampf</span>
+                <span class="cal-legend-item"><span class="cal-dot cal-dot-today"></span> Heute</span>
+            </div>
+
+            <!-- Competition list -->
+            <div class="card glass-card">
+                <div class="card-header"><h2>Wettkämpfe</h2></div>
+                <div id="wk-list" class="wk-list">
+                    <div class="empty-state"><p>Noch keine Wettkämpfe eingetragen.</p></div>
+                </div>
+            </div>
+        </section>
     </div>
 
     <!-- Toast -->
@@ -599,6 +643,44 @@
         </div>
     </div>
 
-    <script src="app.js?v=20260314b"></script>
+    <!-- Competition Modal -->
+    <div id="wk-modal" class="modal-overlay">
+        <div class="modal modal-wk">
+            <h3>Wettkampf eintragen</h3>
+            <form id="wk-form" novalidate>
+                <div class="form-group">
+                    <label for="wk-name">Name des Wettkampfes</label>
+                    <input type="text" id="wk-name" placeholder="z.B. Hallenstadtmeisterschaft" required maxlength="80">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="wk-date">Datum</label>
+                        <input type="date" id="wk-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="wk-time">Uhrzeit</label>
+                        <input type="time" id="wk-time" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Disziplinen</label>
+                    <div class="wk-disciplines">
+                        <label class="wk-disc-check"><input type="checkbox" value="60m"> 60m</label>
+                        <label class="wk-disc-check"><input type="checkbox" value="100m"> 100m</label>
+                        <label class="wk-disc-check"><input type="checkbox" value="200m"> 200m</label>
+                        <label class="wk-disc-check"><input type="checkbox" value="400m"> 400m</label>
+                        <label class="wk-disc-check"><input type="checkbox" value="Weitsprung"> Weitsprung</label>
+                        <label class="wk-disc-check"><input type="checkbox" value="Dreisprung"> Dreisprung</label>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-ghost" id="wk-cancel">Abbrechen</button>
+                    <button type="submit" class="btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js?v=20260314c"></script>
 </body>
 </html>
