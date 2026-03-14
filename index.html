@@ -13,9 +13,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=build015">
+    <link rel="stylesheet" href="styles.css?v=build016">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 </head>
@@ -912,14 +912,22 @@
         </div>
     </div>
 
-    <!-- Custom Types Modal -->
+    <!-- Settings Modal -->
     <div id="custom-types-modal" class="modal-overlay">
         <div class="modal modal-wk" style="max-width:420px">
-            <h3>⚙️ Einstellungen</h3>
+            <div class="settings-header">
+                <h3>⚙️ Einstellungen</h3>
+                <button type="button" class="settings-close" id="ct-modal-close">✕</button>
+            </div>
 
-            <!-- Wochenbericht als PDF -->
-            <div class="settings-section">
-                <h4>📄 Wochenbericht als PDF</h4>
+            <!-- Tab Bar -->
+            <div class="settings-tabs">
+                <button type="button" class="settings-tab active" data-tab="tab-report">📄 Bericht</button>
+                <button type="button" class="settings-tab" data-tab="tab-types">🏷️ Trainingsarten</button>
+            </div>
+
+            <!-- Tab: Bericht -->
+            <div class="settings-tab-content active" id="tab-report">
                 <p class="settings-hint">Lade eine Zusammenfassung deiner Trainingswoche als PDF-Dashboard herunter.</p>
                 <div class="form-group">
                     <label for="report-week">Woche</label>
@@ -928,11 +936,9 @@
                 <button type="button" class="btn-primary" id="btn-send-report" style="width:100%">📥 PDF herunterladen</button>
             </div>
 
-            <div class="settings-divider"></div>
-
-            <!-- Eigene Trainingsarten -->
-            <h4 style="margin-bottom:10px">🏷️ Eigene Trainingsarten</h4>
-            <div id="custom-types-list" class="custom-types-list"></div>
+            <!-- Tab: Trainingsarten -->
+            <div class="settings-tab-content" id="tab-types">
+                <div id="custom-types-list" class="custom-types-list"></div>
             <div class="custom-type-form" id="custom-type-form">
                 <h4 id="ct-form-title">Neue Trainingsart</h4>
                 <div class="form-group">
@@ -972,12 +978,11 @@
                     <button type="button" class="btn-primary" id="ct-save">Hinzufügen</button>
                 </div>
             </div>
-            <div class="modal-actions" style="margin-top:16px">
-                <button type="button" class="btn-ghost" id="ct-modal-close">Schließen</button>
-            </div>
+            </div><!-- /tab-types -->
+
         </div>
     </div>
 
-    <script src="app.js?v=build015"></script>
+    <script src="app.js?v=build016"></script>
 </body>
 </html>

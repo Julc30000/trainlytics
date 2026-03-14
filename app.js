@@ -2445,7 +2445,22 @@ document.getElementById('btn-settings').addEventListener('click', () => {
     const oneJan = new Date(y, 0, 1);
     const wNum = Math.ceil(((now - oneJan) / 86400000 + oneJan.getDay() + 1) / 7);
     document.getElementById('report-week').value = y + '-W' + String(wNum).padStart(2, '0');
+    // Default to first tab
+    document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.settings-tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelector('.settings-tab[data-tab="tab-report"]').classList.add('active');
+    document.getElementById('tab-report').classList.add('active');
     ctModal.classList.add('show');
+});
+
+// Tab switching
+document.querySelectorAll('.settings-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.settings-tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab).classList.add('active');
+    });
 });
 
 // ---- Weekly Report PDF ----
