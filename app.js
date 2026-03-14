@@ -2448,23 +2448,9 @@ document.getElementById('btn-settings').addEventListener('click', () => {
     ctModal.classList.add('show');
 });
 
-// ---- Weekly Report Email ----
-document.getElementById('btn-send-report').addEventListener('click', () => {
-    const email = document.getElementById('report-email').value.trim();
-    if (!email) { showToast('Bitte E-Mail-Adresse eingeben'); return; }
-    const weekVal = document.getElementById('report-week').value;
-    if (!weekVal) { showToast('Bitte Woche auswählen'); return; }
-    const report = generateWeeklyReport(weekVal);
-    const subject = encodeURIComponent('TrainLytics Wochenbericht – ' + weekVal);
-    const body = encodeURIComponent(report);
-    window.open('mailto:' + encodeURIComponent(email) + '?subject=' + subject + '&body=' + body, '_self');
-    showToast('E-Mail-Entwurf wird geöffnet…');
-});
-
-function generateWeeklyReport(weekVal) {
-    // Parse week value like "2026-W11"
+// ---- Weekly Report PDF ----
+function parseWeekRange(weekVal) {
     const [wy, ww] = weekVal.split('-W').map(Number);
-    // Get Monday of that week (ISO week)
     const jan4 = new Date(wy, 0, 4);
     const dayOfWeek = jan4.getDay() || 7;
     const monday = new Date(jan4);
@@ -2472,89 +2458,354 @@ function generateWeeklyReport(weekVal) {
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
     const fmt = d => d.toISOString().split('T')[0];
-    const startStr = fmt(monday);
-    const endStr = fmt(sunday);
+    return { start: fmt(monday), end: fmt(sunday), monday, sunday };
+}
 
+function typeEmoji(type) {
+    const ct = getCustomType(type);
+    if (ct) return ct.emoji || '';
+    return {'Sprint (50m)':'','Tempolauf (120m)':'','Tempolauf (150m)':'','Kraft':'','Technik':'','Joggen (5km)':''}[type] || '';
+}
+
+document.getElementById('btn-send-report').addEventListener('click', () => {
+    const weekVal = document.getElementById('report-week').value;
+    if (!weekVal) { showToast('Bitte Woche auswählen'); return; }
+    generateWeeklyPDF(weekVal);
+});
+
+function generateWeeklyPDF(weekVal) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const W = 210, H = 297;
+    const mg = 14; // margin
+    const cw = W - 2 * mg; // content width
+    let y = 0;
+
+    // Colors
+    const bg = [8, 9, 14];
+    const cardBg = [17, 19, 24];
+    const border = [40, 42, 50];
+    const textCol = [234, 237, 243];
+    const mutedCol = [139, 143, 167];
+    const primary = [180, 168, 255];
+    const accent = [34, 211, 197];
+
+    // Background
+    doc.setFillColor(...bg);
+    doc.rect(0, 0, W, H, 'F');
+
+    // Parse week
+    const range = parseWeekRange(weekVal);
     const all = loadData();
-    const week = all.filter(e => e.date >= startStr && e.date <= endStr);
+    const week = all.filter(e => e.date >= range.start && e.date <= range.end);
 
-    let r = '=== TrainLytics Wochenbericht ===\n';
-    r += 'Woche: ' + weekVal + ' (' + fmtDate(startStr) + ' – ' + fmtDate(endStr) + ')\n';
-    r += 'Athlet: ' + (currentUser || '-') + '\n';
-    r += '────────────────────────\n\n';
+    // ---- Header ----
+    y = 18;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(20);
+    doc.setTextColor(...primary);
+    doc.text('TrainLytics', mg, y);
+    doc.setFontSize(10);
+    doc.setTextColor(...mutedCol);
+    doc.text('Wochenbericht', mg + 55, y);
+
+    // User + Week badge
+    y += 3;
+    doc.setFontSize(9);
+    doc.setTextColor(...mutedCol);
+    const headerRight = (currentUser ? currentUser.charAt(0).toUpperCase() + currentUser.slice(1) : '') + '  |  ' + weekVal;
+    doc.text(headerRight, W - mg, y, { align: 'right' });
+
+    // Divider
+    y += 4;
+    doc.setDrawColor(...border);
+    doc.setLineWidth(0.3);
+    doc.line(mg, y, W - mg, y);
+
+    // ---- Week Range ----
+    y += 8;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(...textCol);
+    doc.text(fmtDate(range.start) + '  –  ' + fmtDate(range.end), mg, y);
 
     if (!week.length) {
-        r += 'Keine Trainingseinheiten in dieser Woche.\n';
-        return r;
+        y += 14;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        doc.setTextColor(...mutedCol);
+        doc.text('Keine Trainingseinheiten in dieser Woche.', mg, y);
+        doc.save('TrainLytics_' + weekVal + '.pdf');
+        showToast('PDF heruntergeladen');
+        return;
     }
 
-    r += '📊 Übersicht\n';
-    r += 'Einheiten gesamt: ' + week.length + '\n';
-
-    // Group by type
+    // ---- Overview Cards ----
+    y += 6;
     const byType = {};
     week.forEach(e => { (byType[e.type] = byType[e.type] || []).push(e); });
-    r += 'Trainingsarten: ' + Object.keys(byType).join(', ') + '\n\n';
+    const typeCount = Object.keys(byType).length;
 
-    // Per-type details
-    Object.keys(byType).forEach(type => {
-        const entries = byType[type];
-        const ct = getCustomType(type);
-        const emoji = ct ? (ct.emoji || '📌') : ({'Sprint (50m)':'⚡','Tempolauf (120m)':'🏃','Tempolauf (150m)':'🏃','Kraft':'💪','Technik':'🎯','Joggen (5km)':'🏃‍♀️'}[type] || '📌');
-        r += emoji + ' ' + type + ' (' + entries.length + 'x)\n';
+    // All times across all timed types
+    const allTimedEntries = week.filter(e => e.times && e.times.length);
+    const allTimes = allTimedEntries.flatMap(e => e.times).filter(t => t > 0);
+    const totalRuns = allTimes.length;
+    const bestTime = totalRuns ? Math.min(...allTimes).toFixed(2) + 's' : '--';
 
-        if (type.startsWith('Sprint') || type.startsWith('Tempolauf') || (ct && ct.trackTimes)) {
-            const allTimes = entries.flatMap(e => e.times || []).filter(t => t > 0);
-            if (allTimes.length) {
-                r += '  Beste Zeit: ' + Math.min(...allTimes).toFixed(2) + 's\n';
-                r += '  Ø Zeit: ' + (allTimes.reduce((a,b) => a+b, 0) / allTimes.length).toFixed(2) + 's\n';
-                r += '  Läufe gesamt: ' + allTimes.length + '\n';
-            }
+    // Days trained
+    const daysSet = new Set(week.map(e => e.date));
+
+    const cards = [
+        { label: 'Einheiten', value: String(week.length), color: primary },
+        { label: 'Trainingsarten', value: String(typeCount), color: accent },
+        { label: 'Trainingstage', value: String(daysSet.size) + '/7', color: [251, 191, 36] },
+        { label: 'Beste Zeit', value: bestTime, color: [52, 211, 153] },
+    ];
+
+    const cardW = (cw - 9) / 4;
+    const cardH = 22;
+    cards.forEach((c, i) => {
+        const cx = mg + i * (cardW + 3);
+        doc.setFillColor(...cardBg);
+        doc.roundedRect(cx, y, cardW, cardH, 3, 3, 'F');
+        // Top accent line
+        doc.setFillColor(...c.color);
+        doc.rect(cx + 4, y + 2, 12, 1.5, 'F');
+        // Value
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(...c.color);
+        doc.text(c.value, cx + cardW / 2, y + 12, { align: 'center' });
+        // Label
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(...mutedCol);
+        doc.text(c.label, cx + cardW / 2, y + 18, { align: 'center' });
+    });
+
+    y += cardH + 8;
+
+    // ---- Type Breakdown ----
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(...textCol);
+    doc.text('Trainingsarten', mg, y);
+    y += 5;
+
+    // Type distribution bar
+    const barH = 6;
+    const barY = y;
+    let barX = mg;
+    const typeKeys = Object.keys(byType);
+    typeKeys.forEach(type => {
+        const frac = byType[type].length / week.length;
+        const segW = cw * frac;
+        const tc = getTypeColor(type);
+        const hex = tc.main;
+        const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+        doc.setFillColor(r, g, b);
+        if (barX === mg) {
+            doc.roundedRect(barX, barY, segW, barH, 2, 2, 'F');
+        } else if (barX + segW >= W - mg - 0.5) {
+            doc.roundedRect(barX, barY, segW, barH, 2, 2, 'F');
+        } else {
+            doc.rect(barX, barY, segW, barH, 'F');
+        }
+        barX += segW;
+    });
+    y += barH + 4;
+
+    // Type legend + details
+    typeKeys.forEach(type => {
+        if (y > H - 40) {
+            doc.addPage();
+            doc.setFillColor(...bg);
+            doc.rect(0, 0, W, H, 'F');
+            y = 18;
         }
 
+        const entries = byType[type];
+        const tc = getTypeColor(type);
+        const hex = tc.main;
+        const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+
+        // Card background
+        const cardStartY = y;
+        const detailLines = [];
+
+        // Collect detail lines first to know card height
+        if (type.startsWith('Sprint') || type.startsWith('Tempolauf') || (getCustomType(type) && getCustomType(type).trackTimes)) {
+            const times = entries.flatMap(e => e.times || []).filter(t => t > 0);
+            if (times.length) {
+                detailLines.push('Beste: ' + Math.min(...times).toFixed(2) + 's   |   Ø ' + (times.reduce((a,b)=>a+b,0)/times.length).toFixed(2) + 's   |   ' + times.length + ' Läufe');
+            }
+        }
         if (type === 'Kraft') {
             const exSet = new Set();
             entries.forEach(e => { if (e.exercises) Object.keys(e.exercises).forEach(k => exSet.add(k)); });
-            if (exSet.size) r += '  Übungen: ' + [...exSet].join(', ') + '\n';
+            if (exSet.size) detailLines.push('Übungen: ' + [...exSet].join(', '));
         }
-
         if (type === 'Joggen (5km)') {
             const jogTimes = entries.map(e => e.joggenTimeSec).filter(t => t > 0);
             if (jogTimes.length) {
                 const best = Math.min(...jogTimes);
-                r += '  Beste Laufzeit: ' + Math.floor(best/60) + ':' + String(best%60).padStart(2,'0') + ' min\n';
+                detailLines.push('Beste: ' + Math.floor(best/60) + ':' + String(best%60).padStart(2,'0') + ' min');
             }
         }
-
         if (type === 'Technik') {
             const cats = entries.map(e => e.technikCategory).filter(Boolean);
-            if (cats.length) r += '  Kategorien: ' + [...new Set(cats)].join(', ') + '\n';
+            if (cats.length) detailLines.push('Kategorien: ' + [...new Set(cats)].join(', '));
         }
-
-        if (ct && ct.subcategories && ct.subcategories.length) {
-            const cats = entries.map(e => e.customCategory).filter(Boolean);
-            if (cats.length) r += '  Kategorien: ' + [...new Set(cats)].join(', ') + '\n';
-        }
-
-        // Sprint categories
         if (type === 'Sprint (50m)') {
             const cats = entries.map(e => e.sprintCategory).filter(Boolean);
-            if (cats.length) r += '  Kategorien: ' + [...new Set(cats)].join(', ') + '\n';
+            if (cats.length) detailLines.push('Kategorien: ' + [...new Set(cats)].join(', '));
+        }
+        const ct = getCustomType(type);
+        if (ct && ct.subcategories && ct.subcategories.length) {
+            const cats = entries.map(e => e.customCategory).filter(Boolean);
+            if (cats.length) detailLines.push('Kategorien: ' + [...new Set(cats)].join(', '));
         }
 
-        r += '\n';
+        const rowH = 8 + detailLines.length * 5;
+        doc.setFillColor(...cardBg);
+        doc.roundedRect(mg, y, cw, rowH, 2, 2, 'F');
+
+        // Color dot
+        doc.setFillColor(r, g, b);
+        doc.circle(mg + 6, y + 4, 2, 'F');
+
+        // Type name
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(r, g, b);
+        doc.text(type, mg + 11, y + 5.5);
+
+        // Count badge
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...mutedCol);
+        doc.text(entries.length + 'x', W - mg - 4, y + 5.5, { align: 'right' });
+
+        // Detail lines
+        detailLines.forEach((line, li) => {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.5);
+            doc.setTextColor(...mutedCol);
+            doc.text(line, mg + 11, y + 10 + li * 5);
+        });
+
+        y += rowH + 3;
     });
 
-    // Notes
-    const notes = week.filter(e => e.notes && e.notes.trim()).map(e => '- ' + fmtDate(e.date) + ': ' + e.notes.trim());
-    if (notes.length) {
-        r += '📝 Notizen\n';
-        r += notes.join('\n') + '\n\n';
+    // ---- Individual Sessions ----
+    y += 3;
+    if (y > H - 30) {
+        doc.addPage();
+        doc.setFillColor(...bg);
+        doc.rect(0, 0, W, H, 'F');
+        y = 18;
     }
 
-    r += '────────────────────────\n';
-    r += 'Erstellt mit TrainLytics – trainlytics.de';
-    return r;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(...textCol);
+    doc.text('Einzelne Einheiten', mg, y);
+    y += 5;
+
+    const sorted = [...week].sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''));
+    sorted.forEach(e => {
+        if (y > H - 18) {
+            doc.addPage();
+            doc.setFillColor(...bg);
+            doc.rect(0, 0, W, H, 'F');
+            y = 18;
+        }
+        const tc = getTypeColor(e.type);
+        const hex = tc.main;
+        const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+
+        doc.setFillColor(...cardBg);
+        doc.roundedRect(mg, y, cw, 7, 1.5, 1.5, 'F');
+
+        // Date
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(...mutedCol);
+        doc.text(fmtDate(e.date), mg + 3, y + 4.8);
+
+        // Type
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(r, g, b);
+        doc.text(e.type, mg + 48, y + 4.8);
+
+        // Times summary or detail
+        let detail = '';
+        if (e.times && e.times.length) detail = e.times.map(t => t.toFixed(2) + 's').join(', ');
+        else if (e.joggenTimeSec) detail = Math.floor(e.joggenTimeSec/60) + ':' + String(e.joggenTimeSec%60).padStart(2,'0') + ' min';
+        else if (e.count) detail = e.count + ' Läufe';
+        if (e.sprintCategory) detail = (e.sprintCategory + '  ' + detail).trim();
+        if (e.technikCategory) detail = (e.technikCategory + '  ' + detail).trim();
+        if (e.customCategory) detail = (e.customCategory + '  ' + detail).trim();
+
+        if (detail) {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.5);
+            doc.setTextColor(...mutedCol);
+            // Truncate if too long
+            if (detail.length > 70) detail = detail.substring(0, 67) + '...';
+            doc.text(detail, mg + 90, y + 4.8);
+        }
+
+        y += 8.5;
+    });
+
+    // ---- Notes section ----
+    const notes = week.filter(e => e.notes && e.notes.trim());
+    if (notes.length) {
+        y += 4;
+        if (y > H - 25) {
+            doc.addPage();
+            doc.setFillColor(...bg);
+            doc.rect(0, 0, W, H, 'F');
+            y = 18;
+        }
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(...textCol);
+        doc.text('Notizen', mg, y);
+        y += 5;
+
+        notes.forEach(e => {
+            if (y > H - 14) {
+                doc.addPage();
+                doc.setFillColor(...bg);
+                doc.rect(0, 0, W, H, 'F');
+                y = 18;
+            }
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.5);
+            doc.setTextColor(...mutedCol);
+            const line = fmtDate(e.date) + ': ' + e.notes.trim();
+            const split = doc.splitTextToSize(line, cw - 6);
+            doc.text(split, mg + 3, y + 3);
+            y += split.length * 3.5 + 2;
+        });
+    }
+
+    // ---- Footer ----
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= pageCount; p++) {
+        doc.setPage(p);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
+        doc.setTextColor(...mutedCol);
+        doc.text('TrainLytics – trainlytics.de', mg, H - 8);
+        doc.text('Seite ' + p + '/' + pageCount, W - mg, H - 8, { align: 'right' });
+    }
+
+    doc.save('TrainLytics_' + weekVal + '.pdf');
+    showToast('PDF heruntergeladen');
 }
 document.getElementById('ct-modal-close').addEventListener('click', () => { ctModal.classList.remove('show'); });
 ctModal.addEventListener('click', e => { if (e.target === ctModal) ctModal.classList.remove('show'); });
