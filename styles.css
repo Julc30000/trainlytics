@@ -865,3 +865,12 @@ textarea { resize:vertical; min-height:48px; }
 .plan-day-input { flex:1; padding:8px 12px; border-radius:8px; border:1px solid var(--border);
     background:var(--bg-input); color:var(--text); font-size:13px; }
 .plan-day-input::placeholder { color:var(--text-muted); opacity:0.5; }
+
+/* Coach tabs */
+.coach-tab-content { display:none; }
+.coach-tab-content.active { display:block; }
+
+/* Plan current info badge */
+.plan-current-info { margin-bottom:12px; }
+.plan-info-badge { display:inline-block; font-size:12px; font-weight:600; padding:5px 12px; border-radius:8px;
+    background:rgba(251,191,36,0.12); color:#FBBF24; }

@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20260314f">
+    <link rel="stylesheet" href="styles.css?v=20260314g">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -84,59 +84,88 @@
             </button>
         </header>
 
-        <!-- Ranking Section -->
-        <div class="card glass-card">
-            <div class="card-header"><h2>🏆 Ranking</h2><span class="card-badge">COACH</span></div>
-            <div id="coach-ranking"></div>
-        </div>
-
-        <!-- User Stats Section -->
-        <div class="card glass-card">
-            <div class="card-header"><h2>📊 Einzelübersicht</h2></div>
-            <div class="form-group">
-                <label for="coach-user-select">Athlet auswählen</label>
-                <select id="coach-user-select">
-                    <option value="">-- Bitte wählen --</option>
-                </select>
-            </div>
-        </div>
-
-        <!-- Coach Stats Container -->
-        <div id="coach-stats-container"></div>
-
-        <!-- Coach Charts Container -->
-        <div id="coach-charts-container"></div>
-
-        <!-- Coach Training Plan Assignment -->
-        <div class="card glass-card">
-            <div class="card-header"><h2>📋 Trainingsplan zuweisen</h2></div>
-            <div class="form-group">
-                <label for="plan-user-select">Athlet</label>
-                <select id="plan-user-select">
-                    <option value="">-- Bitte wählen --</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="plan-week">Woche ab</label>
-                <input type="date" id="plan-week">
-            </div>
-            <div id="plan-days" class="plan-days">
-                <div class="plan-day-row" data-day="Montag"><span class="plan-day-label">Mo</span><input type="text" class="plan-day-input" placeholder="z.B. Sprint 6×50m I2"></div>
-                <div class="plan-day-row" data-day="Dienstag"><span class="plan-day-label">Di</span><input type="text" class="plan-day-input" placeholder="z.B. Kraft"></div>
-                <div class="plan-day-row" data-day="Mittwoch"><span class="plan-day-label">Mi</span><input type="text" class="plan-day-input" placeholder="z.B. Regeneration"></div>
-                <div class="plan-day-row" data-day="Donnerstag"><span class="plan-day-label">Do</span><input type="text" class="plan-day-input" placeholder="z.B. Tempolauf 120m NI"></div>
-                <div class="plan-day-row" data-day="Freitag"><span class="plan-day-label">Fr</span><input type="text" class="plan-day-input" placeholder="z.B. Ruhetag"></div>
-                <div class="plan-day-row" data-day="Samstag"><span class="plan-day-label">Sa</span><input type="text" class="plan-day-input" placeholder="z.B. Wettkampf"></div>
-                <div class="plan-day-row" data-day="Sonntag"><span class="plan-day-label">So</span><input type="text" class="plan-day-input" placeholder="z.B. Frei"></div>
-            </div>
-            <div class="form-group">
-                <label for="plan-notes">Hinweise <span class="label-hint">(optional)</span></label>
-                <textarea id="plan-notes" rows="2" placeholder="Allgemeine Hinweise für die Woche…"></textarea>
-            </div>
-            <button class="btn-primary" id="btn-save-plan">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                Plan zuweisen
+        <!-- Coach Tabs -->
+        <div class="tab-bar">
+            <button class="tab-btn active" data-coachtab="coach-overview">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1"/></svg>
+                Übersicht
             </button>
+            <button class="tab-btn" data-coachtab="coach-plan">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                Trainingsplan
+            </button>
+            <button class="tab-btn" data-coachtab="coach-diary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                Schmerztagebuch
+            </button>
+        </div>
+
+        <!-- Tab: Übersicht -->
+        <div class="coach-tab-content active" id="coach-overview">
+            <div class="card glass-card">
+                <div class="card-header"><h2>🏆 Ranking</h2><span class="card-badge">COACH</span></div>
+                <div id="coach-ranking"></div>
+            </div>
+            <div class="card glass-card">
+                <div class="card-header"><h2>📊 Einzelübersicht</h2></div>
+                <div class="form-group">
+                    <label for="coach-user-select">Athlet auswählen</label>
+                    <select id="coach-user-select">
+                        <option value="">-- Bitte wählen --</option>
+                    </select>
+                </div>
+            </div>
+            <div id="coach-stats-container"></div>
+            <div id="coach-charts-container"></div>
+        </div>
+
+        <!-- Tab: Trainingsplan -->
+        <div class="coach-tab-content" id="coach-plan">
+            <div class="card glass-card">
+                <div class="card-header"><h2>📋 Trainingsplan zuweisen</h2></div>
+                <div class="form-group">
+                    <label for="plan-user-select">Athlet</label>
+                    <select id="plan-user-select">
+                        <option value="">-- Bitte wählen --</option>
+                    </select>
+                </div>
+                <div id="plan-current-info" class="plan-current-info" style="display:none"></div>
+                <div class="form-group">
+                    <label for="plan-week">Woche ab</label>
+                    <input type="date" id="plan-week">
+                </div>
+                <div id="plan-days" class="plan-days">
+                    <div class="plan-day-row" data-day="Montag"><span class="plan-day-label">Mo</span><input type="text" class="plan-day-input" placeholder="z.B. Sprint 6×50m I2"></div>
+                    <div class="plan-day-row" data-day="Dienstag"><span class="plan-day-label">Di</span><input type="text" class="plan-day-input" placeholder="z.B. Kraft"></div>
+                    <div class="plan-day-row" data-day="Mittwoch"><span class="plan-day-label">Mi</span><input type="text" class="plan-day-input" placeholder="z.B. Regeneration"></div>
+                    <div class="plan-day-row" data-day="Donnerstag"><span class="plan-day-label">Do</span><input type="text" class="plan-day-input" placeholder="z.B. Tempolauf 120m NI"></div>
+                    <div class="plan-day-row" data-day="Freitag"><span class="plan-day-label">Fr</span><input type="text" class="plan-day-input" placeholder="z.B. Ruhetag"></div>
+                    <div class="plan-day-row" data-day="Samstag"><span class="plan-day-label">Sa</span><input type="text" class="plan-day-input" placeholder="z.B. Wettkampf"></div>
+                    <div class="plan-day-row" data-day="Sonntag"><span class="plan-day-label">So</span><input type="text" class="plan-day-input" placeholder="z.B. Frei"></div>
+                </div>
+                <div class="form-group">
+                    <label for="plan-notes">Hinweise <span class="label-hint">(optional)</span></label>
+                    <textarea id="plan-notes" rows="2" placeholder="Allgemeine Hinweise für die Woche…"></textarea>
+                </div>
+                <button class="btn-primary" id="btn-save-plan">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Plan zuweisen
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab: Schmerztagebuch -->
+        <div class="coach-tab-content" id="coach-diary">
+            <div class="card glass-card">
+                <div class="card-header"><h2>🩹 Schmerztagebuch</h2></div>
+                <div class="form-group">
+                    <label for="coach-diary-user-select">Athlet auswählen</label>
+                    <select id="coach-diary-user-select">
+                        <option value="">-- Bitte wählen --</option>
+                    </select>
+                </div>
+            </div>
+            <div id="coach-diary-content"></div>
         </div>
     </div>
 
@@ -768,6 +797,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=20260314f"></script>
+    <script src="app.js?v=20260314g"></script>
 </body>
 </html>

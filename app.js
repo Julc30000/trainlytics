@@ -1811,6 +1811,7 @@ async function loadCoachDashboard() {
     renderCoachRanking(users, allData);
     populateCoachUserSelect(users);
     populatePlanUserSelect(users);
+    populateCoachDiarySelect(users);
 
     const coachUserSelect = document.getElementById('coach-user-select');
     coachUserSelect.addEventListener('change', () => {
@@ -2426,6 +2427,17 @@ function renderInjuryStats(list) {
 //  TRAININGSPLAN (COACH → ATHLETE)
 // ================================================================
 
+// Coach tab switching
+document.querySelectorAll('[data-coachtab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-coachtab]').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.coach-tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        const target = document.getElementById(btn.dataset.coachtab);
+        if (target) target.classList.add('active');
+    });
+});
+
 // Coach: Save plan for a user
 document.getElementById('btn-save-plan')?.addEventListener('click', async () => {
     const userSel = document.getElementById('plan-user-select');
@@ -2456,9 +2468,40 @@ document.getElementById('btn-save-plan')?.addEventListener('click', async () => 
         // Reset form
         document.querySelectorAll('#plan-days .plan-day-input').forEach(inp => { inp.value = ''; });
         document.getElementById('plan-notes').value = '';
+        document.getElementById('plan-current-info').style.display = 'none';
     } catch(e) {
         showToast('Fehler beim Speichern');
     }
+});
+
+// Coach: Load existing plan when selecting an athlete
+document.getElementById('plan-user-select')?.addEventListener('change', async () => {
+    const user = document.getElementById('plan-user-select').value;
+    const infoEl = document.getElementById('plan-current-info');
+    // Clear form
+    document.querySelectorAll('#plan-days .plan-day-input').forEach(inp => { inp.value = ''; });
+    document.getElementById('plan-week').value = '';
+    document.getElementById('plan-notes').value = '';
+    infoEl.style.display = 'none';
+
+    if (!user || user === '__alle__') return;
+
+    try {
+        const doc = await db.collection('users').doc(user.toLowerCase().trim()).get();
+        if (doc.exists && doc.data().trainingPlan) {
+            const plan = doc.data().trainingPlan;
+            // Fill form with existing plan
+            document.getElementById('plan-week').value = plan.weekStart || '';
+            document.getElementById('plan-notes').value = plan.notes || '';
+            document.querySelectorAll('#plan-days .plan-day-row').forEach(row => {
+                const day = row.dataset.day;
+                const input = row.querySelector('.plan-day-input');
+                input.value = plan.days[day] || '';
+            });
+            infoEl.innerHTML = '<span class="plan-info-badge">✏️ Bestehender Plan wird bearbeitet</span>';
+            infoEl.style.display = '';
+        }
+    } catch { /* ignore */ }
 });
 
 // Populate plan user select alongside coach user select
@@ -2472,6 +2515,98 @@ function populatePlanUserSelect(users) {
         users.map(u => `<option value="${escapeHtml(u)}">${escapeHtml(u.charAt(0).toUpperCase() + u.slice(1))}</option>`).join('');
 }
 
+// Populate coach diary user select
+function populateCoachDiarySelect(users) {
+    const sel = document.getElementById('coach-diary-user-select');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- Bitte wählen --</option>' +
+        users.map(u => `<option value="${escapeHtml(u)}">${escapeHtml(u.charAt(0).toUpperCase() + u.slice(1))}</option>`).join('');
+}
+
+// Coach: View athlete injury diary
+document.getElementById('coach-diary-user-select')?.addEventListener('change', async () => {
+    const user = document.getElementById('coach-diary-user-select').value;
+    const container = document.getElementById('coach-diary-content');
+    container.innerHTML = '';
+    if (!user) return;
+
+    try {
+        const doc = await db.collection('users').doc(user.toLowerCase().trim()).get();
+        const injuries = (doc.exists && doc.data().injuries) ? doc.data().injuries : [];
+
+        if (!injuries.length) {
+            container.innerHTML = '<div class="card glass-card"><div class="empty-state"><p>Keine Einträge vorhanden.</p></div></div>';
+            return;
+        }
+
+        // Sort newest first
+        injuries.sort((a, b) => b.date.localeCompare(a.date));
+
+        const name = user.charAt(0).toUpperCase() + user.slice(1);
+
+        // Stats
+        const freq = {};
+        injuries.forEach(inj => { freq[inj.bodypart] = (freq[inj.bodypart] || 0) + 1; });
+        const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
+        const avgPain = (injuries.reduce((s, i) => s + i.pain, 0) / injuries.length).toFixed(1);
+
+        container.innerHTML = `
+            <div class="card glass-card">
+                <div class="card-header"><h2>📊 Übersicht – ${escapeHtml(name)}</h2></div>
+                <div class="injury-stats-grid">
+                    <div class="injury-stat">
+                        <span class="injury-stat-val">${injuries.length}</span>
+                        <span class="injury-stat-label">Einträge</span>
+                    </div>
+                    <div class="injury-stat">
+                        <span class="injury-stat-val" style="color:${painColor(Math.round(avgPain))}">${avgPain}</span>
+                        <span class="injury-stat-label">Ø Schmerz</span>
+                    </div>
+                    <div class="injury-stat">
+                        <span class="injury-stat-val">${escapeHtml(sorted[0][0])}</span>
+                        <span class="injury-stat-label">Häufigste (${sorted[0][1]}×)</span>
+                    </div>
+                </div>
+                <div class="injury-freq-bars" style="margin-top:12px">
+                    ${sorted.map(([part, count]) => `
+                        <div class="injury-freq-row">
+                            <span class="injury-freq-label">${escapeHtml(part)}</span>
+                            <div class="injury-freq-bar-bg"><div class="injury-freq-bar-fill" style="width:${Math.round(count / sorted[0][1] * 100)}%"></div></div>
+                            <span class="injury-freq-count">${count}</span>
+                        </div>`).join('')}
+                </div>
+            </div>
+            <div class="card glass-card">
+                <div class="card-header"><h2>📋 Einträge</h2></div>
+                ${injuries.map(inj => `
+                    <div class="injury-entry">
+                        <div class="injury-entry-header">
+                            <div class="injury-entry-info">
+                                <span class="injury-bodypart">${escapeHtml(inj.bodypart)}</span>
+                                <span class="injury-side-tag">${escapeHtml(inj.side)}</span>
+                                <span class="injury-pain-badge" style="background:${painColor(inj.pain)}20;color:${painColor(inj.pain)}">${inj.pain}/10</span>
+                            </div>
+                        </div>
+                        <div class="injury-date">${escapeHtml(fmtDate(inj.date))}</div>
+                        ${inj.notes ? '<div class="injury-notes">' + escapeHtml(inj.notes) + '</div>' : ''}
+                        <div class="injury-pain-bar"><div class="injury-pain-fill" style="width:${inj.pain * 10}%;background:${painColor(inj.pain)}"></div></div>
+                    </div>`).join('')}
+            </div>`;
+    } catch {
+        container.innerHTML = '<div class="card glass-card"><div class="empty-state"><p>Fehler beim Laden.</p></div></div>';
+    }
+});
+
+// Plan expiry helper: end of week (Sunday) from weekStart
+function isPlanExpired(plan) {
+    if (!plan || !plan.weekStart) return true;
+    const ws = new Date(plan.weekStart);
+    const endOfWeek = new Date(ws);
+    endOfWeek.setDate(ws.getDate() + 6); // Saturday end of training week
+    endOfWeek.setHours(23, 59, 59, 999);
+    return new Date() > endOfWeek;
+}
+
 // Athlete: Load and display assigned plan
 async function loadAndShowPlan() {
     if (!currentUser) return;
@@ -2482,6 +2617,13 @@ async function loadAndShowPlan() {
         const doc = await db.collection('users').doc(currentUser.toLowerCase().trim()).get();
         if (doc.exists && doc.data().trainingPlan) {
             const plan = doc.data().trainingPlan;
+
+            // Check expiry — hide if the plan week has passed
+            if (isPlanExpired(plan)) {
+                planCard.style.display = 'none';
+                return;
+            }
+
             planCard.style.display = '';
             const dayOrder = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
             const dayShort = { Montag: 'Mo', Dienstag: 'Di', Mittwoch: 'Mi', Donnerstag: 'Do', Freitag: 'Fr', Samstag: 'Sa', Sonntag: 'So' };
