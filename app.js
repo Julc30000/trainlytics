@@ -591,6 +591,8 @@ form.addEventListener('submit', e => {
         const secVal = parseInt(document.getElementById('joggen-sec').value, 10) || 0;
         if (isNaN(minVal) || minVal < 0 || (minVal === 0 && secVal <= 0)) { showToast('Bitte gültige Laufzeit eingeben'); return; }
         joggenTimeSec = minVal * 60 + secVal;
+    } else if (isTechnik) {
+        // Technik has no times/count — just category + notes
     } else if (isCountMode) {
         count = parseInt(document.getElementById('training-count').value, 10);
         if (!count || count < 1) { showToast('Bitte Anzahl eingeben'); return; }
