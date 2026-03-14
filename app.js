@@ -92,9 +92,22 @@ function startListener(user) {
     _unsubscribe = db.collection('users').doc(user.toLowerCase().trim())
       .onSnapshot(doc => {
         if (doc.exists && !doc.metadata.hasPendingWrites) {
-            _cachedEntries = doc.data().entries || [];
+            const data = doc.data();
+            // Sync entries
+            _cachedEntries = data.entries || [];
             localStorage.setItem(storageKeyFor(user), JSON.stringify(_cachedEntries));
             renderList();
+            // Sync competitions
+            if (data.competitions) {
+                _competitions = data.competitions;
+                localStorage.setItem(competitionsKey(), JSON.stringify(_competitions));
+                if (document.querySelector('.tab-content#kalender.active')) renderCalendar();
+            }
+            // Sync injuries
+            if (data.injuries) {
+                _injuries = data.injuries;
+                localStorage.setItem(injuriesKey(), JSON.stringify(_injuries));
+            }
         }
     });
 }
@@ -2087,9 +2100,8 @@ function saveCompetitions(list) {
     if (!currentUser) return;
     localStorage.setItem(competitionsKey(), JSON.stringify(list));
     db.collection('users').doc(currentUser.toLowerCase().trim())
-      .update({ competitions: list }).catch(() => {
-        db.collection('users').doc(currentUser.toLowerCase().trim())
-          .set({ competitions: list }, { merge: true }).catch(() => {});
+      .set({ competitions: list }, { merge: true }).catch(e => {
+        console.error('Fehler beim Speichern der Wettkämpfe:', e);
       });
 }
 
