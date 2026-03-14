@@ -884,15 +884,24 @@ textarea { resize:vertical; min-height:48px; }
 .plan-info-badge { display:inline-block; font-size:12px; font-weight:600; padding:5px 12px; border-radius:8px;
     background:rgba(251,191,36,0.12); color:#FBBF24; }
 
-/* Plan week list (coach) */
-.plan-week-list { margin-bottom:14px; }
-.form-label-small { font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:6px; display:block; }
-.plan-week-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
-.plan-week-chip { padding:6px 14px; border-radius:8px; border:1px solid var(--border);
-    background:var(--bg-input); color:var(--text-secondary); font-size:12px; font-weight:600;
-    cursor:pointer; transition:all 0.15s; font-family:inherit; }
-.plan-week-chip:hover { border-color:rgba(255,255,255,0.15); color:var(--text); }
-.plan-week-chip.active { background:rgba(180,168,255,0.15); border-color:var(--accent); color:var(--accent); }
+/* Sent plans overview (coach) */
+.sent-plan-entry { border:1px solid var(--border); border-radius:10px; padding:12px 14px;
+    margin-bottom:10px; background:var(--bg-input); transition:all 0.15s; }
+.sent-plan-entry:last-child { margin-bottom:0; }
+.sent-plan-entry:hover { border-color:rgba(255,255,255,0.12); }
+.sent-plan-expired { opacity:0.5; }
+.sent-plan-header { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; }
+.sent-plan-week { font-size:13px; font-weight:700; color:var(--text); }
+.sent-plan-tag { font-size:10px; font-weight:700; padding:2px 8px; border-radius:6px; margin-left:6px; text-transform:uppercase; letter-spacing:0.3px; }
+.sent-plan-tag.active { background:rgba(52,211,153,0.12); color:#34D399; }
+.sent-plan-tag.expired { background:rgba(255,255,255,0.06); color:var(--text-muted); }
+.sent-plan-actions { display:flex; gap:4px; }
+.sent-plan-edit:hover { color:var(--accent) !important; border-color:rgba(180,168,255,0.3) !important; background:rgba(180,168,255,0.08) !important; }
+.sent-plan-days { display:flex; flex-direction:column; gap:3px; margin-bottom:6px; }
+.sent-plan-day { display:flex; align-items:baseline; gap:8px; font-size:12px; }
+.sent-plan-day-label { font-weight:800; color:var(--accent); min-width:20px; }
+.sent-plan-notes { font-size:11px; color:var(--text-muted); font-style:italic; padding-top:6px;
+    border-top:1px solid var(--border); margin-top:4px; }
 
 /* Plan week navigation (athlete) */
 .plan-week-nav { display:flex; align-items:center; justify-content:space-between; gap:8px;
