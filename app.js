@@ -136,15 +136,16 @@ if (!sessionStorage.getItem('trainlytics_splashed')) {
 }
 
 const MASTER_NAME = 'micky';
+const PW_USERS = ['micky', 'angelika'];
 const loginPwGroup = document.getElementById('login-pw-group');
 const loginPwInput = document.getElementById('login-pw');
 const coachApp = document.getElementById('coach-app');
 
-// Show password field when name is micky
+// Show password field when name requires it
 loginNameInput.addEventListener('input', () => {
     const val = loginNameInput.value.trim().toLowerCase();
-    loginPwGroup.style.display = val === MASTER_NAME ? '' : 'none';
-    if (val !== MASTER_NAME) loginPwInput.value = '';
+    loginPwGroup.style.display = PW_USERS.includes(val) ? '' : 'none';
+    if (!PW_USERS.includes(val)) loginPwInput.value = '';
 });
 
 function renderSavedUsers() {
@@ -152,7 +153,7 @@ function renderSavedUsers() {
     if (!users.length) { savedUsersEl.innerHTML = ''; return; }
     savedUsersEl.innerHTML = `
         <p class="saved-users-title">Schnellzugang</p>
-        ${users.filter(u => u !== MASTER_NAME).map(u => `<button type="button" class="user-chip" data-user="${escapeHtml(u)}">
+        ${users.filter(u => u !== MASTER_NAME && !PW_USERS.includes(u)).map(u => `<button type="button" class="user-chip" data-user="${escapeHtml(u)}">
             <span class="user-chip-icon">${escapeHtml(u.charAt(0).toUpperCase())}</span>
             ${escapeHtml(u.charAt(0).toUpperCase() + u.slice(1))}
         </button>`).join('')}`;
@@ -171,10 +172,8 @@ async function loginAs(name) {
         try {
             const doc = await db.collection('meta').doc('coach').get();
             if (doc.exists) {
-                // Verify password
                 if (doc.data().pw !== pw) { showToast('Falsches Passwort'); return; }
             } else {
-                // First login — store password
                 await db.collection('meta').doc('coach').set({ pw });
                 showToast('Passwort gesetzt ✓');
             }
@@ -189,11 +188,33 @@ async function loginAs(name) {
         return;
     }
 
+    // Password-protected user login (Angelika etc.)
+    if (PW_USERS.includes(clean.toLowerCase())) {
+        const pw = loginPwInput.value;
+        if (!pw) { showToast('Bitte Passwort eingeben'); return; }
+        const docKey = 'pw_' + clean.toLowerCase();
+        try {
+            const doc = await db.collection('meta').doc(docKey).get();
+            if (doc.exists) {
+                if (doc.data().pw !== pw) { showToast('Falsches Passwort'); return; }
+            } else {
+                await db.collection('meta').doc(docKey).set({ pw });
+                showToast('Passwort gesetzt ✓');
+            }
+        } catch(e) { showToast('Fehler beim Login'); return; }
+        loginPwInput.value = '';
+        loginPwGroup.style.display = 'none';
+    }
+
     currentUser = clean;
     addUser(clean);
     loginScreen.style.display = 'none';
     appEl.style.display = '';
     document.getElementById('user-greeting').textContent = 'Hallo, ' + clean.charAt(0).toUpperCase() + clean.slice(1) + '!';
+
+    // Restrict Angelika to Joggen only
+    applyUserRestrictions(clean);
+
     await loadFromFirestore(clean);
     startListener(clean);
     renderList();
@@ -254,6 +275,26 @@ function showToast(msg) {
 // ================================================================
 //  FORM LOGIC
 // ================================================================
+const ANGELIKA_NAME = 'angelika';
+const joggenContainer = document.getElementById('joggen-container');
+
+function applyUserRestrictions(userName) {
+    const sel = document.getElementById('training-type');
+    const hFilter = document.getElementById('history-filter');
+    const aType = document.getElementById('analytics-type');
+    if (userName.toLowerCase() === ANGELIKA_NAME) {
+        // Only Joggen for Angelika
+        sel.innerHTML = '<option value="">-- Bitte wählen --</option><option value="Joggen (5km)">Joggen (5km)</option>';
+        hFilter.innerHTML = '<option value="all">Alle</option><option value="Joggen (5km)">Joggen (5km)</option>';
+        aType.innerHTML = '<option value="Allgemein">📊 Allgemein</option><option value="Joggen (5km)">🏃‍♀️ Joggen (5km)</option>';
+    } else {
+        // Restore all options (excluding Joggen for non-Angelika)
+        sel.innerHTML = '<option value="">-- Bitte wählen --</option><option value="Sprint (50m)">Sprint (50m)</option><option value="Tempolauf (120m)">Tempolauf (120m)</option><option value="Tempolauf (150m)">Tempolauf (150m)</option><option value="Kraft">Kraft</option>';
+        hFilter.innerHTML = '<option value="all">Alle</option><option value="Sprint (50m)">Sprint (50m)</option><option value="Tempolauf (120m)">Tempolauf (120m)</option><option value="Tempolauf (150m)">Tempolauf (150m)</option><option value="Kraft">Kraft</option>';
+        aType.innerHTML = '<option value="Allgemein">📊 Allgemein</option><option value="Sprint (50m)">Sprint (50m)</option><option value="Tempolauf (120m)">Tempolauf (120m)</option><option value="Tempolauf (150m)">Tempolauf (150m)</option><option value="Kraft">💪 Kraft</option>';
+    }
+}
+
 const trainingType = document.getElementById('training-type');
 const intensityGroup = document.getElementById('intensity-group');
 const trainingIntensity = document.getElementById('training-intensity');
@@ -270,9 +311,11 @@ trainingType.addEventListener('change', () => {
     const val = trainingType.value;
     const isTempo = val.startsWith('Tempolauf');
     const isKraft = val === 'Kraft';
+    const isJoggen = val === 'Joggen (5km)';
     intensityGroup.style.display = isTempo ? '' : 'none';
     document.getElementById('kraft-container').style.display = isKraft ? '' : 'none';
-    if (isKraft) {
+    joggenContainer.style.display = isJoggen ? '' : 'none';
+    if (isKraft || isJoggen) {
         timesContainer.style.display = 'none';
         countContainer.style.display = 'none';
         telemarkContainer.style.display = 'none';
@@ -465,6 +508,11 @@ form.addEventListener('submit', e => {
             }
         });
         if (!anyChecked) { showToast('Bitte mindestens eine Übung abhaken'); return; }
+    } else if (isJoggen) {
+        const minVal = parseInt(document.getElementById('joggen-min').value, 10);
+        const secVal = parseInt(document.getElementById('joggen-sec').value, 10) || 0;
+        if (isNaN(minVal) || minVal < 0 || (minVal === 0 && secVal <= 0)) { showToast('Bitte gültige Laufzeit eingeben'); return; }
+        joggenTimeSec = minVal * 60 + secVal;
     } else if (isCountMode) {
         count = parseInt(document.getElementById('training-count').value, 10);
         if (!count || count < 1) { showToast('Bitte Anzahl eingeben'); return; }
@@ -488,7 +536,7 @@ form.addEventListener('submit', e => {
         if (!ok || !times.length) { showToast('Bitte gültige Zeiten eingeben'); return; }
     }
 
-    const entry = { id: generateId(), date, time, type, intensity, times, count, telemarks, exercises, notes };
+    const entry = { id: generateId(), date, time, type, intensity, times, count, telemarks, exercises, joggenTimeSec, notes };
     const data = loadData();
     data.unshift(entry);
     saveData(data);
@@ -501,6 +549,7 @@ form.addEventListener('submit', e => {
     telemarkNo.classList.remove('active');
     telemarkCountGroup.style.display = '';
     document.getElementById('kraft-container').style.display = 'none';
+    joggenContainer.style.display = 'none';
     KRAFT_EXERCISES.forEach(ex => {
         const det = document.getElementById('kraft-' + ex + '-details');
         if (det) det.style.display = 'none';
@@ -536,11 +585,18 @@ function typeCss(type) {
     if (type.startsWith('Sprint')) return 'sprint';
     if (type.includes('120')) return 'tempo120';
     if (type === 'Kraft') return 'kraft';
+    if (type.startsWith('Joggen')) return 'joggen';
     return 'tempo150';
 }
 
 function fmtDate(d) {
     return new Date(d+'T00:00:00').toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
+}
+
+function fmtJoggenTime(totalSec) {
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
 }
 
 function renderList() {
@@ -580,6 +636,8 @@ function renderList() {
                     }
                     return `<span class="kraft-chip">${escapeHtml(label)}${detail ? ` <span class="kraft-chip-detail">${escapeHtml(detail)}</span>` : ''}</span>`;
                   }).join('')}</div>`
+                : en.type === 'Joggen (5km)' && en.joggenTimeSec
+                ? `<div class="entry-times"><span class="time-chip joggen-chip">${fmtJoggenTime(en.joggenTimeSec)}</span></div>`
                 : en.intensity === 'NI'
                 ? `<div class="entry-count">Anzahl Läufe: <strong>${en.count || 0}</strong>${en.telemarks != null ? ` · Telemarks: <strong>${en.telemarks}</strong>` : ''}</div>`
                 : `<div class="entry-times">${(en.times||[]).map(t=>`<span class="time-chip">${escapeHtml(String(t))}s</span>`).join('')}</div>`
@@ -630,6 +688,7 @@ const COLORS = {
     'Tempolauf (120m)':   { main:'#22D3C5', bg:'rgba(34,211,197,0.18)',  g1:'rgba(34,211,197,0.35)',  g2:'rgba(34,211,197,0.02)' },
     'Tempolauf (150m)':   { main:'#FBBF24', bg:'rgba(251,191,36,0.18)',  g1:'rgba(251,191,36,0.35)',  g2:'rgba(251,191,36,0.02)' },
     'Kraft':              { main:'#F87171', bg:'rgba(248,113,113,0.18)', g1:'rgba(248,113,113,0.35)', g2:'rgba(248,113,113,0.02)' },
+    'Joggen (5km)':       { main:'#34D399', bg:'rgba(52,211,153,0.18)',  g1:'rgba(52,211,153,0.35)',  g2:'rgba(52,211,153,0.02)' },
 };
 
 function grad(ctx, c) {
@@ -662,15 +721,17 @@ function updateAnalytics() {
     const type = analyticsTypeEl.value;
     const isGeneral = type === 'Allgemein';
     const isKraft = type === 'Kraft';
+    const isJoggen = type === 'Joggen (5km)';
     const isTempo = type.startsWith('Tempolauf');
-    analyticsIntGroup.style.display = (isTempo && !isGeneral && !isKraft) ? '' : 'none';
+    analyticsIntGroup.style.display = (isTempo && !isGeneral && !isKraft && !isJoggen) ? '' : 'none';
 
     // Show/hide stats rows
     document.getElementById('stats-row-general').style.display = isGeneral ? '' : 'none';
-    document.getElementById('stats-row').style.display = (isGeneral || isKraft) ? 'none' : '';
+    document.getElementById('stats-row').style.display = (isGeneral || isKraft || isJoggen) ? 'none' : '';
     document.getElementById('stats-row-ni').style.display = 'none';
     document.getElementById('stats-row-kraft').style.display = isKraft ? '' : 'none';
-    document.getElementById('pb-card').style.display = (isGeneral || isKraft) ? 'none' : '';
+    document.getElementById('stats-row-joggen').style.display = isJoggen ? '' : 'none';
+    document.getElementById('pb-card').style.display = (isGeneral || isKraft || isJoggen) ? 'none' : '';
 
     destroyAll();
 
@@ -684,6 +745,13 @@ function updateAnalytics() {
         const kraftData = loadData().filter(d => d.type === 'Kraft').sort((a,b) => a.date.localeCompare(b.date));
         updateKraftStats(kraftData);
         buildKraftCharts(kraftData);
+        return;
+    }
+
+    if (isJoggen) {
+        const joggenData = loadData().filter(d => d.type === 'Joggen (5km)').sort((a,b) => a.date.localeCompare(b.date));
+        updateJoggenStats(joggenData);
+        buildJoggenCharts(joggenData);
         return;
     }
 
@@ -1130,6 +1198,146 @@ function drawKraftExTrend(data, c) {
             borderWidth:2.5, pointBackgroundColor:c.main, pointRadius:3.5, fill:true, tension:0.35}]},
         options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:'Übungen',color:'#555870',font:{size:11}}}}}
     });
+}
+
+// ================================================================
+//  JOGGEN ANALYTICS
+// ================================================================
+function updateJoggenStats(data) {
+    const $ = id => document.getElementById(id);
+    if (!data.length) {
+        ['stat-jog-best','stat-jog-avg','stat-jog-km','stat-jog-trend','stat-jog-weekly'].forEach(id => { $(id).textContent = '--'; $(id).style.color = ''; });
+        $('stat-jog-sessions').textContent = '0';
+        return;
+    }
+    const withTime = data.filter(d => d.joggenTimeSec);
+    $('stat-jog-sessions').textContent = data.length;
+    $('stat-jog-km').textContent = (data.length * 5) + ' km';
+    if (withTime.length) {
+        const best = Math.min(...withTime.map(d => d.joggenTimeSec));
+        const avg = withTime.reduce((s,d) => s + d.joggenTimeSec, 0) / withTime.length;
+        $('stat-jog-best').textContent = fmtJoggenTime(best);
+        $('stat-jog-avg').textContent = fmtJoggenTime(Math.round(avg));
+    } else {
+        $('stat-jog-best').textContent = '--';
+        $('stat-jog-avg').textContent = '--';
+    }
+    // Trend
+    const tEl = $('stat-jog-trend');
+    if (withTime.length >= 4) {
+        const h = Math.floor(withTime.length / 2);
+        const oldAvg = withTime.slice(0, h).reduce((s,d) => s + d.joggenTimeSec, 0) / h;
+        const newAvg = withTime.slice(h).reduce((s,d) => s + d.joggenTimeSec, 0) / (withTime.length - h);
+        const diff = newAvg - oldAvg;
+        if (diff < -10) { tEl.textContent = '↓ Schneller'; tEl.style.color = '#34D399'; }
+        else if (diff > 10) { tEl.textContent = '↑ Langsamer'; tEl.style.color = '#F87171'; }
+        else { tEl.textContent = '→ Stabil'; tEl.style.color = '#B4A8FF'; }
+    } else { tEl.textContent = '--'; tEl.style.color = ''; }
+    // Weekly avg
+    const season = getCurrentSeason();
+    const seasonData = data.filter(d => d.date >= season.start && d.date <= season.end);
+    if (seasonData.length) {
+        const seasonStart = new Date(season.start + 'T00:00:00');
+        const now = new Date();
+        const diffWeeks = Math.max(1, Math.ceil((now - seasonStart) / (7 * 86400000)));
+        $('stat-jog-weekly').textContent = (seasonData.length / diffWeeks).toFixed(1) + '/Wo';
+    } else { $('stat-jog-weekly').textContent = '--'; }
+}
+
+function buildJoggenCharts(data) {
+    const container = getChartsContainer();
+    if (!data.length) return;
+    const cJ = COLORS['Joggen (5km)'];
+    const withTime = data.filter(d => d.joggenTimeSec);
+
+    // 1) Time trend
+    if (withTime.length) {
+        const c1 = makeChartCard('Laufzeit-Verlauf (5 km)', 'Linie', 'ch-jog-time', false);
+        container.appendChild(c1);
+        const ctx1 = document.getElementById('ch-jog-time')?.getContext('2d');
+        if (ctx1) {
+            const labels = withTime.map(d => shortDate(d.date));
+            const values = withTime.map(d => d.joggenTimeSec);
+            chartInstances.jogTime = new Chart(ctx1, {
+                type: 'line',
+                data: { labels, datasets: [{
+                    data: values, borderColor: cJ.main, backgroundColor: grad(ctx1, cJ),
+                    borderWidth: 2.5, pointBackgroundColor: cJ.main, pointRadius: 4, pointHoverRadius: 7, fill: true, tension: 0.35
+                }]},
+                options: { ...BASE, plugins: { ...BASE.plugins, tooltip: { ...BASE.plugins.tooltip,
+                    callbacks: { label: t => fmtJoggenTime(t.parsed.y) }
+                }}, scales: { ...BASE.scales, y: { ...BASE.scales.y, reverse: true, title: { display: true, text: 'Zeit (mm:ss)', color: '#555870', font: { size: 11 }},
+                    ticks: { ...BASE.scales.y.ticks, callback: v => fmtJoggenTime(Math.round(v)) }
+                }}}
+            });
+        }
+    }
+
+    // 2) Monthly sessions
+    const c2 = makeChartCard('Joggen-Einheiten pro Monat', 'Balken', 'ch-jog-monthly', false);
+    container.appendChild(c2);
+    const ctx2 = document.getElementById('ch-jog-monthly')?.getContext('2d');
+    if (ctx2) {
+        const g = groupByMonth(data);
+        const mLabels = Object.keys(g);
+        const counts = mLabels.map(k => g[k].length);
+        chartInstances.jogMonthly = new Chart(ctx2, {
+            type: 'bar',
+            data: { labels: mLabels.map(prettyMonth), datasets: [{
+                data: counts, backgroundColor: cJ.bg, borderColor: cJ.main, borderWidth: 2, borderRadius: 8, hoverBackgroundColor: cJ.main
+            }]},
+            options: { ...BASE, scales: { ...BASE.scales, y: { ...BASE.scales.y, ticks: { ...BASE.scales.y.ticks, stepSize: 1 }, title: { display: true, text: 'Einheiten', color: '#555870', font: { size: 11 }}}}}
+        });
+    }
+
+    // 3) Pace per km trend
+    if (withTime.length) {
+        const c3 = makeChartCard('Pace pro km (Durchschnitt)', 'Linie', 'ch-jog-pace', false);
+        container.appendChild(c3);
+        const ctx3 = document.getElementById('ch-jog-pace')?.getContext('2d');
+        if (ctx3) {
+            const labels = withTime.map(d => shortDate(d.date));
+            const paceValues = withTime.map(d => Math.round(d.joggenTimeSec / 5));
+            chartInstances.jogPace = new Chart(ctx3, {
+                type: 'line',
+                data: { labels, datasets: [{
+                    data: paceValues, borderColor: '#60A5FA', backgroundColor: 'rgba(96,165,250,0.12)',
+                    borderWidth: 2.5, pointBackgroundColor: '#60A5FA', pointRadius: 4, fill: true, tension: 0.35
+                }]},
+                options: { ...BASE, plugins: { ...BASE.plugins, tooltip: { ...BASE.plugins.tooltip,
+                    callbacks: { label: t => fmtJoggenTime(t.parsed.y) + ' /km' }
+                }}, scales: { ...BASE.scales, y: { ...BASE.scales.y, reverse: true, title: { display: true, text: 'Pace (mm:ss/km)', color: '#555870', font: { size: 11 }},
+                    ticks: { ...BASE.scales.y.ticks, callback: v => fmtJoggenTime(Math.round(v)) }
+                }}}
+            });
+        }
+    }
+
+    // 4) Monthly average time
+    if (withTime.length) {
+        const c4 = makeChartCard('Ø Laufzeit pro Monat', 'Balken', 'ch-jog-mavg', false);
+        container.appendChild(c4);
+        const ctx4 = document.getElementById('ch-jog-mavg')?.getContext('2d');
+        if (ctx4) {
+            const g = groupByMonth(withTime);
+            const mLabels = Object.keys(g);
+            const avgTimes = mLabels.map(k => {
+                const arr = g[k].filter(d => d.joggenTimeSec);
+                return arr.length ? Math.round(arr.reduce((s,d) => s + d.joggenTimeSec, 0) / arr.length) : 0;
+            });
+            chartInstances.jogMavg = new Chart(ctx4, {
+                type: 'bar',
+                data: { labels: mLabels.map(prettyMonth), datasets: [{
+                    data: avgTimes, backgroundColor: cJ.bg, borderColor: cJ.main, borderWidth: 2, borderRadius: 8, hoverBackgroundColor: cJ.main
+                }]},
+                options: { ...BASE, plugins: { ...BASE.plugins, tooltip: { ...BASE.plugins.tooltip,
+                    callbacks: { label: t => fmtJoggenTime(t.parsed.y) }
+                }}, scales: { ...BASE.scales, y: { ...BASE.scales.y, reverse: true, title: { display: true, text: 'Ø Zeit (mm:ss)', color: '#555870', font: { size: 11 }},
+                    ticks: { ...BASE.scales.y.ticks, callback: v => fmtJoggenTime(Math.round(v)) }
+                }}}
+            });
+        }
+    }
 }
 
 // ---- Stats (Time-based) ----

@@ -197,6 +197,7 @@
                             <option value="Tempolauf (120m)">Tempolauf (120m)</option>
                             <option value="Tempolauf (150m)">Tempolauf (150m)</option>
                             <option value="Kraft">Kraft</option>
+                            <option value="Joggen (5km)">Joggen (5km)</option>
                         </select>
                     </div>
 
@@ -226,6 +227,21 @@
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                             Weitere Zeit
                         </button>
+                    </div>
+
+                    <!-- Joggen time (only visible for Joggen) -->
+                    <div id="joggen-container" style="display:none">
+                        <label>Laufzeit</label>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="joggen-min">Minuten</label>
+                                <input type="number" id="joggen-min" min="0" step="1" placeholder="z.B. 28">
+                            </div>
+                            <div class="form-group">
+                                <label for="joggen-sec">Sekunden</label>
+                                <input type="number" id="joggen-sec" min="0" max="59" step="1" placeholder="z.B. 45">
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Count (only visible for NI/I1) -->
@@ -342,6 +358,7 @@
                         <option value="Tempolauf (120m)">Tempolauf (120m)</option>
                         <option value="Tempolauf (150m)">Tempolauf (150m)</option>
                         <option value="Kraft">Kraft</option>
+                        <option value="Joggen (5km)">Joggen (5km)</option>
                     </select>
                 </div>
                 <div id="training-list" class="training-list">
@@ -365,6 +382,7 @@
                         <option value="Tempolauf (120m)">Tempolauf (120m)</option>
                         <option value="Tempolauf (150m)">Tempolauf (150m)</option>
                         <option value="Kraft">💪 Kraft</option>
+                        <option value="Joggen (5km)">🏃‍♀️ Joggen (5km)</option>
                     </select>
                 </div>
                 <div class="form-group" id="analytics-intensity-group" style="display:none;margin-bottom:0">
@@ -443,6 +461,40 @@
                 <div class="stat-card accent-red">
                     <span class="stat-icon">📅</span>
                     <span class="stat-value" id="stat-kraft-weekly">--</span>
+                    <span class="stat-label">Ø pro Woche</span>
+                </div>
+            </div>
+
+            <!-- Joggen Stats -->
+            <div class="stats-row" id="stats-row-joggen" style="display:none">
+                <div class="stat-card accent-purple">
+                    <span class="stat-icon">🏃‍♀️</span>
+                    <span class="stat-value" id="stat-jog-sessions">0</span>
+                    <span class="stat-label">Einheiten</span>
+                </div>
+                <div class="stat-card accent-teal">
+                    <span class="stat-icon">⏱️</span>
+                    <span class="stat-value" id="stat-jog-best">--</span>
+                    <span class="stat-label">Bestzeit</span>
+                </div>
+                <div class="stat-card accent-gold">
+                    <span class="stat-icon">∅</span>
+                    <span class="stat-value" id="stat-jog-avg">--</span>
+                    <span class="stat-label">Ø Zeit</span>
+                </div>
+                <div class="stat-card accent-blue">
+                    <span class="stat-icon">📏</span>
+                    <span class="stat-value" id="stat-jog-km">0</span>
+                    <span class="stat-label">Gesamt km</span>
+                </div>
+                <div class="stat-card accent-green">
+                    <span class="stat-icon">📈</span>
+                    <span class="stat-value" id="stat-jog-trend">--</span>
+                    <span class="stat-label">Trend</span>
+                </div>
+                <div class="stat-card accent-red">
+                    <span class="stat-icon">📅</span>
+                    <span class="stat-value" id="stat-jog-weekly">--</span>
                     <span class="stat-label">Ø pro Woche</span>
                 </div>
             </div>

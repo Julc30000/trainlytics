@@ -474,6 +474,13 @@ textarea { resize:vertical; min-height:48px; }
 .type-badge.tempo120 { background:rgba(34,211,197,0.15); color:var(--accent); }
 .type-badge.tempo150 { background:rgba(251,191,36,0.15); color:var(--warning); }
 .type-badge.kraft { background:rgba(248,113,113,0.15); color:#F87171; }
+.type-badge.joggen { background:rgba(52,211,153,0.15); color:#34D399; }
+
+/* Joggen input */
+.joggen-inputs { display:flex; gap:8px; align-items:center; }
+.joggen-inputs input { width:70px; }
+.joggen-inputs span { color:var(--text-muted); font-size:0.85rem; }
+.joggen-chip { background:rgba(52,211,153,0.15)!important; color:#34D399!important; }
 
 /* Kraft exercises */
 .kraft-exercises {
