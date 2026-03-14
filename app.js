@@ -2438,7 +2438,15 @@ document.querySelectorAll('[data-coachtab]').forEach(btn => {
     });
 });
 
-// Coach: Save plan for a user
+// Helper: get plans array from Firestore doc data (backward-compatible)
+function getPlansFromData(data) {
+    if (data.trainingPlans && Array.isArray(data.trainingPlans)) return data.trainingPlans;
+    // Migrate single old trainingPlan to array
+    if (data.trainingPlan && data.trainingPlan.weekStart) return [data.trainingPlan];
+    return [];
+}
+
+// Coach: Save plan for a user (upserts by weekStart)
 document.getElementById('btn-save-plan')?.addEventListener('click', async () => {
     const userSel = document.getElementById('plan-user-select');
     const user = userSel.value;
@@ -2460,49 +2468,86 @@ document.getElementById('btn-save-plan')?.addEventListener('click', async () => 
     const targets = user === '__alle__' ? _planUsers : [user];
 
     try {
-        await Promise.all(targets.map(u =>
-            db.collection('users').doc(u.toLowerCase().trim())
-              .set({ trainingPlan: plan }, { merge: true })
-        ));
+        for (const u of targets) {
+            const docRef = db.collection('users').doc(u.toLowerCase().trim());
+            const snap = await docRef.get();
+            let plans = snap.exists ? getPlansFromData(snap.data()) : [];
+            // Upsert: replace existing plan for same weekStart, or add new
+            const idx = plans.findIndex(p => p.weekStart === weekStart);
+            if (idx >= 0) plans[idx] = plan; else plans.push(plan);
+            plans.sort((a, b) => a.weekStart.localeCompare(b.weekStart));
+            await docRef.set({ trainingPlans: plans, trainingPlan: null }, { merge: true });
+        }
         showToast(targets.length > 1 ? `Plan an ${targets.length} Athleten zugewiesen ✓` : 'Plan zugewiesen ✓');
         // Reset form
         document.querySelectorAll('#plan-days .plan-day-input').forEach(inp => { inp.value = ''; });
         document.getElementById('plan-notes').value = '';
+        document.getElementById('plan-week').value = '';
         document.getElementById('plan-current-info').style.display = 'none';
+        // Refresh week list if single user
+        if (targets.length === 1) await loadCoachPlanWeekList(targets[0]);
     } catch(e) {
         showToast('Fehler beim Speichern');
     }
 });
 
-// Coach: Load existing plan when selecting an athlete
+// Coach: Load plans for selected athlete + show week list
+let _coachPlanUser = '';
 document.getElementById('plan-user-select')?.addEventListener('change', async () => {
     const user = document.getElementById('plan-user-select').value;
     const infoEl = document.getElementById('plan-current-info');
+    const weekListEl = document.getElementById('plan-week-list');
     // Clear form
     document.querySelectorAll('#plan-days .plan-day-input').forEach(inp => { inp.value = ''; });
     document.getElementById('plan-week').value = '';
     document.getElementById('plan-notes').value = '';
     infoEl.style.display = 'none';
+    weekListEl.style.display = 'none';
+    weekListEl.innerHTML = '';
+    _coachPlanUser = '';
 
     if (!user || user === '__alle__') return;
+    _coachPlanUser = user;
+    await loadCoachPlanWeekList(user);
+});
 
+async function loadCoachPlanWeekList(user) {
+    const weekListEl = document.getElementById('plan-week-list');
+    const infoEl = document.getElementById('plan-current-info');
     try {
         const doc = await db.collection('users').doc(user.toLowerCase().trim()).get();
-        if (doc.exists && doc.data().trainingPlan) {
-            const plan = doc.data().trainingPlan;
-            // Fill form with existing plan
-            document.getElementById('plan-week').value = plan.weekStart || '';
-            document.getElementById('plan-notes').value = plan.notes || '';
-            document.querySelectorAll('#plan-days .plan-day-row').forEach(row => {
-                const day = row.dataset.day;
-                const input = row.querySelector('.plan-day-input');
-                input.value = plan.days[day] || '';
-            });
-            infoEl.innerHTML = '<span class="plan-info-badge">✏️ Bestehender Plan wird bearbeitet</span>';
+        const plans = doc.exists ? getPlansFromData(doc.data()) : [];
+        if (!plans.length) {
+            weekListEl.style.display = 'none';
+            infoEl.innerHTML = '<span class="plan-info-badge">Noch kein Plan vorhanden — neuen erstellen</span>';
             infoEl.style.display = '';
+            return;
         }
+        plans.sort((a, b) => b.weekStart.localeCompare(a.weekStart));
+        weekListEl.style.display = '';
+        weekListEl.innerHTML = '<label class="form-label-small">Bestehende Wochen:</label>' +
+            '<div class="plan-week-chips">' +
+            plans.map(p => `<button class="plan-week-chip" data-ws="${escapeHtml(p.weekStart)}">${escapeHtml(fmtDate(p.weekStart))}</button>`).join('') +
+            '</div>';
+        infoEl.style.display = 'none';
+        // Click to load into form
+        weekListEl.querySelectorAll('.plan-week-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                const plan = plans.find(p => p.weekStart === chip.dataset.ws);
+                if (!plan) return;
+                document.getElementById('plan-week').value = plan.weekStart;
+                document.getElementById('plan-notes').value = plan.notes || '';
+                document.querySelectorAll('#plan-days .plan-day-row').forEach(row => {
+                    row.querySelector('.plan-day-input').value = plan.days[row.dataset.day] || '';
+                });
+                weekListEl.querySelectorAll('.plan-week-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                infoEl.innerHTML = '<span class="plan-info-badge">✏️ Plan wird bearbeitet</span>';
+                infoEl.style.display = '';
+            });
+        });
     } catch { /* ignore */ }
-});
+}
 
 // Populate plan user select alongside coach user select
 let _planUsers = [];
@@ -2539,12 +2584,8 @@ document.getElementById('coach-diary-user-select')?.addEventListener('change', a
             return;
         }
 
-        // Sort newest first
         injuries.sort((a, b) => b.date.localeCompare(a.date));
-
         const name = user.charAt(0).toUpperCase() + user.slice(1);
-
-        // Stats
         const freq = {};
         injuries.forEach(inj => { freq[inj.bodypart] = (freq[inj.bodypart] || 0) + 1; });
         const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
@@ -2597,17 +2638,20 @@ document.getElementById('coach-diary-user-select')?.addEventListener('change', a
     }
 });
 
-// Plan expiry helper: end of week (Sunday) from weekStart
+// Plan expiry helper
 function isPlanExpired(plan) {
     if (!plan || !plan.weekStart) return true;
     const ws = new Date(plan.weekStart);
     const endOfWeek = new Date(ws);
-    endOfWeek.setDate(ws.getDate() + 6); // Saturday end of training week
+    endOfWeek.setDate(ws.getDate() + 6);
     endOfWeek.setHours(23, 59, 59, 999);
     return new Date() > endOfWeek;
 }
 
-// Athlete: Load and display assigned plan
+// Athlete: Load and display assigned plans with week navigation
+let _athletePlans = [];
+let _athletePlanIdx = 0;
+
 async function loadAndShowPlan() {
     if (!currentUser) return;
     const planCard = document.getElementById('plan-card');
@@ -2615,36 +2659,60 @@ async function loadAndShowPlan() {
 
     try {
         const doc = await db.collection('users').doc(currentUser.toLowerCase().trim()).get();
-        if (doc.exists && doc.data().trainingPlan) {
-            const plan = doc.data().trainingPlan;
+        if (!doc.exists) { planCard.style.display = 'none'; return; }
 
-            // Check expiry — hide if the plan week has passed
-            if (isPlanExpired(plan)) {
-                planCard.style.display = 'none';
-                return;
-            }
+        _athletePlans = getPlansFromData(doc.data());
+        _athletePlans.sort((a, b) => a.weekStart.localeCompare(b.weekStart));
 
-            planCard.style.display = '';
-            const dayOrder = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
-            const dayShort = { Montag: 'Mo', Dienstag: 'Di', Mittwoch: 'Mi', Donnerstag: 'Do', Freitag: 'Fr', Samstag: 'Sa', Sonntag: 'So' };
+        if (!_athletePlans.length) { planCard.style.display = 'none'; return; }
 
-            planDisplay.innerHTML = `
-                <div class="plan-week-label">Woche ab ${escapeHtml(fmtDate(plan.weekStart))}</div>
-                <div class="plan-grid">
-                    ${dayOrder.map(day => {
-                        const val = plan.days[day];
-                        if (!val) return '';
-                        return `<div class="plan-grid-day">
-                            <span class="plan-grid-day-label">${dayShort[day]}</span>
-                            <span class="plan-grid-day-val">${escapeHtml(val)}</span>
-                        </div>`;
-                    }).join('')}
-                </div>
-                ${plan.notes ? '<div class="plan-coach-notes">' + escapeHtml(plan.notes) + '</div>' : ''}`;
-        } else {
-            planCard.style.display = 'none';
+        // Find the current/nearest upcoming week as default
+        const today = new Date().toISOString().split('T')[0];
+        let bestIdx = _athletePlans.length - 1;
+        for (let i = 0; i < _athletePlans.length; i++) {
+            if (_athletePlans[i].weekStart >= today) { bestIdx = i; break; }
+            // Also show last non-expired plan
+            if (!isPlanExpired(_athletePlans[i])) bestIdx = i;
         }
+        _athletePlanIdx = bestIdx;
+
+        planCard.style.display = '';
+        renderAthletePlan();
     } catch {
         planCard.style.display = 'none';
     }
 }
+
+function renderAthletePlan() {
+    const planDisplay = document.getElementById('plan-display');
+    const indicator = document.getElementById('plan-week-indicator');
+    const plan = _athletePlans[_athletePlanIdx];
+    if (!plan) return;
+
+    indicator.textContent = 'Woche ab ' + fmtDate(plan.weekStart);
+    document.getElementById('plan-prev').style.visibility = _athletePlanIdx > 0 ? 'visible' : 'hidden';
+    document.getElementById('plan-next').style.visibility = _athletePlanIdx < _athletePlans.length - 1 ? 'visible' : 'hidden';
+
+    const dayOrder = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+    const dayShort = { Montag: 'Mo', Dienstag: 'Di', Mittwoch: 'Mi', Donnerstag: 'Do', Freitag: 'Fr', Samstag: 'Sa', Sonntag: 'So' };
+
+    planDisplay.innerHTML = `
+        <div class="plan-grid">
+            ${dayOrder.map(day => {
+                const val = plan.days[day];
+                if (!val) return '';
+                return `<div class="plan-grid-day">
+                    <span class="plan-grid-day-label">${dayShort[day]}</span>
+                    <span class="plan-grid-day-val">${escapeHtml(val)}</span>
+                </div>`;
+            }).join('')}
+        </div>
+        ${plan.notes ? '<div class="plan-coach-notes">' + escapeHtml(plan.notes) + '</div>' : ''}`;
+}
+
+document.getElementById('plan-prev')?.addEventListener('click', () => {
+    if (_athletePlanIdx > 0) { _athletePlanIdx--; renderAthletePlan(); }
+});
+document.getElementById('plan-next')?.addEventListener('click', () => {
+    if (_athletePlanIdx < _athletePlans.length - 1) { _athletePlanIdx++; renderAthletePlan(); }
+});
