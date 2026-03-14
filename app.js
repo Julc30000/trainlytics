@@ -228,6 +228,12 @@ loginForm.addEventListener('submit', e => { e.preventDefault(); loginAs(loginNam
 function resetAppUI() {
     form.reset();
     setDefaults();
+    // Explicitly clear fields that form.reset() may miss
+    document.getElementById('training-notes').value = '';
+    document.getElementById('joggen-min').value = '';
+    document.getElementById('joggen-sec').value = '';
+    document.getElementById('training-count').value = '';
+    document.getElementById('telemark-count').value = '';
     intensityGroup.style.display = 'none';
     document.getElementById('kraft-container').style.display = 'none';
     joggenContainer.style.display = 'none';
@@ -586,6 +592,9 @@ form.addEventListener('submit', e => {
 
     form.reset();
     setDefaults();
+    document.getElementById('training-notes').value = '';
+    document.getElementById('joggen-min').value = '';
+    document.getElementById('joggen-sec').value = '';
     intensityGroup.style.display = 'none';
     telemarkContainer.style.display = 'none';
     telemarkYes.classList.add('active');
