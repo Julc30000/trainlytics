@@ -949,3 +949,9 @@ textarea { resize:vertical; min-height:48px; }
 .ct-color-opt.selected { border-color:#fff; box-shadow:0 0 8px rgba(255,255,255,0.25); transform:scale(1.15); }
 
 .ct-form-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:10px; }
+
+/* Settings Modal Sections */
+.settings-section { margin-bottom:4px; }
+.settings-section h4 { font-size:14px; font-weight:700; color:var(--text); margin-bottom:4px; }
+.settings-hint { font-size:12px; color:var(--text-muted); margin-bottom:10px; }
+.settings-divider { height:1px; background:var(--border); margin:18px 0; }

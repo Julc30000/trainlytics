@@ -2439,8 +2439,123 @@ let ctTrackTimes = true;
 document.getElementById('btn-settings').addEventListener('click', () => {
     renderCustomTypesList();
     resetCtForm();
+    // Set report week to current week
+    const now = new Date();
+    const y = now.getFullYear();
+    const oneJan = new Date(y, 0, 1);
+    const wNum = Math.ceil(((now - oneJan) / 86400000 + oneJan.getDay() + 1) / 7);
+    document.getElementById('report-week').value = y + '-W' + String(wNum).padStart(2, '0');
     ctModal.classList.add('show');
 });
+
+// ---- Weekly Report Email ----
+document.getElementById('btn-send-report').addEventListener('click', () => {
+    const email = document.getElementById('report-email').value.trim();
+    if (!email) { showToast('Bitte E-Mail-Adresse eingeben'); return; }
+    const weekVal = document.getElementById('report-week').value;
+    if (!weekVal) { showToast('Bitte Woche auswählen'); return; }
+    const report = generateWeeklyReport(weekVal);
+    const subject = encodeURIComponent('TrainLytics Wochenbericht – ' + weekVal);
+    const body = encodeURIComponent(report);
+    window.open('mailto:' + encodeURIComponent(email) + '?subject=' + subject + '&body=' + body, '_self');
+    showToast('E-Mail-Entwurf wird geöffnet…');
+});
+
+function generateWeeklyReport(weekVal) {
+    // Parse week value like "2026-W11"
+    const [wy, ww] = weekVal.split('-W').map(Number);
+    // Get Monday of that week (ISO week)
+    const jan4 = new Date(wy, 0, 4);
+    const dayOfWeek = jan4.getDay() || 7;
+    const monday = new Date(jan4);
+    monday.setDate(jan4.getDate() - dayOfWeek + 1 + (ww - 1) * 7);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const fmt = d => d.toISOString().split('T')[0];
+    const startStr = fmt(monday);
+    const endStr = fmt(sunday);
+
+    const all = loadData();
+    const week = all.filter(e => e.date >= startStr && e.date <= endStr);
+
+    let r = '=== TrainLytics Wochenbericht ===\n';
+    r += 'Woche: ' + weekVal + ' (' + fmtDate(startStr) + ' – ' + fmtDate(endStr) + ')\n';
+    r += 'Athlet: ' + (currentUser || '-') + '\n';
+    r += '────────────────────────\n\n';
+
+    if (!week.length) {
+        r += 'Keine Trainingseinheiten in dieser Woche.\n';
+        return r;
+    }
+
+    r += '📊 Übersicht\n';
+    r += 'Einheiten gesamt: ' + week.length + '\n';
+
+    // Group by type
+    const byType = {};
+    week.forEach(e => { (byType[e.type] = byType[e.type] || []).push(e); });
+    r += 'Trainingsarten: ' + Object.keys(byType).join(', ') + '\n\n';
+
+    // Per-type details
+    Object.keys(byType).forEach(type => {
+        const entries = byType[type];
+        const ct = getCustomType(type);
+        const emoji = ct ? (ct.emoji || '📌') : ({'Sprint (50m)':'⚡','Tempolauf (120m)':'🏃','Tempolauf (150m)':'🏃','Kraft':'💪','Technik':'🎯','Joggen (5km)':'🏃‍♀️'}[type] || '📌');
+        r += emoji + ' ' + type + ' (' + entries.length + 'x)\n';
+
+        if (type.startsWith('Sprint') || type.startsWith('Tempolauf') || (ct && ct.trackTimes)) {
+            const allTimes = entries.flatMap(e => e.times || []).filter(t => t > 0);
+            if (allTimes.length) {
+                r += '  Beste Zeit: ' + Math.min(...allTimes).toFixed(2) + 's\n';
+                r += '  Ø Zeit: ' + (allTimes.reduce((a,b) => a+b, 0) / allTimes.length).toFixed(2) + 's\n';
+                r += '  Läufe gesamt: ' + allTimes.length + '\n';
+            }
+        }
+
+        if (type === 'Kraft') {
+            const exSet = new Set();
+            entries.forEach(e => { if (e.exercises) Object.keys(e.exercises).forEach(k => exSet.add(k)); });
+            if (exSet.size) r += '  Übungen: ' + [...exSet].join(', ') + '\n';
+        }
+
+        if (type === 'Joggen (5km)') {
+            const jogTimes = entries.map(e => e.joggenTimeSec).filter(t => t > 0);
+            if (jogTimes.length) {
+                const best = Math.min(...jogTimes);
+                r += '  Beste Laufzeit: ' + Math.floor(best/60) + ':' + String(best%60).padStart(2,'0') + ' min\n';
+            }
+        }
+
+        if (type === 'Technik') {
+            const cats = entries.map(e => e.technikCategory).filter(Boolean);
+            if (cats.length) r += '  Kategorien: ' + [...new Set(cats)].join(', ') + '\n';
+        }
+
+        if (ct && ct.subcategories && ct.subcategories.length) {
+            const cats = entries.map(e => e.customCategory).filter(Boolean);
+            if (cats.length) r += '  Kategorien: ' + [...new Set(cats)].join(', ') + '\n';
+        }
+
+        // Sprint categories
+        if (type === 'Sprint (50m)') {
+            const cats = entries.map(e => e.sprintCategory).filter(Boolean);
+            if (cats.length) r += '  Kategorien: ' + [...new Set(cats)].join(', ') + '\n';
+        }
+
+        r += '\n';
+    });
+
+    // Notes
+    const notes = week.filter(e => e.notes && e.notes.trim()).map(e => '- ' + fmtDate(e.date) + ': ' + e.notes.trim());
+    if (notes.length) {
+        r += '📝 Notizen\n';
+        r += notes.join('\n') + '\n\n';
+    }
+
+    r += '────────────────────────\n';
+    r += 'Erstellt mit TrainLytics – trainlytics.de';
+    return r;
+}
 document.getElementById('ct-modal-close').addEventListener('click', () => { ctModal.classList.remove('show'); });
 ctModal.addEventListener('click', e => { if (e.target === ctModal) ctModal.classList.remove('show'); });
 

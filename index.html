@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=build013">
+    <link rel="stylesheet" href="styles.css?v=build014">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -914,7 +914,27 @@
     <!-- Custom Types Modal -->
     <div id="custom-types-modal" class="modal-overlay">
         <div class="modal modal-wk" style="max-width:420px">
-            <h3>⚙️ Eigene Trainingsarten</h3>
+            <h3>⚙️ Einstellungen</h3>
+
+            <!-- Wochenbericht per E-Mail -->
+            <div class="settings-section">
+                <h4>📧 Wochenbericht per E-Mail</h4>
+                <p class="settings-hint">Erhalte eine Zusammenfassung deiner Trainingswoche per E-Mail.</p>
+                <div class="form-group">
+                    <label for="report-email">E-Mail-Adresse</label>
+                    <input type="email" id="report-email" placeholder="deine@email.de" autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <label for="report-week">Woche</label>
+                    <input type="week" id="report-week">
+                </div>
+                <button type="button" class="btn-primary" id="btn-send-report" style="width:100%">📩 Bericht senden</button>
+            </div>
+
+            <div class="settings-divider"></div>
+
+            <!-- Eigene Trainingsarten -->
+            <h4 style="margin-bottom:10px">🏷️ Eigene Trainingsarten</h4>
             <div id="custom-types-list" class="custom-types-list"></div>
             <div class="custom-type-form" id="custom-type-form">
                 <h4 id="ct-form-title">Neue Trainingsart</h4>
@@ -961,6 +981,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=build013"></script>
+    <script src="app.js?v=build014"></script>
 </body>
 </html>
