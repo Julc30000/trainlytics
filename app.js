@@ -345,7 +345,7 @@ function applyUserRestrictions(userName) {
         // Restore all options (excluding Joggen for non-Angelika)
         sel.innerHTML = '<option value="">-- Bitte wählen --</option><option value="Sprint (50m)">Sprint (50m)</option><option value="Tempolauf (120m)">Tempolauf (120m)</option><option value="Tempolauf (150m)">Tempolauf (150m)</option><option value="Kraft">Kraft</option><option value="Technik">Technik</option>';
         hFilter.innerHTML = '<option value="all">Alle</option><option value="Sprint (50m)">Sprint (50m)</option><option value="Tempolauf (120m)">Tempolauf (120m)</option><option value="Tempolauf (150m)">Tempolauf (150m)</option><option value="Kraft">Kraft</option><option value="Technik">Technik</option>';
-        aType.innerHTML = '<option value="Allgemein">📊 Allgemein</option><option value="Sprint (50m)">Sprint (50m)</option><option value="Tempolauf (120m)">Tempolauf (120m)</option><option value="Tempolauf (150m)">Tempolauf (150m)</option><option value="Kraft">💪 Kraft</option><option value="Technik">🎯 Technik</option>';
+        aType.innerHTML = '<option value="Allgemein">📊 Allgemein</option><option value="Sprint (50m)">⚡ Sprint (50m)</option><option value="Tempolauf (120m)">🏃 Tempolauf (120m)</option><option value="Tempolauf (150m)">🏃 Tempolauf (150m)</option><option value="Kraft">💪 Kraft</option><option value="Technik">🎯 Technik</option>';
     }
 }
 
