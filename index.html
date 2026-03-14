@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20260314c">
+    <link rel="stylesheet" href="styles.css?v=20260314d">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -22,39 +22,7 @@
     <!-- ============ SPLASH SCREEN ============ -->
     <div id="splash-screen" class="splash-screen">
         <div class="splash-content">
-            <!-- Phase 1: Athlete animation -->
-            <div class="splash-phase" id="splash-anim">
-                <div class="splash-track">
-                    <div class="splash-runner" id="splash-runner">
-                        <svg viewBox="0 0 64 64" width="64" height="64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="44" cy="8" r="5"/>
-                            <path d="M16 56 l10-20 8 4 6-16"/>
-                            <path d="M26 36 l-8 6"/>
-                            <path d="M34 40 l4 16"/>
-                            <path d="M40 24 l8-4"/>
-                            <path d="M40 24 l-2-10"/>
-                        </svg>
-                    </div>
-                    <div class="splash-lane-lines"></div>
-                </div>
-                <div class="splash-data-overlay" id="splash-data">
-                    <div class="splash-data-item" style="--delay:0.3s">⏱ 6.85s</div>
-                    <div class="splash-data-item" style="--delay:0.6s">📊 Analyse</div>
-                    <div class="splash-data-item" style="--delay:0.9s">🏅 PB!</div>
-                    <div class="splash-data-item" style="--delay:1.2s">📈 Trend ↑</div>
-                </div>
-                <div class="splash-logo-reveal" id="splash-logo-reveal">
-                    <div class="splash-logo-mark">
-                        <svg viewBox="0 0 40 40" width="64" height="64" fill="none">
-                            <path d="M4 5h32v8H24v22h-8V13H4V5z" fill="url(#s1g)"/>
-                            <defs><linearGradient id="s1g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#B4A8FF"/><stop offset="100%" stop-color="#22D3C5"/></linearGradient></defs>
-                        </svg>
-                    </div>
-                    <h1 class="splash-title">TrainLytics</h1>
-                </div>
-            </div>
-            <!-- Phase 2: Welcome message -->
-            <div class="splash-phase" id="splash-msg" style="display:none">
+            <div class="splash-phase" id="splash-msg">
                 <div class="splash-logo-mark small">
                     <svg viewBox="0 0 40 40" width="48" height="48" fill="none">
                         <path d="M4 5h32v8H24v22h-8V13H4V5z" fill="url(#s2g)"/>
@@ -93,7 +61,6 @@
                 </div>
                 <button type="submit" class="btn-primary">Einloggen</button>
             </form>
-            <div id="saved-users" class="saved-users"></div>
         </div>
     </div>
 
@@ -681,6 +648,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=20260314c"></script>
+    <script src="app.js?v=20260314d"></script>
 </body>
 </html>

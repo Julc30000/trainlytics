@@ -108,22 +108,15 @@ const loginScreen = document.getElementById('login-screen');
 const appEl = document.getElementById('app');
 const loginForm = document.getElementById('login-form');
 const loginNameInput = document.getElementById('login-name');
-const savedUsersEl = document.getElementById('saved-users');
 
 function runSplash() {
-    // Phase 1 runs via CSS animations (runner + data items + logo reveal)
-    // After ~2.5s switch to welcome message
-    setTimeout(() => {
-        document.getElementById('splash-anim').style.display = 'none';
-        document.getElementById('splash-msg').style.display = '';
-    }, 2500);
-    // After ~4.5s total, fade out splash and show login
+    // Show welcome message, then fade to login
     setTimeout(() => {
         splashScreen.classList.add('fade-out');
         loginScreen.style.display = '';
         loginScreen.classList.add('fade-in');
         setTimeout(() => { splashScreen.style.display = 'none'; }, 600);
-    }, 4500);
+    }, 3000);
 }
 
 // Only show splash on first visit per session
@@ -148,18 +141,7 @@ loginNameInput.addEventListener('input', () => {
     if (!PW_USERS.includes(val)) loginPwInput.value = '';
 });
 
-function renderSavedUsers() {
-    const users = getUsers();
-    if (!users.length) { savedUsersEl.innerHTML = ''; return; }
-    savedUsersEl.innerHTML = `
-        <p class="saved-users-title">Schnellzugang</p>
-        ${users.filter(u => u !== MASTER_NAME && !PW_USERS.includes(u)).map(u => `<button type="button" class="user-chip" data-user="${escapeHtml(u)}">
-            <span class="user-chip-icon">${escapeHtml(u.charAt(0).toUpperCase())}</span>
-            ${escapeHtml(u.charAt(0).toUpperCase() + u.slice(1))}
-        </button>`).join('')}`;
-    savedUsersEl.querySelectorAll('.user-chip').forEach(c =>
-        c.addEventListener('click', () => loginAs(c.dataset.user)));
-}
+function renderSavedUsers() {}
 
 async function loginAs(name) {
     const clean = name.trim();
