@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=build017">
+    <link rel="stylesheet" href="styles.css?v=build018">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -942,14 +942,26 @@
             <div class="custom-type-form" id="custom-type-form">
                 <h4 id="ct-form-title">Neue Trainingsart</h4>
                 <div class="form-group">
+                    <label for="ct-base">Basiert auf</label>
+                    <select id="ct-base">
+                        <option value="">Neue Kategorie</option>
+                        <option value="Sprint (50m)">⚡ Sprint (50m)</option>
+                        <option value="Tempolauf (120m)">🏃 Tempolauf (120m)</option>
+                        <option value="Tempolauf (150m)">🏃 Tempolauf (150m)</option>
+                        <option value="Kraft">💪 Kraft</option>
+                        <option value="Technik">🎯 Technik</option>
+                        <option value="Joggen (5km)">🏃‍♀️ Joggen (5km)</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label for="ct-name">Name</label>
                     <input type="text" id="ct-name" placeholder="z.B. Ausdauer, Dehnen, Hürden" maxlength="30" autocomplete="off">
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="ct-emoji-group">
                     <label for="ct-emoji">Emoji</label>
                     <input type="text" id="ct-emoji" placeholder="z.B. 🏋️ 🧘 🔥" maxlength="4" style="width:80px">
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="ct-color-group">
                     <label for="ct-color">Farbe</label>
                     <div class="ct-color-row">
                         <span class="ct-color-opt" data-color="#B4A8FF" style="background:#B4A8FF"></span>
@@ -990,6 +1002,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=build017"></script>
+    <script src="app.js?v=build018"></script>
 </body>
 </html>

@@ -2441,6 +2441,15 @@ function renderCoachUserStats(userName, entries) {
 // ================================================================
 //  CUSTOM TRAINING TYPES MANAGEMENT
 // ================================================================
+const CT_BASE_MAP = {
+    'Sprint (50m)':     { emoji: '⚡', color: '#B4A8FF' },
+    'Tempolauf (120m)': { emoji: '🏃', color: '#22D3C5' },
+    'Tempolauf (150m)': { emoji: '🏃', color: '#FBBF24' },
+    'Kraft':            { emoji: '💪', color: '#F87171' },
+    'Technik':          { emoji: '🎯', color: '#FB923C' },
+    'Joggen (5km)':     { emoji: '🏃‍♀️', color: '#34D399' },
+};
+
 const ctModal = document.getElementById('custom-types-modal');
 const ctListEl = document.getElementById('custom-types-list');
 let ctEditId = null;
@@ -2881,9 +2890,12 @@ document.getElementById('ct-count-no').addEventListener('click', () => {
 
 function resetCtForm() {
     ctEditId = null;
+    document.getElementById('ct-base').value = '';
     document.getElementById('ct-name').value = '';
     document.getElementById('ct-emoji').value = '';
     document.getElementById('ct-subcategories').value = '';
+    document.getElementById('ct-emoji-group').style.display = '';
+    document.getElementById('ct-color-group').style.display = '';
     ctSelectedColor = '#B4A8FF';
     ctTrackTimes = true;
     ctTrackCount = false;
@@ -2898,11 +2910,33 @@ function resetCtForm() {
     document.getElementById('ct-cancel-edit').style.display = 'none';
 }
 
+// Base category selector — auto-fill emoji & color
+document.getElementById('ct-base').addEventListener('change', () => {
+    const val = document.getElementById('ct-base').value;
+    const base = CT_BASE_MAP[val];
+    if (base) {
+        document.getElementById('ct-emoji').value = base.emoji;
+        ctSelectedColor = base.color;
+        document.querySelectorAll('.ct-color-opt').forEach(o => {
+            o.classList.toggle('selected', o.dataset.color === ctSelectedColor);
+        });
+        document.getElementById('ct-emoji-group').style.display = 'none';
+        document.getElementById('ct-color-group').style.display = 'none';
+    } else {
+        document.getElementById('ct-emoji').value = '';
+        document.getElementById('ct-emoji-group').style.display = '';
+        document.getElementById('ct-color-group').style.display = '';
+    }
+});
+
 document.getElementById('ct-cancel-edit').addEventListener('click', resetCtForm);
 
 document.getElementById('ct-save').addEventListener('click', () => {
+    const baseVal = document.getElementById('ct-base').value;
+    const base = CT_BASE_MAP[baseVal];
     const name = document.getElementById('ct-name').value.trim();
-    const emoji = document.getElementById('ct-emoji').value.trim();
+    const emoji = base ? base.emoji : document.getElementById('ct-emoji').value.trim();
+    const color = base ? base.color : ctSelectedColor;
     const subcatsRaw = document.getElementById('ct-subcategories').value.trim();
     const subcategories = subcatsRaw ? subcatsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
 
@@ -2916,17 +2950,14 @@ document.getElementById('ct-save').addEventListener('click', () => {
     const list = [..._customTypes];
 
     if (ctEditId) {
-        // Edit existing
         const idx = list.findIndex(ct => ct.id === ctEditId);
         if (idx >= 0) {
-            // Check name uniqueness (exclude current)
             if (list.some((ct, i) => i !== idx && ct.name === name)) { showToast('Name bereits vergeben'); return; }
-            list[idx] = { ...list[idx], name, emoji, color: ctSelectedColor, subcategories, trackTimes: ctTrackTimes, trackCount: ctTrackCount };
+            list[idx] = { ...list[idx], name, emoji, color, subcategories, trackTimes: ctTrackTimes, trackCount: ctTrackCount, basedOn: baseVal || null };
         }
     } else {
-        // Check name uniqueness
         if (list.some(ct => ct.name === name)) { showToast('Name bereits vergeben'); return; }
-        list.push({ id: generateId(), name, emoji, color: ctSelectedColor, subcategories, trackTimes: ctTrackTimes, trackCount: ctTrackCount });
+        list.push({ id: generateId(), name, emoji, color, subcategories, trackTimes: ctTrackTimes, trackCount: ctTrackCount, basedOn: baseVal || null });
     }
 
     saveCustomTypes(list);
@@ -2966,6 +2997,12 @@ function renderCustomTypesList() {
             const ct = _customTypes.find(c => c.id === btn.dataset.ctid);
             if (!ct) return;
             ctEditId = ct.id;
+            // Restore base selector
+            const baseVal = ct.basedOn || '';
+            document.getElementById('ct-base').value = baseVal;
+            const hasBase = !!CT_BASE_MAP[baseVal];
+            document.getElementById('ct-emoji-group').style.display = hasBase ? 'none' : '';
+            document.getElementById('ct-color-group').style.display = hasBase ? 'none' : '';
             document.getElementById('ct-name').value = ct.name;
             document.getElementById('ct-emoji').value = ct.emoji || '';
             document.getElementById('ct-subcategories').value = (ct.subcategories || []).join(', ');
