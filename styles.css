@@ -208,14 +208,14 @@ body {
 .app-container {
     max-width:600px;
     margin:0 auto;
-    padding:0 16px 100px;
+    padding:0 16px 40px;
 }
 
 /* ================================================================
    HEADER
    ================================================================ */
 .app-header {
-    padding:20px 0 0;
+    padding:20px 0 12px;
     display:flex; align-items:center; justify-content:space-between;
 }
 
@@ -254,54 +254,38 @@ body {
 }
 
 /* ================================================================
-   NAVIGATION — Bottom Tab Bar
+   NAVIGATION — Top Tab Bar (sticky)
    ================================================================ */
 .tab-nav {
-    position:fixed; bottom:0; left:0; right:0;
-    display:flex; justify-content:center;
-    background:rgba(17,19,24,0.92);
-    backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
-    border-top:1px solid var(--border);
-    padding:6px 8px calc(env(safe-area-inset-bottom, 0px) + 6px);
-    z-index:500;
-    gap:2px;
-    max-width:600px;
-    margin:0 auto;
-}
-
-/* Expand nav to full width on mobile */
-@media (max-width:600px) {
-    .tab-nav { max-width:100%; }
+    display:grid; grid-template-columns:repeat(4,1fr);
+    gap:6px;
+    padding:14px 0 10px;
+    position:sticky; top:0; z-index:500;
+    background:var(--bg-body);
 }
 
 /* Coach has 3 tabs */
 #coach-app .tab-nav {
-    max-width:600px;
+    grid-template-columns:repeat(3,1fr);
 }
 
 .tab-btn {
-    flex:1; max-width:120px;
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
-    padding:8px 4px 6px;
-    border:none; border-radius:var(--radius-sm);
-    background:transparent; color:var(--text-tertiary);
-    font-family:inherit; font-size:10px; font-weight:600; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    padding:10px 0;
+    border:1.5px solid var(--border); border-radius:var(--radius-sm);
+    background:var(--bg-card); color:var(--text-secondary);
+    font-family:inherit; font-size:13px; font-weight:600; cursor:pointer;
     transition:all var(--transition);
-    letter-spacing:0.2px;
     position:relative;
 }
-.tab-btn:hover { color:var(--text-secondary); }
+.tab-btn:hover { background:var(--bg-card-hover); color:var(--text); }
 .tab-btn.active {
-    color:var(--primary-light);
-    background:rgba(124,106,239,0.10);
+    background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+    border-color:transparent; color:#fff;
+    box-shadow:var(--shadow-glow);
 }
-.tab-btn.active::before {
-    content:'';
-    position:absolute; top:0; left:50%; transform:translateX(-50%);
-    width:24px; height:2.5px; border-radius:2px;
-    background:var(--primary-light);
-}
-.tab-svg { width:20px; height:20px; flex-shrink:0; }
+.tab-btn.active::before { display:none; }
+.tab-svg { width:18px; height:18px; flex-shrink:0; }
 
 .tab-content { display:none; }
 .tab-content.active { display:block; }
