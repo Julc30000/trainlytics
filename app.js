@@ -976,8 +976,10 @@ trainingType.addEventListener('change', () => {
     const customCatSel = document.getElementById('custom-category');
     const builtInCustomSubs = (!customType && !isSprint && !isTechnik) ? scEntryNames(val) : [];
     if (customType && customType.subcategories && customType.subcategories.length) {
+        const extended = scEntryNames(val).filter(s => !customType.subcategories.includes(s));
+        const allSubs = [...customType.subcategories, ...extended];
         customCatSel.innerHTML = '<option value="">-- ' + t('please_select') + ' --</option>' +
-            customType.subcategories.map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('');
+            allSubs.map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('');
         customCatGroup.style.display = '';
     } else if (builtInCustomSubs.length) {
         customCatSel.innerHTML = '<option value="">-- ' + t('please_select') + ' --</option>' +
@@ -3923,7 +3925,8 @@ document.getElementById('add-type-btn').addEventListener('click', () => {
         } else {
             const ct = getCustomType(val);
             if (ct && ct.subcategories && ct.subcategories.length) {
-                options = ct.subcategories;
+                const extended = scEntryNames(val).filter(s => !ct.subcategories.includes(s));
+                options = [...ct.subcategories, ...extended];
             } else {
                 const custom = scEntryNames(val);
                 if (custom.length) options = custom;
