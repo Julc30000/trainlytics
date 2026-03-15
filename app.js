@@ -2496,7 +2496,7 @@ function parseWeekRange(weekVal) {
     monday.setDate(jan4.getDate() - dayOfWeek + 1 + (ww - 1) * 7);
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
-    const fmt = d => d.toISOString().split('T')[0];
+    const fmt = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
     return { start: fmt(monday), end: fmt(sunday), monday, sunday };
 }
 
