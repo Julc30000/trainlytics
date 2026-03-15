@@ -49,6 +49,9 @@ const TECHNIK_CAT_I18N = { 'Hütchen':'cat_huetchen','Schirm':'cat_schirm','Sons
 function translateSprintCat(val) { const k = SPRINT_CAT_I18N[val]; return k ? t(k) : val; }
 function translateTechnikCat(val) { const k = TECHNIK_CAT_I18N[val]; return k ? t(k) : val; }
 
+const KRAFT_EXERCISES = ['kniebeugen','waden','beuger','bauch','ruecken','exzentrisch','hipthrust'];
+const KRAFT_LABELS = {kniebeugen:'Kniebeugen',waden:'Waden',beuger:'Beuger',bauch:'Bauch',ruecken:'Rücken',exzentrisch:'Exzentrisch',hipthrust:'Hip Thrust'};
+
 function applyLanguage() {
     const $ = sel => document.querySelector(sel);
     const $$ = sel => document.querySelectorAll(sel);
@@ -1172,8 +1175,6 @@ telemarkNo.addEventListener('click', () => {
 
 // ---- Time entries ----
 // Kraft exercise checkbox toggles
-const KRAFT_EXERCISES = ['kniebeugen','waden','beuger','bauch','ruecken','exzentrisch','hipthrust'];
-const KRAFT_LABELS = {kniebeugen:'Kniebeugen',waden:'Waden',beuger:'Beuger',bauch:'Bauch',ruecken:'Rücken',exzentrisch:'Exzentrisch',hipthrust:'Hip Thrust'};
 KRAFT_EXERCISES.forEach(ex => {
     const cb = document.getElementById('kraft-' + ex);
     const det = document.getElementById('kraft-' + ex + '-details');
