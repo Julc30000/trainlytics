@@ -262,8 +262,6 @@ de: {
     week_label: 'Woche',
     download_pdf: '📥 PDF herunterladen',
     new_type: 'Neue Trainingsart',
-    based_on: 'Basiert auf',
-    new_category: 'Neue Kategorie',
     name_label: 'Name',
     name_ph: 'z.B. Ausdauer, Dehnen, Hürden',
     emoji_label: 'Emoji',
@@ -279,9 +277,6 @@ de: {
     extend_subcats: 'Unterkategorien erweitern',
     new_subcat_label: 'Neue Unterkategorie',
     new_subcat_ph: 'z.B. Hürden, Staffel',
-    hide_types_title: 'Trainingsarten ausblenden',
-    hide_types_hint: 'Deaktivierte Typen erscheinen nicht im Trainingsformular.',
-
     // Toast messages
     toast_pw_required: 'Bitte Passwort eingeben',
     toast_pw_wrong: 'Falsches Passwort',
@@ -456,8 +451,6 @@ de: {
     edit_type: 'Trainingsart bearbeiten',
     no_custom_types: 'Noch keine eigenen Trainingsarten erstellt.',
     no_custom_subcats: 'Keine eigenen Unterkategorien.',
-    subcat_name_label: 'Name der Unterkategorie',
-    subcat_name_ph: 'z.B. Hürden, 200m, Bergsprints',
 
     // Coach plan
     no_plans: 'Noch keine Pläne vorhanden',
@@ -771,8 +764,6 @@ ro: {
     week_label: 'Săptămâna',
     download_pdf: '📥 Descarcă PDF',
     new_type: 'Tip antrenament nou',
-    based_on: 'Bazat pe',
-    new_category: 'Categorie nouă',
     name_label: 'Nume',
     name_ph: 'ex. Rezistență, Stretching, Garduri',
     emoji_label: 'Emoji',
@@ -788,9 +779,6 @@ ro: {
     extend_subcats: 'Extinde subcategoriile',
     new_subcat_label: 'Subcategorie nouă',
     new_subcat_ph: 'ex. Garduri, Ștafetă',
-    hide_types_title: 'Ascunde tipuri antrenament',
-    hide_types_hint: 'Tipurile dezactivate nu apar în formularul de antrenament.',
-
     toast_pw_required: 'Te rog introdu parola',
     toast_pw_wrong: 'Parolă greșită',
     toast_pw_set: 'Parolă setată ✓',
@@ -954,8 +942,6 @@ ro: {
     edit_type: 'Editează tip antrenament',
     no_custom_types: 'Niciun tip personalizat creat.',
     no_custom_subcats: 'Nicio subcategorie proprie.',
-    subcat_name_label: 'Numele subcategoriei',
-    subcat_name_ph: 'ex. Garduri, 200m, Sprint deal',
 
     no_plans: 'Niciun plan disponibil',
     week_from_text: 'Săptămâna de la {date}',

@@ -327,11 +327,6 @@ function applyLanguage() {
     // Custom types form
     const ctTitle = document.getElementById('ct-form-title');
     if (ctTitle && !ctTitle.dataset.editing) ctTitle.textContent = t('new_type');
-    const ctBaseLabel = document.querySelector('label[for="ct-base"]');
-    if (ctBaseLabel) ctBaseLabel.textContent = t('based_on');
-    // ct-base options
-    const ctBase = document.getElementById('ct-base');
-    if (ctBase) ctBase.querySelector('option[value=""]').textContent = t('new_category');
     const ctNameLabel = document.querySelector('label[for="ct-name"]');
     if (ctNameLabel) ctNameLabel.textContent = t('name_label');
     document.getElementById('ct-name').placeholder = t('name_ph');
@@ -383,9 +378,6 @@ function applyLanguage() {
     // Section titles
     const scSectionTitle = document.getElementById('sc-section-title');
     if (scSectionTitle) scSectionTitle.textContent = t('extend_subcats');
-    const htTitle = document.getElementById('hidden-types-title');
-    if (htTitle) htTitle.textContent = t('hide_types_title');
-
     // Select options that need translation (type selectors)
     ['training-type', 'history-filter', 'analytics-type'].forEach(selId => {
         const sel = document.getElementById(selId);
@@ -595,9 +587,7 @@ async function loadCustomTypesFromFirestore(user) {
             if (doc.data().customSubcategories) {
                 _customSubcategories = doc.data().customSubcategories;
             }
-            if (doc.data().hiddenTypes) {
-                _hiddenTypes = doc.data().hiddenTypes;
-            }
+
         } else {
             loadCustomTypes();
         }
@@ -605,20 +595,11 @@ async function loadCustomTypesFromFirestore(user) {
 }
 
 let _customSubcategories = {};
-let _hiddenTypes = [];
-
 function saveCustomSubcategories(data) {
     _customSubcategories = data;
     if (!currentUser) return;
     db.collection('users').doc(currentUser.toLowerCase().trim())
       .set({ customSubcategories: data }, { merge: true }).catch(() => {});
-}
-
-function saveHiddenTypes(list) {
-    _hiddenTypes = list;
-    if (!currentUser) return;
-    db.collection('users').doc(currentUser.toLowerCase().trim())
-      .set({ hiddenTypes: list }, { merge: true }).catch(() => {});
 }
 
 // Subcategory entry helpers (backward compat: entries can be string or {name, trackTimes, trackCount, trackWeight})
@@ -670,11 +651,7 @@ function startListener(user) {
             if (data.customSubcategories) {
                 _customSubcategories = data.customSubcategories;
             }
-            // Sync hidden types
-            if (data.hiddenTypes) {
-                _hiddenTypes = data.hiddenTypes;
-                applyUserRestrictions(currentUser);
-            }
+
         }
     });
 }
@@ -851,7 +828,6 @@ document.getElementById('btn-logout').addEventListener('click', () => {
     _competitions = [];
     _injuries = [];
     _customTypes = [];
-    _hiddenTypes = [];
     resetAppUI();
     loginScreen.style.display = '';
     loginScreen.classList.remove('fade-in');
@@ -923,14 +899,14 @@ function applyUserRestrictions(userName) {
             {v:'Kraft', l:translateType('Kraft')},
             {v:'Technik', l:translateType('Technik')},
             {v:'Pausetag', l:translateType('Pausetag')},
-        ].filter(bt => !_hiddenTypes.includes(bt.v));
+        ];
         const biAnalytics = [
             {v:'Sprint (50m)', e:'⚡'},
             {v:'Tempolauf (120m)', e:'🏃'},
             {v:'Tempolauf (150m)', e:'🏃'},
             {v:'Kraft', e:'💪'},
             {v:'Technik', e:'🎯'},
-        ].filter(bt => !_hiddenTypes.includes(bt.v));
+        ];
         sel.innerHTML = '<option value="">' + escapeHtml(t('please_select')) + '</option>' +
             biTraining.map(bt => '<option value="' + escapeHtml(bt.v) + '">' + escapeHtml(bt.l) + '</option>').join('');
         hFilter.innerHTML = '<option value="all">' + escapeHtml(t('filter_all')) + '</option>' +
@@ -3114,55 +3090,6 @@ function renderCoachUserStats(userName, entries) {
 // ================================================================
 //  CUSTOM TRAINING TYPES MANAGEMENT
 // ================================================================
-const CT_BASE_MAP = {
-    'Sprint (50m)':     { emoji: '⚡', color: '#B4A8FF', trackTimes: true, trackCount: false, trackWeight: false },
-    'Tempolauf (120m)': { emoji: '🏃', color: '#22D3C5', trackTimes: true, trackCount: false, trackWeight: false },
-    'Tempolauf (150m)': { emoji: '🏃', color: '#FBBF24', trackTimes: true, trackCount: false, trackWeight: false },
-    'Kraft':            { emoji: '💪', color: '#F87171', trackTimes: false, trackCount: false, trackWeight: true },
-    'Technik':          { emoji: '🎯', color: '#FB923C', trackTimes: false, trackCount: false, trackWeight: false },
-    'Joggen (5km)':     { emoji: '🏃‍♀️', color: '#34D399', trackTimes: false, trackCount: false, trackWeight: false },
-};
-
-function updateCtBaseOptions() {
-    const sel = document.getElementById('ct-base');
-    const curVal = sel.value;
-    sel.innerHTML = '<option value="">' + t('new_category') + '</option>' +
-        '<option value="Sprint (50m)">⚡ Sprint (50m)</option>' +
-        '<option value="Tempolauf (120m)">🏃 Tempolauf (120m)</option>' +
-        '<option value="Tempolauf (150m)">🏃 Tempolauf (150m)</option>' +
-        '<option value="Kraft">💪 Kraft</option>' +
-        '<option value="Technik">🎯 Technik</option>' +
-        '<option value="Joggen (5km)">🏃‍♀️ Joggen (5km)</option>';
-    _customTypes.forEach(ct => {
-        if (ctEditId && ct.id === ctEditId) return;
-        const opt = document.createElement('option');
-        opt.value = ct.name;
-        opt.textContent = (ct.emoji || '📌') + ' ' + ct.name;
-        sel.appendChild(opt);
-    });
-    sel.value = curVal;
-}
-
-function resolveBase(val) {
-    if (CT_BASE_MAP[val]) return CT_BASE_MAP[val];
-    const ct = _customTypes.find(c => c.name === val);
-    if (ct) return { emoji: ct.emoji || '', color: ct.color || '#B4A8FF', trackTimes: ct.trackTimes !== false, trackCount: ct.trackCount === true, trackWeight: ct.trackWeight === true };
-    return null;
-}
-
-function applyBaseVisibility(hasBase) {
-    document.getElementById('ct-emoji-group').style.display = hasBase ? 'none' : '';
-    document.getElementById('ct-color-group').style.display = hasBase ? 'none' : '';
-    const nameLabel = document.querySelector('#ct-name-group label');
-    const nameInput = document.getElementById('ct-name');
-    if (hasBase) {
-        nameLabel.textContent = t('subcat_name_label');
-        nameInput.placeholder = t('subcat_name_ph');
-    } else {
-        nameLabel.textContent = t('name_label');
-        nameInput.placeholder = t('name_ph');
-    }
-}
 
 const ctModal = document.getElementById('custom-types-modal');
 const ctListEl = document.getElementById('custom-types-list');
@@ -3192,7 +3119,6 @@ document.getElementById('btn-settings').addEventListener('click', () => {
     ctModal.classList.add('show');
     renderScList();
     updateScTypeOptions();
-    renderHiddenTypesUI();
 });
 
 // Tab switching
@@ -3636,13 +3562,10 @@ document.getElementById('ct-weight-no').addEventListener('click', () => {
 
 function resetCtForm() {
     ctEditId = null;
-    updateCtBaseOptions();
     updateScTypeOptions();
-    document.getElementById('ct-base').value = '';
     document.getElementById('ct-name').value = '';
     document.getElementById('ct-emoji').value = '';
     document.getElementById('ct-subcategories').value = '';
-    applyBaseVisibility(false);
     ctSelectedColor = '#B4A8FF';
     ctTrackTimes = true;
     ctTrackCount = false;
@@ -3660,39 +3583,12 @@ function resetCtForm() {
     document.getElementById('ct-cancel-edit').style.display = 'none';
 }
 
-// Base category selector — auto-fill emoji & color, pre-fill toggles
-document.getElementById('ct-base').addEventListener('change', () => {
-    const val = document.getElementById('ct-base').value;
-    const base = resolveBase(val);
-    if (base) {
-        document.getElementById('ct-emoji').value = base.emoji;
-        ctSelectedColor = base.color;
-        ctTrackTimes = base.trackTimes;
-        ctTrackCount = base.trackCount;
-        ctTrackWeight = base.trackWeight;
-        document.querySelectorAll('.ct-color-opt').forEach(o => {
-            o.classList.toggle('selected', o.dataset.color === ctSelectedColor);
-        });
-        document.getElementById('ct-times-yes').classList.toggle('active', ctTrackTimes);
-        document.getElementById('ct-times-no').classList.toggle('active', !ctTrackTimes);
-        document.getElementById('ct-count-yes').classList.toggle('active', ctTrackCount);
-        document.getElementById('ct-count-no').classList.toggle('active', !ctTrackCount);
-        document.getElementById('ct-weight-yes').classList.toggle('active', ctTrackWeight);
-        document.getElementById('ct-weight-no').classList.toggle('active', !ctTrackWeight);
-    } else {
-        document.getElementById('ct-emoji').value = '';
-    }
-    applyBaseVisibility(!!base);
-});
-
 document.getElementById('ct-cancel-edit').addEventListener('click', resetCtForm);
 
 document.getElementById('ct-save').addEventListener('click', () => {
-    const baseVal = document.getElementById('ct-base').value;
-    const base = resolveBase(baseVal);
     const name = document.getElementById('ct-name').value.trim();
-    const emoji = base ? base.emoji : document.getElementById('ct-emoji').value.trim();
-    const color = base ? base.color : ctSelectedColor;
+    const emoji = document.getElementById('ct-emoji').value.trim();
+    const color = ctSelectedColor;
     const trackTimes = ctTrackTimes;
     const trackCount = ctTrackCount;
     const trackWeight = ctTrackWeight;
@@ -3712,11 +3608,11 @@ document.getElementById('ct-save').addEventListener('click', () => {
         const idx = list.findIndex(ct => ct.id === ctEditId);
         if (idx >= 0) {
             if (list.some((ct, i) => i !== idx && ct.name === name)) { showToast(t('toast_name_taken')); return; }
-            list[idx] = { ...list[idx], name, emoji, color, subcategories, trackTimes, trackCount, trackWeight, basedOn: baseVal || null };
+            list[idx] = { ...list[idx], name, emoji, color, subcategories, trackTimes, trackCount, trackWeight };
         }
     } else {
         if (list.some(ct => ct.name === name)) { showToast(t('toast_name_taken')); return; }
-        list.push({ id: generateId(), name, emoji, color, subcategories, trackTimes, trackCount, trackWeight, basedOn: baseVal || null });
+        list.push({ id: generateId(), name, emoji, color, subcategories, trackTimes, trackCount, trackWeight });
     }
 
     saveCustomTypes(list);
@@ -3757,12 +3653,6 @@ function renderCustomTypesList() {
             const ct = _customTypes.find(c => c.id === btn.dataset.ctid);
             if (!ct) return;
             ctEditId = ct.id;
-            // Restore base selector
-            updateCtBaseOptions();
-            const baseVal = ct.basedOn || '';
-            document.getElementById('ct-base').value = baseVal;
-            const hasBase = !!resolveBase(baseVal);
-            applyBaseVisibility(hasBase);
             document.getElementById('ct-name').value = ct.name;
             document.getElementById('ct-emoji').value = ct.emoji || '';
             document.getElementById('ct-subcategories').value = (ct.subcategories || []).join(', ');
@@ -3925,36 +3815,6 @@ document.getElementById('sc-add').addEventListener('click', () => {
     renderScList();
     showToast(t('toast_added'));
 });
-
-// ================================================================
-//  HIDDEN TYPES MANAGEMENT
-// ================================================================
-function renderHiddenTypesUI() {
-    const container = document.getElementById('hidden-types-list');
-    const BI = [
-        {v:'Sprint (50m)', e:'⚡'}, {v:'Tempolauf (120m)', e:'🏃'}, {v:'Tempolauf (150m)', e:'🏃'},
-        {v:'Kraft', e:'💪'}, {v:'Technik', e:'🎯'}, {v:'Joggen (5km)', e:'🏃‍♀️'}, {v:'Pausetag', e:'🛌'}
-    ];
-    container.innerHTML = '<p style="color:var(--text-tertiary);font-size:12px;margin-bottom:8px">' + t('hide_types_hint') + '</p>' +
-        BI.map(bt => {
-            const hidden = _hiddenTypes.includes(bt.v);
-            return '<label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;font-size:13px;color:var(--text-primary)">' +
-                '<input type="checkbox" class="ht-checkbox" data-type="' + escapeHtml(bt.v) + '" ' + (hidden ? '' : 'checked') + '>' +
-                '<span>' + bt.e + ' ' + escapeHtml(translateType(bt.v)) + '</span></label>';
-        }).join('');
-    container.querySelectorAll('.ht-checkbox').forEach(cb => {
-        cb.addEventListener('change', () => {
-            const type = cb.dataset.type;
-            if (cb.checked) {
-                _hiddenTypes = _hiddenTypes.filter(t => t !== type);
-            } else {
-                if (!_hiddenTypes.includes(type)) _hiddenTypes.push(type);
-            }
-            saveHiddenTypes(_hiddenTypes);
-            applyUserRestrictions(currentUser);
-        });
-    });
-}
 
 // Subcategory tracking override for custom-category dropdown
 document.getElementById('custom-category').addEventListener('change', () => {
