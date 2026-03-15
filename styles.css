@@ -225,7 +225,20 @@ body {
 }
 
 .login-sub {
-    font-size:12px; color:var(--text-tertiary); margin-bottom:24px;
+    font-size:12px; color:var(--text-tertiary); margin-bottom:16px;
+}
+
+.lang-selector {
+    display:flex; justify-content:center; gap:8px; margin-bottom:20px;
+}
+.lang-btn {
+    background:var(--bg-elevated); border:1px solid var(--border);
+    border-radius:20px; padding:6px 14px; font-size:13px; font-weight:600;
+    color:var(--text-secondary); cursor:pointer; transition:all .15s;
+}
+.lang-btn.active {
+    border-color:var(--primary-light); color:var(--text);
+    background:rgba(124,106,239,0.12);
 }
 
 .login-card .form-group { text-align:left; margin-bottom:16px; }

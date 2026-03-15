@@ -2,9 +2,457 @@
    TrainLytics v3 — App Logic
    ======================================== */
 
-const MONTH_NAMES = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+const MONTH_NAMES_DE = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+function MONTH_NAMES_T() { return t('months'); }
 const INTENSITIES = ['NI','I3','I2','I1'];
 const WEEKLY_TRACK_START = '2026-03-09';
+
+// ================================================================
+//  i18n HELPERS
+// ================================================================
+const TYPE_I18N_MAP = {
+    'Sprint (50m)':     'type_sprint',
+    'Tempolauf (120m)': 'type_tempo120',
+    'Tempolauf (150m)': 'type_tempo150',
+    'Kraft':            'type_kraft',
+    'Technik':          'type_technik',
+    'Joggen (5km)':     'type_joggen',
+    'Pausetag':         'type_pause'
+};
+function translateType(val) {
+    const key = TYPE_I18N_MAP[val];
+    return key ? t(key) : val;
+}
+
+const BODY_I18N_MAP = {
+    'Knie': 'body_knee', 'Oberschenkel': 'body_thigh', 'Wade': 'body_calf',
+    'Sprunggelenk': 'body_ankle', 'Fuß': 'body_foot', 'Hüfte': 'body_hip',
+    'Rücken': 'body_back', 'Schulter': 'body_shoulder', 'Achillessehne': 'body_achilles',
+    'Schienbein': 'body_shin', 'Sonstiges': 'cat_sonstiges'
+};
+function translateBody(val) {
+    const key = BODY_I18N_MAP[val];
+    return key ? t(key) : val;
+}
+
+const SIDE_I18N_MAP = { 'Links': 'side_left', 'Rechts': 'side_right', 'Beide': 'side_both' };
+function translateSide(val) { const key = SIDE_I18N_MAP[val]; return key ? t(key) : val; }
+
+const KRAFT_I18N_MAP = {
+    'kniebeugen':'kraft_kniebeugen','waden':'kraft_waden','beuger':'kraft_beuger',
+    'bauch':'kraft_bauch','ruecken':'kraft_ruecken','exzentrisch':'kraft_exzentrisch','hipthrust':'kraft_hipthrust'
+};
+function translateKraft(val) { return t(KRAFT_I18N_MAP[val] || val); }
+
+const SPRINT_CAT_I18N = { 'Locker':'cat_locker','Sub-Max':'cat_submax','Max':'cat_max','Seil':'cat_seil' };
+const TECHNIK_CAT_I18N = { 'Hütchen':'cat_huetchen','Schirm':'cat_schirm','Sonstiges':'cat_sonstiges' };
+function translateSprintCat(val) { const k = SPRINT_CAT_I18N[val]; return k ? t(k) : val; }
+function translateTechnikCat(val) { const k = TECHNIK_CAT_I18N[val]; return k ? t(k) : val; }
+
+function applyLanguage() {
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => document.querySelectorAll(sel);
+
+    // data-i18n (textContent)
+    $$('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (key) el.textContent = t(key);
+    });
+    // data-i18n-html (innerHTML)
+    $$('[data-i18n-html]').forEach(el => {
+        const key = el.getAttribute('data-i18n-html');
+        if (key) el.innerHTML = t(key);
+    });
+    // data-i18n-ph (placeholder)
+    $$('[data-i18n-ph]').forEach(el => {
+        const key = el.getAttribute('data-i18n-ph');
+        if (key) el.placeholder = t(key);
+    });
+    // data-i18n-title (title attr)
+    $$('[data-i18n-title]').forEach(el => {
+        const key = el.getAttribute('data-i18n-title');
+        if (key) el.title = t(key);
+    });
+
+    // Update all static labels, form elements, selects, headings not covered by data-i18n
+    // Training form
+    const trainingFormCard = document.querySelector('#training .card-header h2');
+    if (trainingFormCard) trainingFormCard.textContent = t('new_session');
+    const trainingBadge = document.querySelector('#training .card-badge');
+    if (trainingBadge) trainingBadge.textContent = t('new_badge');
+
+    // Form labels by their `for` attributes
+    const labelMap = {
+        'training-date': 'date_label', 'training-time': 'time_label',
+        'training-type': 'type_label', 'sprint-category': 'category_label',
+        'technik-category': 'category_label', 'custom-category': 'category_label',
+        'training-intensity': 'intensity_label', 'training-notes': null, // handled separately
+        'training-count': 'count_label',
+        'analytics-type': 'analytics_type_label',
+        'injury-bodypart': 'body_part_label', 'injury-side': 'side_label',
+    };
+    Object.entries(labelMap).forEach(([forAttr, key]) => {
+        if (!key) return;
+        const lbl = document.querySelector(`label[for="${forAttr}"]`);
+        if (lbl) lbl.textContent = t(key);
+    });
+
+    // Notes label with hint
+    const notesLabel = document.querySelector('label[for="training-notes"]');
+    if (notesLabel) notesLabel.innerHTML = t('notes_label') + ' <span class="label-hint">(' + t('optional_hint').replace(/[()]/g,'') + ')</span>';
+    const notesTA = document.getElementById('training-notes');
+    if (notesTA) notesTA.placeholder = t('notes_ph');
+
+    // Times label
+    const timesLabel = document.querySelector('#times-container > label');
+    if (timesLabel) timesLabel.innerHTML = t('times_label') + ' <span class="label-hint">' + t('times_hint') + '</span>';
+
+    // Add time button
+    const addTimeBtn = document.getElementById('add-time-btn');
+    if (addTimeBtn) { const svg = addTimeBtn.querySelector('svg'); addTimeBtn.textContent = ''; if (svg) addTimeBtn.appendChild(svg); addTimeBtn.append(' ' + t('add_time')); }
+
+    // Joggen labels
+    const joggenMinLabel = document.querySelector('label[for="joggen-min"]');
+    if (joggenMinLabel) joggenMinLabel.textContent = t('minutes_label');
+    const joggenSecLabel = document.querySelector('label[for="joggen-sec"]');
+    if (joggenSecLabel) joggenSecLabel.textContent = t('seconds_label');
+    const joggenHeader = document.querySelector('#joggen-container > label');
+    if (joggenHeader) joggenHeader.textContent = t('run_time');
+    const joggenMinPh = document.getElementById('joggen-min');
+    if (joggenMinPh) joggenMinPh.placeholder = t('minutes_ph');
+    const joggenSecPh = document.getElementById('joggen-sec');
+    if (joggenSecPh) joggenSecPh.placeholder = t('seconds_ph');
+    const countPh = document.getElementById('training-count');
+    if (countPh) countPh.placeholder = t('count_ph');
+
+    // ct-kg labels
+    const ctKgLabel = document.querySelector('#ct-kg-container > label');
+    if (ctKgLabel) ctKgLabel.textContent = t('weight_label');
+    const ctKgValLabel = document.querySelector('label[for="ct-kg-value"]');
+    if (ctKgValLabel) ctKgValLabel.textContent = t('kg_label');
+    const ctKgRepsLabel = document.querySelector('label[for="ct-kg-reps"]');
+    if (ctKgRepsLabel) ctKgRepsLabel.textContent = t('reps_label');
+
+    // Telemarks
+    const tmQuestion = document.querySelector('#telemark-container > .form-group > label');
+    if (tmQuestion) tmQuestion.textContent = t('telemark_question');
+    document.getElementById('telemark-no').textContent = t('no');
+    document.getElementById('telemark-yes').textContent = t('yes');
+    const tmCountLabel = document.querySelector('label[for="telemark-count"]');
+    if (tmCountLabel) tmCountLabel.textContent = t('telemark_count');
+
+    // Kraft exercises label
+    const kraftLabel = document.querySelector('#kraft-container > label');
+    if (kraftLabel) kraftLabel.innerHTML = t('exercises_label') + ' <span class="label-hint">' + t('exercises_hint') + '</span>';
+    // Kraft exercise names
+    KRAFT_EXERCISES.forEach(ex => {
+        const cb = document.getElementById('kraft-' + ex);
+        if (cb && cb.parentElement) {
+            const label = cb.parentElement;
+            // Keep the checkbox, update text after it
+            const checkbox = label.querySelector('input');
+            label.textContent = '';
+            label.appendChild(checkbox);
+            label.append(' ' + translateKraft(ex));
+        }
+    });
+    // KB mode buttons
+    document.getElementById('kb-mode-normal').textContent = t('normal');
+    document.getElementById('kb-mode-pyramid').textContent = t('pyramid');
+    // KB add set button
+    const kbAddSet = document.getElementById('kb-add-set');
+    if (kbAddSet) { const svg = kbAddSet.querySelector('svg'); kbAddSet.textContent = ''; if (svg) kbAddSet.appendChild(svg); kbAddSet.append(' ' + t('add_set')); }
+
+    // Additional type button
+    const addTypeBtn = document.getElementById('add-type-btn');
+    if (addTypeBtn) { const svg = addTypeBtn.querySelector('svg'); addTypeBtn.textContent = ''; if (svg) addTypeBtn.appendChild(svg); addTypeBtn.append(' ' + t('add_type_btn')); }
+
+    // Save button
+    const saveBtn = document.querySelector('#training-form button[type="submit"]');
+    if (saveBtn) { const svg = saveBtn.querySelector('svg'); saveBtn.textContent = ''; if (svg) saveBtn.appendChild(svg); saveBtn.append(' ' + t('save_btn')); }
+
+    // History
+    const histH2 = document.querySelector('.history-header h2');
+    if (histH2) histH2.textContent = t('history_title');
+
+    // Analytics
+    const dashH2 = document.querySelector('#analytics .card-header h2');
+    if (dashH2) dashH2.textContent = t('dashboard');
+
+    // Stat labels (static HTML stat-label elements)
+    const statLabels = {
+        'stat-gen-season': 'stat_season', 'stat-gen-total': 'stat_sessions_season',
+        'stat-gen-weekly': 'stat_avg_week', 'stat-gen-streak': 'stat_streak',
+        'stat-gen-total-all': 'stat_total_all', 'stat-gen-pause': 'stat_pause_season',
+        'stat-gen-last': 'stat_last_session',
+        'stat-kraft-sessions': 'stat_sessions', 'stat-kraft-avg-ex': 'stat_avg_exercises',
+        'stat-kraft-max-kb': 'stat_max_kb', 'stat-kraft-max-waden': 'stat_max_waden',
+        'stat-kraft-fav': 'stat_most_exercise', 'stat-kraft-weekly': 'stat_avg_week',
+        'stat-tech-sessions': 'stat_sessions', 'stat-tech-fav': 'stat_most_category',
+        'stat-tech-weekly': 'stat_avg_week', 'stat-tech-last': 'stat_last_session',
+        'stat-jog-sessions': 'stat_sessions', 'stat-jog-best': 'stat_best_time',
+        'stat-jog-avg': 'stat_avg_time', 'stat-jog-km': 'stat_total_km',
+        'stat-jog-trend': 'stat_trend', 'stat-jog-weekly': 'stat_avg_week',
+        'stat-ct-sessions': 'stat_sessions', 'stat-ct-fav': 'stat_custom_most_cat',
+        'stat-ct-weekly': 'stat_avg_week', 'stat-ct-last': 'stat_custom_last',
+        'stat-best': 'stat_pb', 'stat-avg': 'stat_average',
+        'stat-count': 'stat_sessions', 'stat-recent': 'stat_last5',
+        'stat-trend': 'stat_trend', 'stat-worst': 'stat_worst',
+        'stat-ni-sessions': 'stat_sessions', 'stat-ni-avg-count': 'stat_avg_runs',
+        'stat-ni-total': 'stat_total_runs', 'stat-ni-meters': 'stat_total_meters',
+        'stat-ni-telemarks': 'stat_total_telemarks', 'stat-ni-avg-tm': 'stat_avg_telemarks',
+    };
+    Object.entries(statLabels).forEach(([id, key]) => {
+        const el = document.getElementById(id);
+        if (el) {
+            const labelEl = el.closest('.stat-card')?.querySelector('.stat-label');
+            if (labelEl) labelEl.textContent = t(key);
+        }
+    });
+
+    // PB heading
+    const pbH3 = document.querySelector('#pb-card .chart-header h3');
+    if (pbH3) pbH3.textContent = t('pb_title');
+
+    // Calendar
+    const calCountdownH2 = document.querySelector('.countdown-card .card-header h2');
+    if (calCountdownH2) calCountdownH2.textContent = t('next_comp');
+    const calCountdownNone = document.querySelector('.countdown-none');
+    if (calCountdownNone) calCountdownNone.textContent = t('no_comp_planned');
+    const addWkBtn = document.getElementById('btn-add-wk');
+    if (addWkBtn) { const svg = addWkBtn.querySelector('svg'); addWkBtn.textContent = ''; if (svg) addWkBtn.appendChild(svg); addWkBtn.append(' ' + t('add_comp_btn')); }
+    // Calendar legend
+    const legendItems = document.querySelectorAll('.cal-legend-item');
+    const legendKeys = ['legend_training', 'legend_comp', 'legend_today'];
+    legendItems.forEach((el, i) => {
+        if (legendKeys[i]) {
+            const dot = el.querySelector('.cal-dot');
+            el.textContent = '';
+            if (dot) el.appendChild(dot);
+            el.append(' ' + t(legendKeys[i]));
+        }
+    });
+    const wkListH2 = document.querySelector('#kalender .card-header h2:last-of-type');
+    if (wkListH2 && wkListH2.textContent.match(/Wettk|Compet/)) wkListH2.textContent = t('competitions_title');
+    // Competition list heading
+    document.querySelectorAll('#kalender .card-header h2').forEach(h => {
+        if (h.id === 'cal-season-label') h.textContent = t('season_label');
+        else if (!h.closest('.countdown-card')) h.textContent = t('competitions_title');
+    });
+
+    // Tagebuch / Diary
+    const planH2 = document.querySelector('#plan-card .card-header h2');
+    if (planH2) planH2.textContent = t('plan_title');
+    const prevBtn = document.getElementById('plan-prev');
+    if (prevBtn) prevBtn.title = t('prev_week');
+    const nextBtn = document.getElementById('plan-next');
+    if (nextBtn) nextBtn.title = t('next_week');
+    const addInjBtn = document.getElementById('btn-add-injury');
+    if (addInjBtn) { const svg = addInjBtn.querySelector('svg'); addInjBtn.textContent = ''; if (svg) addInjBtn.appendChild(svg); addInjBtn.append(' ' + t('add_injury_btn')); }
+    const diaryH2 = document.querySelector('#tagebuch .card-header h2');
+    if (diaryH2 && diaryH2.textContent.match(/Schmerz|Jurnal/)) diaryH2.textContent = t('diary_title');
+    const injStatsH2 = document.querySelector('#injury-stats-card .card-header h2');
+    if (injStatsH2) injStatsH2.textContent = t('pain_overview');
+
+    // Delete modal
+    const delH3 = document.querySelector('#delete-modal .modal h3');
+    if (delH3) delH3.textContent = t('delete_modal_title');
+    const delP = document.querySelector('#delete-modal .modal p');
+    if (delP) delP.textContent = t('delete_modal_text');
+    document.getElementById('modal-cancel').textContent = t('cancel_btn');
+    document.getElementById('modal-confirm').textContent = t('delete_btn');
+
+    // Competition modal
+    const wkH3 = document.querySelector('#wk-modal h3');
+    if (wkH3) wkH3.textContent = t('comp_modal_title');
+    const wkNameLabel = document.querySelector('label[for="wk-name"]');
+    if (wkNameLabel) wkNameLabel.textContent = t('comp_name_label');
+    document.getElementById('wk-name').placeholder = t('comp_name_ph');
+    const discLabel = document.querySelector('#wk-form .form-group label:last-of-type');
+    // Discipline checkboxes - update "Weitsprung" and "Dreisprung"
+    document.querySelectorAll('.wk-disc-check').forEach(lbl => {
+        const cb = lbl.querySelector('input');
+        if (cb && cb.value === 'Weitsprung') { lbl.textContent = ''; lbl.appendChild(cb); lbl.append(' ' + t('comp_weitsprung')); }
+        if (cb && cb.value === 'Dreisprung') { lbl.textContent = ''; lbl.appendChild(cb); lbl.append(' ' + t('comp_dreisprung')); }
+    });
+    document.getElementById('wk-cancel').textContent = t('cancel_btn');
+
+    // Injury modal
+    const injH3 = document.querySelector('#injury-modal h3');
+    if (injH3) injH3.textContent = t('injury_modal_title');
+    const injBodyLabel = document.querySelector('label[for="injury-bodypart"]');
+    if (injBodyLabel) injBodyLabel.textContent = t('body_part_label');
+    // Translate body part options
+    const bodySelect = document.getElementById('injury-bodypart');
+    if (bodySelect) {
+        bodySelect.querySelectorAll('option').forEach(opt => {
+            if (opt.value === '') opt.textContent = t('body_select');
+            else opt.textContent = translateBody(opt.value);
+        });
+    }
+    const painLabel = document.querySelector('#injury-form .pain-slider-wrap')?.closest('.form-group')?.querySelector('label');
+    if (painLabel) painLabel.textContent = t('pain_level');
+    const sideLabel = document.querySelector('#injury-form .toggle-row')?.closest('.form-group');
+    if (sideLabel) {
+        const lbl = sideLabel.querySelector('label[for="injury-side"]') || sideLabel.querySelector('label');
+        if (lbl) lbl.textContent = t('side_label');
+    }
+    document.getElementById('injury-side-links').textContent = t('side_left');
+    document.getElementById('injury-side-rechts').textContent = t('side_right');
+    document.getElementById('injury-side-beide').textContent = t('side_both');
+    const injNotesLabel = document.querySelector('label[for="injury-notes"]');
+    if (injNotesLabel) injNotesLabel.innerHTML = t('description_label') + ' <span class="label-hint">(' + t('optional_hint').replace(/[()]/g,'') + ')</span>';
+    document.getElementById('injury-cancel').textContent = t('cancel_btn');
+    // Injury modal save button
+    const injSaveBtn = document.querySelector('#injury-form button[type="submit"]');
+    if (injSaveBtn) injSaveBtn.textContent = t('save_btn');
+    // WK modal save button
+    const wkSaveBtn = document.querySelector('#wk-form button[type="submit"]');
+    if (wkSaveBtn) wkSaveBtn.textContent = t('save_btn');
+
+    // Settings modal
+    const settingsH3 = document.querySelector('#custom-types-modal .settings-header h3');
+    if (settingsH3) settingsH3.textContent = t('settings_title_modal');
+    document.querySelectorAll('.settings-tab').forEach(tab => {
+        if (tab.dataset.tab === 'tab-report') tab.textContent = t('tab_report');
+        if (tab.dataset.tab === 'tab-types') tab.textContent = t('tab_types');
+    });
+    const reportHint = document.querySelector('#tab-report .settings-hint');
+    if (reportHint) reportHint.textContent = t('report_hint');
+    const reportWeekLabel = document.querySelector('label[for="report-week"]');
+    if (reportWeekLabel) reportWeekLabel.textContent = t('week_label');
+    const dlPdfBtn = document.getElementById('btn-send-report');
+    if (dlPdfBtn) dlPdfBtn.textContent = t('download_pdf');
+
+    // Custom types form
+    const ctTitle = document.getElementById('ct-form-title');
+    if (ctTitle && !ctTitle.dataset.editing) ctTitle.textContent = t('new_type');
+    const ctBaseLabel = document.querySelector('label[for="ct-base"]');
+    if (ctBaseLabel) ctBaseLabel.textContent = t('based_on');
+    // ct-base options
+    const ctBase = document.getElementById('ct-base');
+    if (ctBase) ctBase.querySelector('option[value=""]').textContent = t('new_category');
+    const ctNameLabel = document.querySelector('label[for="ct-name"]');
+    if (ctNameLabel) ctNameLabel.textContent = t('name_label');
+    document.getElementById('ct-name').placeholder = t('name_ph');
+    const ctEmojiLabel = document.querySelector('label[for="ct-emoji"]');
+    if (ctEmojiLabel) ctEmojiLabel.textContent = t('emoji_label');
+    document.getElementById('ct-emoji').placeholder = t('emoji_ph');
+    const ctColorLabel = document.querySelector('label[for="ct-color"]');
+    if (ctColorLabel) ctColorLabel.textContent = t('color_label');
+    const ctSubLabel = document.querySelector('label[for="ct-subcategories"]');
+    if (ctSubLabel) ctSubLabel.innerHTML = t('subcategories_label') + ' <span class="label-hint">' + t('subcategories_hint') + '</span>';
+    document.getElementById('ct-subcategories').placeholder = t('subcategories_ph');
+    // Toggle labels
+    const ctTimesLabel = document.querySelector('#ct-times-group > label');
+    if (ctTimesLabel) ctTimesLabel.textContent = t('track_times');
+    document.getElementById('ct-times-no').textContent = t('no');
+    document.getElementById('ct-times-yes').textContent = t('yes');
+    const ctCountLabel = document.querySelector('#ct-count-group > label');
+    if (ctCountLabel) ctCountLabel.textContent = t('track_reps');
+    document.getElementById('ct-count-no').textContent = t('no');
+    document.getElementById('ct-count-yes').textContent = t('yes');
+    const ctWeightLabel = document.querySelector('#ct-weight-group > label');
+    if (ctWeightLabel) ctWeightLabel.textContent = t('track_kg');
+    document.getElementById('ct-weight-no').textContent = t('no');
+    document.getElementById('ct-weight-yes').textContent = t('yes');
+    const ctCancelBtn = document.getElementById('ct-cancel-edit');
+    if (ctCancelBtn) ctCancelBtn.textContent = t('cancel_btn');
+    const ctSaveBtn = document.getElementById('ct-save');
+    if (ctSaveBtn && !ctSaveBtn.dataset.editing) ctSaveBtn.textContent = t('add_btn');
+
+    // Subcategory section
+    const scTypeLabel = document.querySelector('label[for="sc-type"]');
+    if (scTypeLabel) scTypeLabel.textContent = t('type_label');
+    const scNameLabel = document.querySelector('label[for="sc-name"]');
+    if (scNameLabel) scNameLabel.textContent = t('new_subcat_label');
+    document.getElementById('sc-name').placeholder = t('new_subcat_ph');
+
+    // Extend subcats heading
+    document.querySelectorAll('#tab-types .custom-type-form h4').forEach(h => {
+        if (h.textContent.match(/Unterkategorien|Extinde/)) h.textContent = t('extend_subcats');
+    });
+
+    // Select options that need translation (type selectors)
+    ['training-type', 'history-filter', 'analytics-type'].forEach(selId => {
+        const sel = document.getElementById(selId);
+        if (!sel) return;
+        sel.querySelectorAll('option').forEach(opt => {
+            if (opt.value === '' || opt.value === 'all') {
+                if (selId === 'history-filter') opt.textContent = t('filter_all');
+                else if (selId === 'analytics-type' && opt.value === 'Allgemein') opt.textContent = '📊 ' + t('general');
+                else if (opt.value === '') opt.textContent = t('please_select');
+            } else if (TYPE_I18N_MAP[opt.value]) {
+                const prefix = selId === 'analytics-type' ? ({'Sprint (50m)':'⚡ ','Tempolauf (120m)':'🏃 ','Tempolauf (150m)':'🏃 ','Kraft':'💪 ','Technik':'🎯 ','Joggen (5km)':'🏃‍♀️ '}[opt.value] || '') : '';
+                opt.textContent = prefix + translateType(opt.value);
+            }
+        });
+    });
+
+    // Sprint/Technik category selects
+    const sprintCat = document.getElementById('sprint-category');
+    if (sprintCat) sprintCat.querySelectorAll('option').forEach(opt => {
+        if (opt.value === '') opt.textContent = t('please_select');
+        else if (SPRINT_CAT_I18N[opt.value]) opt.textContent = translateSprintCat(opt.value);
+    });
+    const technikCat = document.getElementById('technik-category');
+    if (technikCat) technikCat.querySelectorAll('option').forEach(opt => {
+        if (opt.value === '') opt.textContent = t('please_select');
+        else if (TECHNIK_CAT_I18N[opt.value]) opt.textContent = translateTechnikCat(opt.value);
+    });
+
+    // Analytics filter selects
+    const aSprintCat = document.getElementById('analytics-sprint-cat');
+    if (aSprintCat) aSprintCat.querySelectorAll('option').forEach(opt => {
+        if (opt.value === 'all') opt.textContent = t('all_categories');
+        else if (SPRINT_CAT_I18N[opt.value]) opt.textContent = translateSprintCat(opt.value);
+    });
+    const aIntensity = document.getElementById('analytics-intensity');
+    if (aIntensity) aIntensity.querySelector('option[value="all"]').textContent = t('all_intensities');
+
+    // Coach plan day labels
+    document.querySelectorAll('#plan-days .plan-day-row').forEach(row => {
+        const dayDE = row.dataset.day;
+        const shortMap = { 'Montag':'day_mon_s','Dienstag':'day_tue_s','Mittwoch':'day_wed_s','Donnerstag':'day_thu_s','Freitag':'day_fri_s','Samstag':'day_sat_s','Sonntag':'day_sun_s' };
+        const lbl = row.querySelector('.plan-day-label');
+        if (lbl && shortMap[dayDE]) lbl.textContent = t(shortMap[dayDE]);
+    });
+
+    // Coach plan assign button
+    const planBtn = document.getElementById('btn-save-plan');
+    if (planBtn) { const svg = planBtn.querySelector('svg'); planBtn.textContent = ''; if (svg) planBtn.appendChild(svg); planBtn.append(' ' + t('assign_plan_btn')); }
+
+    // Description label & placeholder
+    const technikCustomLabel = document.querySelector('label[for="technik-custom"]');
+    if (technikCustomLabel) technikCustomLabel.textContent = t('description_label');
+    const technikCustomInput = document.getElementById('technik-custom');
+    if (technikCustomInput) technikCustomInput.placeholder = t('description_ph');
+
+    // Kraft field labels (Kilo, Wdh.)
+    document.querySelectorAll('.kraft-field label').forEach(lbl => {
+        if (lbl.textContent.trim() === 'Kilo' || lbl.textContent.trim() === t('kilo')) lbl.textContent = t('kilo');
+        if (lbl.textContent.trim() === 'Wdh.' || lbl.textContent.trim() === t('reps_dot')) lbl.textContent = t('reps_dot');
+    });
+}
+
+// Language selector on login screen
+document.querySelectorAll('#lang-selector .lang-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('#lang-selector .lang-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        setLang(btn.dataset.lang);
+        applyLanguage();
+    });
+});
+
+// Apply saved language on page load
+(function initLang() {
+    const savedLang = getLang();
+    document.querySelectorAll('#lang-selector .lang-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.lang === savedLang);
+    });
+    if (savedLang !== 'de') applyLanguage();
+})();
 
 // ================================================================
 //  FIREBASE
@@ -229,16 +677,16 @@ async function loginAs(name) {
     // Coach login flow
     if (clean.toLowerCase() === MASTER_NAME) {
         const pw = loginPwInput.value;
-        if (!pw) { showToast('Bitte Passwort eingeben'); return; }
+        if (!pw) { showToast(t('toast_pw_required')); return; }
         try {
             const doc = await db.collection('meta').doc('coach').get();
             if (doc.exists) {
-                if (doc.data().pw !== pw) { showToast('Falsches Passwort'); return; }
+                if (doc.data().pw !== pw) { showToast(t('toast_pw_wrong')); return; }
             } else {
                 await db.collection('meta').doc('coach').set({ pw });
-                showToast('Passwort gesetzt ✓');
+                showToast(t('toast_pw_set'));
             }
-        } catch(e) { showToast('Fehler bei Coach-Login'); return; }
+        } catch(e) { showToast(t('toast_login_error_coach')); return; }
         currentUser = clean;
         addUser(clean);
         loginScreen.style.display = 'none';
@@ -252,17 +700,17 @@ async function loginAs(name) {
     // Password-protected user login (Angelika etc.)
     if (PW_USERS.includes(clean.toLowerCase())) {
         const pw = loginPwInput.value;
-        if (!pw) { showToast('Bitte Passwort eingeben'); return; }
+        if (!pw) { showToast(t('toast_pw_required')); return; }
         const docKey = 'pw_' + clean.toLowerCase();
         try {
             const doc = await db.collection('meta').doc(docKey).get();
             if (doc.exists) {
-                if (doc.data().pw !== pw) { showToast('Falsches Passwort'); return; }
+                if (doc.data().pw !== pw) { showToast(t('toast_pw_wrong')); return; }
             } else {
                 await db.collection('meta').doc(docKey).set({ pw });
-                showToast('Passwort gesetzt ✓');
+                showToast(t('toast_pw_set'));
             }
-        } catch(e) { showToast('Fehler beim Login'); return; }
+        } catch(e) { showToast(t('toast_login_error')); return; }
         loginPwInput.value = '';
         loginPwGroup.style.display = 'none';
     }
@@ -271,7 +719,7 @@ async function loginAs(name) {
     addUser(clean);
     loginScreen.style.display = 'none';
     appEl.style.display = '';
-    document.getElementById('user-greeting').textContent = 'Hallo, ' + clean.charAt(0).toUpperCase() + clean.slice(1) + '!';
+    document.getElementById('user-greeting').textContent = t('greeting') + ', ' + clean.charAt(0).toUpperCase() + clean.slice(1) + '!';
 
     // Reset form/UI for new user
     resetAppUI();
@@ -410,13 +858,30 @@ function applyUserRestrictions(userName) {
     const hFilter = document.getElementById('history-filter');
     const aType = document.getElementById('analytics-type');
     if (userName.toLowerCase() === ANGELIKA_NAME) {
-        sel.innerHTML = '<option value="">-- Bitte wählen --</option><option value="Joggen (5km)">Joggen (5km)</option>';
-        hFilter.innerHTML = '<option value="all">Alle</option><option value="Joggen (5km)">Joggen (5km)</option>';
-        aType.innerHTML = '<option value="Allgemein">📊 Allgemein</option><option value="Joggen (5km)">🏃‍♀️ Joggen (5km)</option>';
+        sel.innerHTML = '<option value="">' + escapeHtml(t('please_select')) + '</option><option value="Joggen (5km)">' + escapeHtml(translateType('Joggen (5km)')) + '</option>';
+        hFilter.innerHTML = '<option value="all">' + escapeHtml(t('filter_all')) + '</option><option value="Joggen (5km)">' + escapeHtml(translateType('Joggen (5km)')) + '</option>';
+        aType.innerHTML = '<option value="Allgemein">📊 ' + escapeHtml(t('general')) + '</option><option value="Joggen (5km)">🏃‍♀️ ' + escapeHtml(translateType('Joggen (5km)')) + '</option>';
     } else {
-        sel.innerHTML = '<option value="">-- Bitte wählen --</option><option value="Sprint (50m)">Sprint (50m)</option><option value="Tempolauf (120m)">Tempolauf (120m)</option><option value="Tempolauf (150m)">Tempolauf (150m)</option><option value="Kraft">Kraft</option><option value="Technik">Technik</option><option value="Pausetag">💤 Pausetag</option>';
-        hFilter.innerHTML = '<option value="all">Alle</option><option value="Sprint (50m)">Sprint (50m)</option><option value="Tempolauf (120m)">Tempolauf (120m)</option><option value="Tempolauf (150m)">Tempolauf (150m)</option><option value="Kraft">Kraft</option><option value="Technik">Technik</option><option value="Pausetag">💤 Pausetag</option>';
-        aType.innerHTML = '<option value="Allgemein">📊 Allgemein</option><option value="Sprint (50m)">⚡ Sprint (50m)</option><option value="Tempolauf (120m)">🏃 Tempolauf (120m)</option><option value="Tempolauf (150m)">🏃 Tempolauf (150m)</option><option value="Kraft">💪 Kraft</option><option value="Technik">🎯 Technik</option>';
+        sel.innerHTML = '<option value="">' + escapeHtml(t('please_select')) + '</option>' +
+            '<option value="Sprint (50m)">' + escapeHtml(translateType('Sprint (50m)')) + '</option>' +
+            '<option value="Tempolauf (120m)">' + escapeHtml(translateType('Tempolauf (120m)')) + '</option>' +
+            '<option value="Tempolauf (150m)">' + escapeHtml(translateType('Tempolauf (150m)')) + '</option>' +
+            '<option value="Kraft">' + escapeHtml(translateType('Kraft')) + '</option>' +
+            '<option value="Technik">' + escapeHtml(translateType('Technik')) + '</option>' +
+            '<option value="Pausetag">' + escapeHtml(translateType('Pausetag')) + '</option>';
+        hFilter.innerHTML = '<option value="all">' + escapeHtml(t('filter_all')) + '</option>' +
+            '<option value="Sprint (50m)">' + escapeHtml(translateType('Sprint (50m)')) + '</option>' +
+            '<option value="Tempolauf (120m)">' + escapeHtml(translateType('Tempolauf (120m)')) + '</option>' +
+            '<option value="Tempolauf (150m)">' + escapeHtml(translateType('Tempolauf (150m)')) + '</option>' +
+            '<option value="Kraft">' + escapeHtml(translateType('Kraft')) + '</option>' +
+            '<option value="Technik">' + escapeHtml(translateType('Technik')) + '</option>' +
+            '<option value="Pausetag">' + escapeHtml(translateType('Pausetag')) + '</option>';
+        aType.innerHTML = '<option value="Allgemein">📊 ' + escapeHtml(t('general')) + '</option>' +
+            '<option value="Sprint (50m)">⚡ ' + escapeHtml(translateType('Sprint (50m)')) + '</option>' +
+            '<option value="Tempolauf (120m)">🏃 ' + escapeHtml(translateType('Tempolauf (120m)')) + '</option>' +
+            '<option value="Tempolauf (150m)">🏃 ' + escapeHtml(translateType('Tempolauf (150m)')) + '</option>' +
+            '<option value="Kraft">💪 ' + escapeHtml(translateType('Kraft')) + '</option>' +
+            '<option value="Technik">🎯 ' + escapeHtml(translateType('Technik')) + '</option>';
     }
     // Append custom training types to all dropdowns
     _customTypes.forEach(ct => {
@@ -454,7 +919,7 @@ trainingType.addEventListener('change', () => {
         const sprintSel = document.getElementById('sprint-category');
         const builtIn = ['Locker', 'Sub-Max', 'Max', 'Seil'];
         const custom = _customSubcategories['Sprint (50m)'] || [];
-        sprintSel.innerHTML = '<option value="">-- Bitte wählen --</option>' +
+        sprintSel.innerHTML = '<option value="">-- ' + t('please_select') + ' --</option>' +
             [...builtIn, ...custom].map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('');
         document.getElementById('sprint-cat-group').style.display = '';
     } else {
@@ -466,9 +931,9 @@ trainingType.addEventListener('change', () => {
         const technikSel = document.getElementById('technik-category');
         const builtIn = ['Hütchen', 'Schirm'];
         const custom = _customSubcategories['Technik'] || [];
-        technikSel.innerHTML = '<option value="">-- Bitte wählen --</option>' +
+        technikSel.innerHTML = '<option value="">-- ' + t('please_select') + ' --</option>' +
             [...builtIn, ...custom].map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('') +
-            '<option value="Sonstiges">Sonstiges</option>';
+            '<option value="Sonstiges">' + t('cat_sonstiges') + '</option>';
         document.getElementById('technik-cat-group').style.display = '';
     } else {
         document.getElementById('technik-cat-group').style.display = 'none';
@@ -480,11 +945,11 @@ trainingType.addEventListener('change', () => {
     const customCatSel = document.getElementById('custom-category');
     const builtInCustomSubs = (!customType && !isSprint && !isTechnik) ? (_customSubcategories[val] || []) : [];
     if (customType && customType.subcategories && customType.subcategories.length) {
-        customCatSel.innerHTML = '<option value="">-- Bitte wählen --</option>' +
+        customCatSel.innerHTML = '<option value="">-- ' + t('please_select') + ' --</option>' +
             customType.subcategories.map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('');
         customCatGroup.style.display = '';
     } else if (builtInCustomSubs.length) {
-        customCatSel.innerHTML = '<option value="">-- Bitte wählen --</option>' +
+        customCatSel.innerHTML = '<option value="">-- ' + t('please_select') + ' --</option>' +
             builtInCustomSubs.map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('');
         customCatGroup.style.display = '';
     } else {
@@ -594,19 +1059,19 @@ function addPyramidSet() {
     const count = kbPyramidSets.querySelectorAll('.pyramid-set').length + 1;
     const row = document.createElement('div');
     row.className = 'pyramid-set';
-    row.innerHTML = `<span class="pyramid-set-label">Satz ${count}</span>
+    row.innerHTML = `<span class="pyramid-set-label">${t('set_label')} ${count}</span>
         <div class="kraft-inputs">
-            <div class="kraft-field"><label>Wdh.</label><input type="number" class="kb-pyr-reps" min="1" step="1" placeholder="Wdh"></div>
-            <div class="kraft-field"><label>Kilo</label><input type="number" class="kb-pyr-kg" min="0" step="0.5" placeholder="kg"></div>
+            <div class="kraft-field"><label>${t('reps_dot')}</label><input type="number" class="kb-pyr-reps" min="1" step="1" placeholder="${t('reps_short')}"></div>
+            <div class="kraft-field"><label>${t('kilo')}</label><input type="number" class="kb-pyr-kg" min="0" step="0.5" placeholder="kg"></div>
         </div>
-        <button type="button" class="btn-remove-time" title="Entfernen" style="margin-left:4px">&times;</button>`;
+        <button type="button" class="btn-remove-time" title="${t('remove_label')}" style="margin-left:4px">&times;</button>`;
     row.querySelector('.btn-remove-time').addEventListener('click', () => { row.remove(); refreshPyramidLabels(); });
     kbPyramidSets.appendChild(row);
 }
 
 function refreshPyramidLabels() {
     kbPyramidSets.querySelectorAll('.pyramid-set').forEach((el, i) => {
-        el.querySelector('.pyramid-set-label').textContent = 'Satz ' + (i + 1);
+        el.querySelector('.pyramid-set-label').textContent = t('set_label') + ' ' + (i + 1);
     });
 }
 
@@ -617,8 +1082,8 @@ function addTimeEntry(value = '') {
     const e = document.createElement('div');
     e.className = 'time-entry';
     e.innerHTML = `<span class="time-index">${idx}</span>
-        <input type="number" step="0.01" min="0" placeholder="z.B. 6.85" class="time-input" value="${escapeHtml(String(value))}">
-        <button type="button" class="btn-remove-time" title="Entfernen">&times;</button>`;
+        <input type="number" step="0.01" min="0" placeholder="${t('time_ph')}" class="time-input" value="${escapeHtml(String(value))}">
+        <button type="button" class="btn-remove-time" title="${t('remove_label')}">&times;</button>`;
     e.querySelector('.btn-remove-time').addEventListener('click', () => { e.remove(); refreshIdx(); });
     timesList.appendChild(e);
     refreshIdx();
@@ -654,7 +1119,7 @@ form.addEventListener('submit', e => {
     const type = trainingType.value;
     const notes = document.getElementById('training-notes').value.trim();
 
-    if (!date || !time || !type) { showToast('Bitte alle Felder ausfüllen'); return; }
+    if (!date || !time || !type) { showToast(t('toast_fill_all')); return; }
 
     const isTempo = type.startsWith('Tempolauf');
     const isKraft = type === 'Kraft';
@@ -670,12 +1135,12 @@ form.addEventListener('submit', e => {
     const customCategory = (customType || (!isSprint && !isTechnik && (_customSubcategories[type] || []).length)) ? document.getElementById('custom-category').value : '';
     const isCountMode = intensity === 'NI';
 
-    if (isTempo && !intensity) { showToast('Bitte Intensität wählen'); return; }
-    if (isSprint && !sprintCategory) { showToast('Bitte Sprint-Kategorie wählen'); return; }
-    if (isTechnik && !technikCategory) { showToast('Bitte Technik-Kategorie wählen'); return; }
-    if (isTechnik && technikCategory === 'Sonstiges' && !technikCustom) { showToast('Bitte Beschreibung eingeben'); return; }
-    if (customType && customType.subcategories && customType.subcategories.length && !customCategory) { showToast('Bitte Kategorie wählen'); return; }
-    if (!customType && !isSprint && !isTechnik && (_customSubcategories[type] || []).length && !customCategory) { showToast('Bitte Kategorie wählen'); return; }
+    if (isTempo && !intensity) { showToast(t('toast_select_intensity')); return; }
+    if (isSprint && !sprintCategory) { showToast(t('toast_select_sprint_cat')); return; }
+    if (isTechnik && !technikCategory) { showToast(t('toast_select_technik_cat')); return; }
+    if (isTechnik && technikCategory === 'Sonstiges' && !technikCustom) { showToast(t('toast_enter_description')); return; }
+    if (customType && customType.subcategories && customType.subcategories.length && !customCategory) { showToast(t('toast_select_category')); return; }
+    if (!customType && !isSprint && !isTechnik && (_customSubcategories[type] || []).length && !customCategory) { showToast(t('toast_select_category')); return; }
 
     // Pausetag — no data collection needed
     if (isPause) {
@@ -687,7 +1152,7 @@ form.addEventListener('submit', e => {
         setDefaults();
         document.getElementById('training-notes').value = '';
         renderList();
-        showToast('Pausetag eingetragen 💤');
+        showToast(t('toast_pause_saved'));
         return;
     }
 
@@ -733,11 +1198,11 @@ form.addEventListener('submit', e => {
                 exercises[ex] = exData;
             }
         });
-        if (!anyChecked) { showToast('Bitte mindestens eine Übung abhaken'); return; }
+        if (!anyChecked) { showToast(t('toast_check_exercise')); return; }
     } else if (isJoggen) {
         const minVal = parseInt(document.getElementById('joggen-min').value, 10);
         const secVal = parseInt(document.getElementById('joggen-sec').value, 10) || 0;
-        if (isNaN(minVal) || minVal < 0 || (minVal === 0 && secVal <= 0)) { showToast('Bitte gültige Laufzeit eingeben'); return; }
+        if (isNaN(minVal) || minVal < 0 || (minVal === 0 && secVal <= 0)) { showToast(t('toast_valid_runtime')); return; }
         joggenTimeSec = minVal * 60 + secVal;
     } else if (isTechnik) {
         // Technik has no times/count — just category + notes
@@ -751,27 +1216,27 @@ form.addEventListener('submit', e => {
                 if (isNaN(v) || v <= 0) { ok = false; inp.style.borderColor = 'var(--danger)'; }
                 else { inp.style.borderColor = ''; times.push(v); }
             });
-            if (!ok || !times.length) { showToast('Bitte gültige Zeiten eingeben'); return; }
+            if (!ok || !times.length) { showToast(t('toast_valid_times')); return; }
         }
         if (customType.trackCount) {
             count = parseInt(document.getElementById('training-count').value, 10);
-            if (!count || count < 1) { showToast('Bitte Anzahl eingeben'); return; }
+            if (!count || count < 1) { showToast(t('toast_enter_count')); return; }
         }
         if (customType.trackWeight) {
             const kgVal = parseFloat(document.getElementById('ct-kg-value').value);
             const repsVal = parseInt(document.getElementById('ct-kg-reps').value, 10);
-            if (!kgVal || kgVal <= 0) { showToast('Bitte Kilogramm eingeben'); return; }
+            if (!kgVal || kgVal <= 0) { showToast(t('toast_enter_kg')); return; }
             customKg = kgVal;
             customReps = repsVal > 0 ? repsVal : null;
         }
     } else if (isCountMode) {
         count = parseInt(document.getElementById('training-count').value, 10);
-        if (!count || count < 1) { showToast('Bitte Anzahl eingeben'); return; }
+        if (!count || count < 1) { showToast(t('toast_enter_count')); return; }
         if (intensity === 'NI') {
             const tmActive = telemarkYes.classList.contains('active');
             if (tmActive) {
                 telemarks = parseInt(document.getElementById('telemark-count').value, 10);
-                if (!telemarks || telemarks < 1) { showToast('Bitte Telemark-Anzahl eingeben'); return; }
+                if (!telemarks || telemarks < 1) { showToast(t('toast_enter_telemark')); return; }
             } else {
                 telemarks = 0;
             }
@@ -784,7 +1249,7 @@ form.addEventListener('submit', e => {
             if (isNaN(v) || v <= 0) { ok = false; inp.style.borderColor = 'var(--danger)'; }
             else { inp.style.borderColor = ''; times.push(v); }
         });
-        if (!ok || !times.length) { showToast('Bitte gültige Zeiten eingeben'); return; }
+        if (!ok || !times.length) { showToast(t('toast_valid_times')); return; }
     }
 
     const entry = { id: generateId(), date, time, type, intensity, sprintCategory, technikCategory, technikCustom, customCategory, times, count, telemarks, exercises, joggenTimeSec, customKg, customReps, notes };
@@ -832,17 +1297,17 @@ form.addEventListener('submit', e => {
     kbNormalFields.style.display = '';
     kbPyramidFields.style.display = 'none';
     kbPyramidSets.innerHTML = `<div class="pyramid-set">
-        <span class="pyramid-set-label">Satz 1</span>
+        <span class="pyramid-set-label">${t('set_label')} 1</span>
         <div class="kraft-inputs">
-            <div class="kraft-field"><label>Wdh.</label><input type="number" class="kb-pyr-reps" min="1" step="1" placeholder="Wdh"></div>
-            <div class="kraft-field"><label>Kilo</label><input type="number" class="kb-pyr-kg" min="0" step="0.5" placeholder="kg"></div>
+            <div class="kraft-field"><label>${t('reps_dot')}</label><input type="number" class="kb-pyr-reps" min="1" step="1" placeholder="${t('reps_short')}"></div>
+            <div class="kraft-field"><label>${t('kilo')}</label><input type="number" class="kb-pyr-kg" min="0" step="0.5" placeholder="kg"></div>
         </div>
     </div>`;
     showTimesMode();
     timesList.innerHTML = '';
     addTimeEntry();
     renderList();
-    showToast('Gespeichert ✓');
+    showToast(t('toast_saved'));
 });
 
 // ================================================================
@@ -864,7 +1329,7 @@ function typeCss(type) {
 }
 
 function fmtDate(d) {
-    return new Date(d+'T00:00:00').toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
+    return new Date(d+'T00:00:00').toLocaleDateString(t('locale'),{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
 }
 
 function fmtJoggenTime(totalSec) {
@@ -882,7 +1347,7 @@ function renderList() {
     if (!list.length) {
         trainingListEl.innerHTML = `<div class="empty-state">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.25"><path d="M14.5 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-            <p>Noch keine Einheiten vorhanden.</p></div>`;
+            <p>${escapeHtml(t('empty_sessions'))}</p></div>`;
         return;
     }
 
@@ -891,10 +1356,10 @@ function renderList() {
             <div class="entry-header">
                 <div class="entry-meta">
                     <span class="entry-date">${escapeHtml(fmtDate(en.date))}</span>
-                    <span class="entry-time-label">${escapeHtml(en.time)} Uhr</span>
+                    <span class="entry-time-label">${escapeHtml(en.time)}${t('clock_suffix') ? ' ' + t('clock_suffix') : ''}</span>
                 </div>
                 <div class="entry-badges">
-                    <span class="type-badge ${typeCss(en.type)}"${(() => { const ct = getCustomType(en.type); return ct ? ' style="background:' + ct.color + '20;color:' + ct.color + '"' : ''; })()}>${escapeHtml(en.type)}</span>
+                    <span class="type-badge ${typeCss(en.type)}"${(() => { const ct = getCustomType(en.type); return ct ? ' style="background:' + ct.color + '20;color:' + ct.color + '"' : ''; })()}>${escapeHtml(translateType(en.type))}</span>
                     ${en.sprintCategory ? `<span class="intensity-badge sprint-cat-badge">${escapeHtml(en.sprintCategory)}</span>` : ''}
                     ${en.technikCategory ? `<span class="intensity-badge technik-cat-badge">${escapeHtml(en.technikCategory === 'Sonstiges' && en.technikCustom ? en.technikCustom : en.technikCategory)}</span>` : ''}
                     ${en.customCategory ? `<span class="intensity-badge custom-cat-badge">${escapeHtml(en.customCategory)}</span>` : ''}
@@ -903,18 +1368,18 @@ function renderList() {
                 </div>
             </div>
             ${en.type === 'Pausetag'
-                ? '<div class="entry-notes" style="opacity:.6">Pausetag 💤</div>'
+                ? '<div class="entry-notes" style="opacity:.6">' + escapeHtml(t('pausetag_text')) + '</div>'
                 : en.type === 'Technik'
                 ? ''
                 : en.type === 'Kraft' && en.exercises
                 ? `<div class="entry-kraft">${Object.entries(en.exercises).map(([k,v]) => {
-                    const label = KRAFT_LABELS[k] || k;
+                    const label = translateKraft(k);
                     let detail = '';
                     if (v.pyramid && v.pyramid.length) {
                         detail = v.pyramid.map(s => s.reps + '×' + s.kg + 'kg').join(', ');
                     } else {
                         if (v.kg) detail += v.kg + 'kg';
-                        if (v.reps) detail += (detail ? ' × ' : '') + v.reps + ' Wdh';
+                        if (v.reps) detail += (detail ? ' × ' : '') + v.reps + ' ' + t('reps_short');
                     }
                     return `<span class="kraft-chip">${escapeHtml(label)}${detail ? ` <span class="kraft-chip-detail">${escapeHtml(detail)}</span>` : ''}</span>`;
                   }).join('')}</div>`
@@ -925,17 +1390,17 @@ function renderList() {
                     const _ct = getCustomType(en.type);
                     let parts = [];
                     if (_ct.trackTimes && en.times && en.times.length) parts.push(`<div class="entry-times">${en.times.map(t=>`<span class="time-chip">${escapeHtml(String(t))}s</span>`).join('')}</div>`);
-                    if (_ct.trackCount && en.count) parts.push(`<div class="entry-count">Anzahl: <strong>${en.count}</strong></div>`);
-                    if (_ct.trackWeight && en.customKg) parts.push(`<div class="entry-count">${en.customKg}kg${en.customReps ? ' × ' + en.customReps + ' Wdh' : ''}</div>`);
+                    if (_ct.trackCount && en.count) parts.push(`<div class="entry-count">${t('count_prefix')}: <strong>${en.count}</strong></div>`);
+                    if (_ct.trackWeight && en.customKg) parts.push(`<div class="entry-count">${en.customKg}kg${en.customReps ? ' × ' + en.customReps + ' ' + t('reps_short') : ''}</div>`);
                     return parts.join('');
                   })()
                 : en.intensity === 'NI'
-                ? `<div class="entry-count">Anzahl Läufe: <strong>${en.count || 0}</strong>${en.telemarks != null ? ` · Telemarks: <strong>${en.telemarks}</strong>` : ''}</div>`
+                ? `<div class="entry-count">${t('runs_count')}: <strong>${en.count || 0}</strong>${en.telemarks != null ? ` · ${t('telemarks_label')}: <strong>${en.telemarks}</strong>` : ''}</div>`
                 : (en.times && en.times.length) ? `<div class="entry-times">${en.times.map(t=>`<span class="time-chip">${escapeHtml(String(t))}s</span>`).join('')}</div>` : ''
             }
             ${en.notes ? `<div class="entry-notes">${escapeHtml(en.notes)}</div>` : ''}
             <div class="entry-footer">
-                <button class="btn-icon btn-del" data-id="${escapeHtml(en.id)}" title="Löschen">
+                <button class="btn-icon btn-del" data-id="${escapeHtml(en.id)}" title="${escapeHtml(t('delete_title'))}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                 </button>
             </div>
@@ -950,7 +1415,7 @@ let delTarget = null;
 const modal = document.getElementById('delete-modal');
 document.getElementById('modal-cancel').addEventListener('click', () => { modal.classList.remove('show'); });
 document.getElementById('modal-confirm').addEventListener('click', () => {
-    if (delTarget) { saveData(loadData().filter(d => d.id !== delTarget)); renderList(); showToast('Gelöscht'); }
+    if (delTarget) { saveData(loadData().filter(d => d.id !== delTarget)); renderList(); showToast(t('toast_deleted')); }
     modal.classList.remove('show'); delTarget = null;
 });
 modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('show'); });
@@ -1214,34 +1679,34 @@ function buildGeneralCharts() {
     const cGen = { main: '#B4A8FF', bg: 'rgba(180,168,255,0.18)', g1: 'rgba(180,168,255,0.35)', g2: 'rgba(180,168,255,0.02)' };
 
     // 1) Sessions per month (season)
-    const c1 = makeChartCard('Einheiten pro Monat (Saison ' + season.label + ')', 'Balken', 'ch-gen-monthly', false);
+    const c1 = makeChartCard(t('chart_monthly_season', {label: season.label}), t('chart_tag_bar'), 'ch-gen-monthly', false);
     container.appendChild(c1);
     drawGenMonthly(seasonData, cGen);
 
     // 2) Sessions per type (pie)
-    const c2 = makeChartCard('Verteilung nach Trainingsart', 'Kreis', 'ch-gen-type-pie', false);
+    const c2 = makeChartCard(t('chart_type_dist'), t('chart_tag_pie'), 'ch-gen-type-pie', false);
     container.appendChild(c2);
     drawGenTypePie(seasonData);
 
     // 3) Weekly frequency over time
-    const c3 = makeChartCard('Einheiten pro Woche (Saison)', 'Balken', 'ch-gen-weekly', true);
+    const c3 = makeChartCard(t('chart_weekly_season'), t('chart_tag_bar'), 'ch-gen-weekly', true);
     container.appendChild(c3);
     drawGenWeekly(seasonData, cGen);
 
     // 4) Weekday distribution
-    const c4 = makeChartCard('Trainingstage (Wochentag)', 'Balken', 'ch-gen-weekday', false);
+    const c4 = makeChartCard(t('chart_weekday'), t('chart_tag_bar'), 'ch-gen-weekday', false);
     container.appendChild(c4);
     drawGenWeekday(seasonData);
 
     // 5) Monthly comparison across seasons
-    const c5 = makeChartCard('Einheiten pro Monat (Gesamtverlauf)', 'Balken', 'ch-gen-all-monthly', false);
+    const c5 = makeChartCard(t('chart_monthly_all'), t('chart_tag_bar'), 'ch-gen-all-monthly', false);
     container.appendChild(c5);
     drawGenMonthly(sorted, { main: '#22D3C5', bg: 'rgba(34,211,197,0.18)', g1: 'rgba(34,211,197,0.35)', g2: 'rgba(34,211,197,0.02)' }, 'genAllMonthly');
 
     // 6) Intensity distribution (all Tempolauf in season)
     const tempoData = seasonData.filter(d => d.type.startsWith('Tempolauf') && d.intensity);
     if (tempoData.length) {
-        const c6 = makeChartCard('Intensitätsverteilung (Tempolauf, Saison)', 'Kreis', 'ch-gen-intensity', false);
+        const c6 = makeChartCard(t('chart_intensity_dist'), t('chart_tag_pie'), 'ch-gen-intensity', false);
         container.appendChild(c6);
         drawGenIntensityPie(tempoData);
     }
@@ -1258,7 +1723,7 @@ function drawGenMonthly(data, c, key) {
     chartInstances[key || 'genMonthly'] = new Chart(ctx, {
         type: 'bar',
         data: { labels: labels.map(prettyMonth), datasets: [{ data: counts, backgroundColor: c.bg, borderColor: c.main, borderWidth: 2, borderRadius: 8, hoverBackgroundColor: c.main }] },
-        options: { ...BASE, scales: { ...BASE.scales, y: { ...BASE.scales.y, ticks: { ...BASE.scales.y.ticks, stepSize: 1 }, title: { display: true, text: 'Einheiten', color: '#555870', font: { size: 11 } } } } }
+        options: { ...BASE, scales: { ...BASE.scales, y: { ...BASE.scales.y, ticks: { ...BASE.scales.y.ticks, stepSize: 1 }, title: { display: true, text: t('axis_sessions'), color: '#555870', font: { size: 11 } } } } }
     });
 }
 
@@ -1271,9 +1736,9 @@ function drawGenTypePie(data) {
         types[d.type] = (types[d.type] || 0) + 1;
         if (d.additionalTypes) d.additionalTypes.forEach(at => { types[at.type] = (types[at.type] || 0) + 1; });
     });
-    const labels = Object.keys(types);
+    const labels = Object.keys(types).map(translateType);
     const values = Object.values(types);
-    const colors = labels.map(l => getTypeColor(l).main);
+    const colors = Object.keys(types).map(l => getTypeColor(l).main);
     chartInstances.genTypePie = new Chart(ctx, {
         type: 'doughnut',
         data: { labels, datasets: [{ data: values, backgroundColor: colors, borderColor: '#12141C', borderWidth: 3 }] },
@@ -1303,7 +1768,7 @@ function drawGenWeekly(data, c) {
     chartInstances.genWeekly = new Chart(ctx, {
         type: 'bar',
         data: { labels: prettyWeeks, datasets: [{ data: values, backgroundColor: c.bg, borderColor: c.main, borderWidth: 2, borderRadius: 6, hoverBackgroundColor: c.main }] },
-        options: { ...BASE, scales: { ...BASE.scales, y: { ...BASE.scales.y, ticks: { ...BASE.scales.y.ticks, stepSize: 1 }, title: { display: true, text: 'Einheiten', color: '#555870', font: { size: 11 } } } } }
+        options: { ...BASE, scales: { ...BASE.scales, y: { ...BASE.scales.y, ticks: { ...BASE.scales.y.ticks, stepSize: 1 }, title: { display: true, text: t('axis_sessions'), color: '#555870', font: { size: 11 } } } } }
     });
 }
 
@@ -1311,7 +1776,7 @@ function drawGenWeekday(data) {
     const ctx = document.getElementById('ch-gen-weekday')?.getContext('2d');
     if (!ctx) return;
     if (!data.length) { chartInstances.genWeekday = emptyChart(ctx); return; }
-    const days = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+    const days = t('weekdays');
     const counts = Array(7).fill(0);
     data.forEach(d => { counts[new Date(d.date + 'T00:00:00').getDay()]++; });
     // Reorder: Mo-So
@@ -1323,7 +1788,7 @@ function drawGenWeekday(data) {
     chartInstances.genWeekday = new Chart(ctx, {
         type: 'bar',
         data: { labels, datasets: [{ data: values, backgroundColor: colors, borderColor: borders, borderWidth: 2, borderRadius: 8 }] },
-        options: { ...BASE, scales: { ...BASE.scales, y: { ...BASE.scales.y, ticks: { ...BASE.scales.y.ticks, stepSize: 1 }, title: { display: true, text: 'Einheiten', color: '#555870', font: { size: 11 } } } } }
+        options: { ...BASE, scales: { ...BASE.scales, y: { ...BASE.scales.y, ticks: { ...BASE.scales.y.ticks, stepSize: 1 }, title: { display: true, text: t('axis_sessions'), color: '#555870', font: { size: 11 } } } } }
     });
 }
 
@@ -1411,12 +1876,12 @@ function buildKraftCharts(data) {
     const cK = { main:'#F87171', bg:'rgba(248,113,113,0.18)', g1:'rgba(248,113,113,0.35)', g2:'rgba(248,113,113,0.02)' };
 
     // 1) Sessions per month
-    const c1 = makeChartCard('Krafteinheiten pro Monat','Balken','ch-kraft-monthly',false);
+    const c1 = makeChartCard(t('chart_kraft_monthly'),t('chart_tag_bar'),'ch-kraft-monthly',false);
     container.appendChild(c1);
     drawKraftMonthly(data, cK);
 
     // 2) Exercise frequency (bar)
-    const c2 = makeChartCard('Übungshäufigkeit (Gesamt)','Balken','ch-kraft-freq',false);
+    const c2 = makeChartCard(t('chart_exercise_freq'),t('chart_tag_bar'),'ch-kraft-freq',false);
     container.appendChild(c2);
     drawKraftFrequency(data);
 
@@ -1426,7 +1891,7 @@ function buildKraftCharts(data) {
         return kb && (kb.kg || (kb.pyramid && kb.pyramid.length));
     });
     if (kbData.length) {
-        const c3 = makeChartCard('Kniebeugen – Max Gewicht (kg)','Linie','ch-kraft-kb',false);
+        const c3 = makeChartCard(t('chart_kb_max'),t('chart_tag_line'),'ch-kraft-kb',false);
         container.appendChild(c3);
         drawKraftKbProgression(kbData);
     }
@@ -1434,7 +1899,7 @@ function buildKraftCharts(data) {
     // 4) Waden kg progression
     const wadenData = data.filter(d => d.exercises?.waden?.kg);
     if (wadenData.length) {
-        const c4 = makeChartCard('Waden – Gewicht (kg)','Linie','ch-kraft-waden',false);
+        const c4 = makeChartCard(t('chart_waden_kg'),t('chart_tag_line'),'ch-kraft-waden',false);
         container.appendChild(c4);
         drawKraftProgression(wadenData, 'waden', 'waden', {main:'#22D3C5', bg:'rgba(34,211,197,0.18)', g1:'rgba(34,211,197,0.35)', g2:'rgba(34,211,197,0.02)'});
     }
@@ -1442,7 +1907,7 @@ function buildKraftCharts(data) {
     // 5) Beuger kg progression
     const beugerData = data.filter(d => d.exercises?.beuger?.kg);
     if (beugerData.length) {
-        const c5 = makeChartCard('Beuger – Gewicht (kg)','Linie','ch-kraft-beuger',false);
+        const c5 = makeChartCard(t('chart_beuger_kg'),t('chart_tag_line'),'ch-kraft-beuger',false);
         container.appendChild(c5);
         drawKraftProgression(beugerData, 'beuger', 'beuger', {main:'#FBBF24', bg:'rgba(251,191,36,0.18)', g1:'rgba(251,191,36,0.35)', g2:'rgba(251,191,36,0.02)'});
     }
@@ -1450,13 +1915,13 @@ function buildKraftCharts(data) {
     // 5b) Hip Thrust kg progression
     const htData = data.filter(d => d.exercises?.hipthrust?.kg);
     if (htData.length) {
-        const c5b = makeChartCard('Hip Thrust – Gewicht (kg)','Linie','ch-kraft-hipthrust',false);
+        const c5b = makeChartCard(t('chart_hipthrust_kg'),t('chart_tag_line'),'ch-kraft-hipthrust',false);
         container.appendChild(c5b);
         drawKraftProgression(htData, 'hipthrust', 'hipthrust', {main:'#E879F9', bg:'rgba(232,121,249,0.18)', g1:'rgba(232,121,249,0.35)', g2:'rgba(232,121,249,0.02)'});
     }
 
     // 6) Exercises per session trend
-    const c6 = makeChartCard('Übungen pro Einheit','Linie','ch-kraft-ex-trend',false);
+    const c6 = makeChartCard(t('chart_exercises_per'),t('chart_tag_line'),'ch-kraft-ex-trend',false);
     container.appendChild(c6);
     drawKraftExTrend(data, cK);
 }
@@ -1470,7 +1935,7 @@ function drawKraftMonthly(data, c) {
     chartInstances.kraftMonthly = new Chart(ctx, {
         type:'bar',
         data:{labels:labels.map(prettyMonth), datasets:[{data:counts, backgroundColor:c.bg, borderColor:c.main, borderWidth:2, borderRadius:8, hoverBackgroundColor:c.main}]},
-        options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:'Einheiten',color:'#555870',font:{size:11}}}}}
+        options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:t('axis_sessions'),color:'#555870',font:{size:11}}}}}
     });
 }
 
@@ -1490,7 +1955,7 @@ function drawKraftFrequency(data) {
         type:'bar',
         data:{labels, datasets:[{data:values, backgroundColor:colors.slice(0,labels.length).map(c=>c+'30'), borderColor:colors.slice(0,labels.length), borderWidth:2, borderRadius:8}]},
         options:{...BASE, indexAxis:'y', scales:{
-            x:{...BASE.scales.x, ticks:{...BASE.scales.x.ticks,stepSize:1}, title:{display:true,text:'Anzahl',color:'#555870',font:{size:11}}},
+            x:{...BASE.scales.x, ticks:{...BASE.scales.x.ticks,stepSize:1}, title:{display:true,text:t('axis_count'),color:'#555870',font:{size:11}}},
             y:{...BASE.scales.y}
         }}
     });
@@ -1512,7 +1977,7 @@ function drawKraftKbProgression(data) {
             borderWidth:2.5, pointBackgroundColor:c.main, pointRadius:4, pointHoverRadius:7, fill:true, tension:0.35}]},
         options:{...BASE, plugins:{...BASE.plugins, tooltip:{...BASE.plugins.tooltip,
             callbacks:{label:t => t.parsed.y + 'kg'}
-        }}, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Kilogramm',color:'#555870',font:{size:11}}}}}
+        }}, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:t('axis_kg'),color:'#555870',font:{size:11}}}}}
     });
 }
 
@@ -1527,7 +1992,7 @@ function drawKraftProgression(data, exercise, key, c) {
             borderWidth:2.5, pointBackgroundColor:c.main, pointRadius:4, pointHoverRadius:7, fill:true, tension:0.35}]},
         options:{...BASE, plugins:{...BASE.plugins, tooltip:{...BASE.plugins.tooltip,
             callbacks:{label:t => t.parsed.y + 'kg'}
-        }}, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Kilogramm',color:'#555870',font:{size:11}}}}}
+        }}, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:t('axis_kg'),color:'#555870',font:{size:11}}}}}
     });
 }
 
@@ -1540,7 +2005,7 @@ function drawKraftExTrend(data, c) {
         type:'line',
         data:{labels, datasets:[{data:values, borderColor:c.main, backgroundColor:grad(ctx,c),
             borderWidth:2.5, pointBackgroundColor:c.main, pointRadius:3.5, fill:true, tension:0.35}]},
-        options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:'Übungen',color:'#555870',font:{size:11}}}}}
+        options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:t('axis_exercises'),color:'#555870',font:{size:11}}}}}
     });
 }
 
@@ -1586,7 +2051,7 @@ function buildTechnikCharts(data) {
     const cT = COLORS['Technik'];
 
     // 1) Sessions per month
-    const c1 = makeChartCard('Technikeinheiten pro Monat','Balken','ch-tech-monthly',false);
+    const c1 = makeChartCard(t('chart_technik_monthly'),t('chart_tag_bar'),'ch-tech-monthly',false);
     container.appendChild(c1);
     const monthly = {};
     data.forEach(d => { const m = d.date.slice(0,7); monthly[m] = (monthly[m]||0) + 1; });
@@ -1594,13 +2059,13 @@ function buildTechnikCharts(data) {
     const mValues = mLabels.map(m => monthly[m]);
     chartInstances['ch-tech-monthly'] = new Chart(document.getElementById('ch-tech-monthly'), {
         type:'bar',
-        data:{ labels:mLabels.map(m => { const [y,mo]=m.split('-'); return MONTH_NAMES[parseInt(mo,10)-1]+' '+y.slice(2); }),
+        data:{ labels:mLabels.map(m => { const [y,mo]=m.split('-'); return MONTH_NAMES_T()[parseInt(mo,10)-1]+' '+y.slice(2); }),
                datasets:[{ data:mValues, backgroundColor:cT.bg, borderColor:cT.main, borderWidth:1, borderRadius:4 }] },
         options:{...BASE, plugins:{...BASE.plugins,legend:{display:false}}, scales:{...BASE.scales, y:{...BASE.scales.y, beginAtZero:true, ticks:{...BASE.scales.y.ticks, stepSize:1}}}}
     });
 
     // 2) Category distribution (doughnut)
-    const c2 = makeChartCard('Verteilung nach Kategorie','Kreis','ch-tech-dist',false);
+    const c2 = makeChartCard(t('chart_cat_dist'),t('chart_tag_pie'),'ch-tech-dist',false);
     container.appendChild(c2);
     const catFreq = {};
     data.forEach(d => {
@@ -1665,7 +2130,7 @@ function buildCustomTypeCharts(data, ct) {
     const cCol = getTypeColor(ct.name);
 
     // 1) Sessions per month
-    const c1 = makeChartCard(ct.name + ' pro Monat','Balken','ch-ct-monthly',false);
+    const c1 = makeChartCard(t('chart_ct_monthly',{name:ct.name}),t('chart_tag_bar'),'ch-ct-monthly',false);
     container.appendChild(c1);
     const monthly = {};
     data.forEach(d => { const m = d.date.slice(0,7); monthly[m] = (monthly[m]||0) + 1; });
@@ -1673,14 +2138,14 @@ function buildCustomTypeCharts(data, ct) {
     const mValues = mLabels.map(m => monthly[m]);
     chartInstances['ch-ct-monthly'] = new Chart(document.getElementById('ch-ct-monthly'), {
         type:'bar',
-        data:{ labels:mLabels.map(m => { const [y,mo]=m.split('-'); return MONTH_NAMES[parseInt(mo,10)-1]+' '+y.slice(2); }),
+        data:{ labels:mLabels.map(m => { const [y,mo]=m.split('-'); return MONTH_NAMES_T()[parseInt(mo,10)-1]+' '+y.slice(2); }),
                datasets:[{ data:mValues, backgroundColor:cCol.bg, borderColor:cCol.main, borderWidth:1, borderRadius:4 }] },
         options:{...BASE, plugins:{...BASE.plugins,legend:{display:false}}, scales:{...BASE.scales, y:{...BASE.scales.y, beginAtZero:true, ticks:{...BASE.scales.y.ticks, stepSize:1}}}}
     });
 
     // 2) Category distribution (if subcategories)
     if (ct.subcategories && ct.subcategories.length) {
-        const c2 = makeChartCard('Verteilung nach Kategorie','Kreis','ch-ct-dist',false);
+        const c2 = makeChartCard(t('chart_cat_dist'),t('chart_tag_pie'),'ch-ct-dist',false);
         container.appendChild(c2);
         const catFreq = {};
         data.forEach(d => {
@@ -1702,7 +2167,7 @@ function buildCustomTypeCharts(data, ct) {
     if (ct.trackTimes) {
         const withTimes = data.filter(d => d.times && d.times.length);
         if (withTimes.length) {
-            const c3 = makeChartCard('Beste Zeit pro Einheit','Linie','ch-ct-besttrend',false);
+            const c3 = makeChartCard(t('chart_ct_best_time'),t('chart_tag_line'),'ch-ct-besttrend',false);
             container.appendChild(c3);
             const ctx3 = document.getElementById('ch-ct-besttrend')?.getContext('2d');
             if (ctx3) {
@@ -1712,7 +2177,7 @@ function buildCustomTypeCharts(data, ct) {
                     type:'line',
                     data:{labels, datasets:[{data:vals, borderColor:cCol.main, backgroundColor:grad(ctx3,cCol),
                         borderWidth:2.5, pointBackgroundColor:cCol.main, pointRadius:3.5, fill:true, tension:0.35}]},
-                    options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Sekunden',color:'#555870',font:{size:11}}}}}
+                    options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:t('axis_seconds'),color:'#555870',font:{size:11}}}}}
                 });
             }
         }
@@ -1722,7 +2187,7 @@ function buildCustomTypeCharts(data, ct) {
     if (ct.trackCount) {
         const withCount = data.filter(d => d.count && d.count > 0);
         if (withCount.length) {
-            const c4 = makeChartCard('Wiederholungen pro Einheit','Linie','ch-ct-counttrend',false);
+            const c4 = makeChartCard(t('chart_ct_reps'),t('chart_tag_line'),'ch-ct-counttrend',false);
             container.appendChild(c4);
             const ctx4 = document.getElementById('ch-ct-counttrend')?.getContext('2d');
             if (ctx4) {
@@ -1732,7 +2197,7 @@ function buildCustomTypeCharts(data, ct) {
                     type:'line',
                     data:{labels, datasets:[{data:vals, borderColor:cCol.main, backgroundColor:grad(ctx4,cCol),
                         borderWidth:2.5, pointBackgroundColor:cCol.main, pointRadius:3.5, fill:true, tension:0.35}]},
-                    options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, beginAtZero:true, title:{display:true,text:'Anzahl',color:'#555870',font:{size:11}}}}}
+                    options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, beginAtZero:true, title:{display:true,text:t('axis_count'),color:'#555870',font:{size:11}}}}}
                 });
             }
         }
@@ -1742,7 +2207,7 @@ function buildCustomTypeCharts(data, ct) {
     if (ct.trackWeight) {
         const withKg = data.filter(d => d.customKg && d.customKg > 0);
         if (withKg.length) {
-            const c5 = makeChartCard('Kilogramm pro Einheit','Linie','ch-ct-kgtrend',false);
+            const c5 = makeChartCard(t('chart_ct_kg'),t('chart_tag_line'),'ch-ct-kgtrend',false);
             container.appendChild(c5);
             const ctx5 = document.getElementById('ch-ct-kgtrend')?.getContext('2d');
             if (ctx5) {
@@ -1752,7 +2217,7 @@ function buildCustomTypeCharts(data, ct) {
                     type:'line',
                     data:{labels, datasets:[{data:vals, borderColor:cCol.main, backgroundColor:grad(ctx5,cCol),
                         borderWidth:2.5, pointBackgroundColor:cCol.main, pointRadius:3.5, fill:true, tension:0.35}]},
-                    options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Kilogramm',color:'#555870',font:{size:11}}}}}
+                    options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:t('axis_kg'),color:'#555870',font:{size:11}}}}}
                 });
             }
         }
@@ -1788,9 +2253,9 @@ function updateJoggenStats(data) {
         const oldAvg = withTime.slice(0, h).reduce((s,d) => s + d.joggenTimeSec, 0) / h;
         const newAvg = withTime.slice(h).reduce((s,d) => s + d.joggenTimeSec, 0) / (withTime.length - h);
         const diff = newAvg - oldAvg;
-        if (diff < -10) { tEl.textContent = '↓ Schneller'; tEl.style.color = '#34D399'; }
-        else if (diff > 10) { tEl.textContent = '↑ Langsamer'; tEl.style.color = '#F87171'; }
-        else { tEl.textContent = '→ Stabil'; tEl.style.color = '#B4A8FF'; }
+        if (diff < -10) { tEl.textContent = t('trend_faster'); tEl.style.color = '#34D399'; }
+        else if (diff > 10) { tEl.textContent = t('trend_slower'); tEl.style.color = '#F87171'; }
+        else { tEl.textContent = t('trend_stable'); tEl.style.color = '#B4A8FF'; }
     } else { tEl.textContent = '--'; tEl.style.color = ''; }
     // Weekly avg (from tracking start)
     const season = getCurrentSeason();
@@ -1799,7 +2264,7 @@ function updateJoggenStats(data) {
         const trackStart = new Date(WEEKLY_TRACK_START + 'T00:00:00');
         const now = new Date();
         const diffWeeks = Math.max(1, Math.ceil((now - trackStart) / (7 * 86400000)));
-        $('stat-jog-weekly').textContent = (seasonData.length / diffWeeks).toFixed(1) + '/Wo';
+        $('stat-jog-weekly').textContent = (seasonData.length / diffWeeks).toFixed(1) + t('per_week');
     } else { $('stat-jog-weekly').textContent = '--'; }
 }
 
@@ -1811,7 +2276,7 @@ function buildJoggenCharts(data) {
 
     // 1) Time trend
     if (withTime.length) {
-        const c1 = makeChartCard('Laufzeit-Verlauf (5 km)', 'Linie', 'ch-jog-time', false);
+        const c1 = makeChartCard(t('chart_joggen_trend'), t('chart_tag_line'), 'ch-jog-time', false);
         container.appendChild(c1);
         const ctx1 = document.getElementById('ch-jog-time')?.getContext('2d');
         if (ctx1) {
@@ -1825,7 +2290,7 @@ function buildJoggenCharts(data) {
                 }]},
                 options: { ...BASE, plugins: { ...BASE.plugins, tooltip: { ...BASE.plugins.tooltip,
                     callbacks: { label: t => fmtJoggenTime(t.parsed.y) }
-                }}, scales: { ...BASE.scales, y: { ...BASE.scales.y, reverse: true, title: { display: true, text: 'Zeit (mm:ss)', color: '#555870', font: { size: 11 }},
+                }}, scales: { ...BASE.scales, y: { ...BASE.scales.y, reverse: true, title: { display: true, text: t('axis_time_mmss'), color: '#555870', font: { size: 11 }},
                     ticks: { ...BASE.scales.y.ticks, callback: v => fmtJoggenTime(Math.round(v)) }
                 }}}
             });
@@ -1833,7 +2298,7 @@ function buildJoggenCharts(data) {
     }
 
     // 2) Monthly sessions
-    const c2 = makeChartCard('Joggen-Einheiten pro Monat', 'Balken', 'ch-jog-monthly', false);
+    const c2 = makeChartCard(t('chart_joggen_monthly'), t('chart_tag_bar'), 'ch-jog-monthly', false);
     container.appendChild(c2);
     const ctx2 = document.getElementById('ch-jog-monthly')?.getContext('2d');
     if (ctx2) {
@@ -1845,13 +2310,13 @@ function buildJoggenCharts(data) {
             data: { labels: mLabels.map(prettyMonth), datasets: [{
                 data: counts, backgroundColor: cJ.bg, borderColor: cJ.main, borderWidth: 2, borderRadius: 8, hoverBackgroundColor: cJ.main
             }]},
-            options: { ...BASE, scales: { ...BASE.scales, y: { ...BASE.scales.y, ticks: { ...BASE.scales.y.ticks, stepSize: 1 }, title: { display: true, text: 'Einheiten', color: '#555870', font: { size: 11 }}}}}
+            options: { ...BASE, scales: { ...BASE.scales, y: { ...BASE.scales.y, ticks: { ...BASE.scales.y.ticks, stepSize: 1 }, title: { display: true, text: t('axis_sessions'), color: '#555870', font: { size: 11 }}}}}
         });
     }
 
     // 3) Pace per km trend
     if (withTime.length) {
-        const c3 = makeChartCard('Pace pro km (Durchschnitt)', 'Linie', 'ch-jog-pace', false);
+        const c3 = makeChartCard(t('chart_joggen_pace'), t('chart_tag_line'), 'ch-jog-pace', false);
         container.appendChild(c3);
         const ctx3 = document.getElementById('ch-jog-pace')?.getContext('2d');
         if (ctx3) {
@@ -1865,7 +2330,7 @@ function buildJoggenCharts(data) {
                 }]},
                 options: { ...BASE, plugins: { ...BASE.plugins, tooltip: { ...BASE.plugins.tooltip,
                     callbacks: { label: t => fmtJoggenTime(t.parsed.y) + ' /km' }
-                }}, scales: { ...BASE.scales, y: { ...BASE.scales.y, reverse: true, title: { display: true, text: 'Pace (mm:ss/km)', color: '#555870', font: { size: 11 }},
+                }}, scales: { ...BASE.scales, y: { ...BASE.scales.y, reverse: true, title: { display: true, text: t('axis_pace'), color: '#555870', font: { size: 11 }},
                     ticks: { ...BASE.scales.y.ticks, callback: v => fmtJoggenTime(Math.round(v)) }
                 }}}
             });
@@ -1874,7 +2339,7 @@ function buildJoggenCharts(data) {
 
     // 4) Monthly average time
     if (withTime.length) {
-        const c4 = makeChartCard('Ø Laufzeit pro Monat', 'Balken', 'ch-jog-mavg', false);
+        const c4 = makeChartCard(t('chart_joggen_avg'), t('chart_tag_bar'), 'ch-jog-mavg', false);
         container.appendChild(c4);
         const ctx4 = document.getElementById('ch-jog-mavg')?.getContext('2d');
         if (ctx4) {
@@ -1891,7 +2356,7 @@ function buildJoggenCharts(data) {
                 }]},
                 options: { ...BASE, plugins: { ...BASE.plugins, tooltip: { ...BASE.plugins.tooltip,
                     callbacks: { label: t => fmtJoggenTime(t.parsed.y) }
-                }}, scales: { ...BASE.scales, y: { ...BASE.scales.y, reverse: true, title: { display: true, text: 'Ø Zeit (mm:ss)', color: '#555870', font: { size: 11 }},
+                }}, scales: { ...BASE.scales, y: { ...BASE.scales.y, reverse: true, title: { display: true, text: t('axis_avg_time'), color: '#555870', font: { size: 11 }},
                     ticks: { ...BASE.scales.y.ticks, callback: v => fmtJoggenTime(Math.round(v)) }
                 }}}
             });
@@ -1921,9 +2386,9 @@ function updateStats(data) {
         const h = Math.floor(data.length/2);
         const oA = data.slice(0,h).flatMap(d=>d.times); const nA = data.slice(h).flatMap(d=>d.times);
         const diff = (nA.reduce((a,b)=>a+b,0)/nA.length) - (oA.reduce((a,b)=>a+b,0)/oA.length);
-        if(diff<-0.1){tEl.textContent='↓ Besser';tEl.style.color='#34D399';}
-        else if(diff>0.1){tEl.textContent='↑ Langsamer';tEl.style.color='#F87171';}
-        else{tEl.textContent='→ Stabil';tEl.style.color='#FBBF24';}
+        if(diff<-0.1){tEl.textContent=t('trend_better');tEl.style.color='#34D399';}
+        else if(diff>0.1){tEl.textContent=t('trend_slower');tEl.style.color='#F87171';}
+        else{tEl.textContent=t('trend_stable');tEl.style.color='#FBBF24';}
     } else { tEl.textContent='–'; tEl.style.color=''; }
 }
 
@@ -1936,7 +2401,7 @@ function updateStatsNI(data, meters) {
     const totalRuns = counts.reduce((a,b)=>a+b,0);
     $('stat-ni-total').textContent = totalRuns;
     $('stat-ni-avg-count').textContent = data.length ? (totalRuns/data.length).toFixed(1) : '--';
-    $('stat-ni-meters').textContent = (totalRuns * meters).toLocaleString('de-DE') + 'm';
+    $('stat-ni-meters').textContent = (totalRuns * meters).toLocaleString(t('locale')) + 'm';
     const tms = data.map(d => d.telemarks || 0);
     const totalTm = tms.reduce((a,b)=>a+b,0);
     $('stat-ni-telemarks').textContent = totalTm;
@@ -1966,32 +2431,32 @@ function buildTimeCharts(data, c) {
     const container = getChartsContainer();
 
     // 1) Best time trend
-    const c1 = makeChartCard('Trend: Beste Zeit pro Einheit','Linie','ch-best-trend',false);
+    const c1 = makeChartCard(t('chart_time_trend'),t('chart_tag_line'),'ch-best-trend',false);
     container.appendChild(c1);
     drawBestTrend(data, c);
 
     // 2) All times scatter
-    const c2 = makeChartCard('Alle Zeiten im Zeitverlauf','Scatter','ch-all-times',true);
+    const c2 = makeChartCard(t('chart_all_times'),'Scatter','ch-all-times',true);
     container.appendChild(c2);
     drawAllTimes(data, c);
 
     // 3) Monthly avg
-    const c3 = makeChartCard('Monatsdurchschnitt','Balken','ch-monthly-avg',false);
+    const c3 = makeChartCard(t('chart_monthly_avg'),t('chart_tag_bar'),'ch-monthly-avg',false);
     container.appendChild(c3);
     drawMonthlyAvg(data, c);
 
     // 4) Monthly best
-    const c4 = makeChartCard('Beste Zeit pro Monat','Linie','ch-monthly-best',false);
+    const c4 = makeChartCard(t('chart_monthly_best'),t('chart_tag_line'),'ch-monthly-best',false);
     container.appendChild(c4);
     drawMonthlyBest(data, c);
 
     // 5) Volume
-    const c5 = makeChartCard('Trainingsvolumen pro Monat','Balken','ch-volume',false);
+    const c5 = makeChartCard(t('chart_volume'),t('chart_tag_bar'),'ch-volume',false);
     container.appendChild(c5);
     drawVolume(data, c);
 
     // 6) Distribution
-    const c6 = makeChartCard('Zeitverteilung (Histogramm)','Balken','ch-dist',false);
+    const c6 = makeChartCard(t('chart_histogram'),t('chart_tag_bar'),'ch-dist',false);
     container.appendChild(c6);
     drawDistribution(data, c);
 }
@@ -2030,7 +2495,7 @@ function drawBestTrend(data, c) {
         data:{labels, datasets:[{data:vals, borderColor:c.main, backgroundColor:grad(ctx,c),
             borderWidth:2.5, pointBackgroundColor:c.main, pointRadius:3.5, pointHoverRadius:6, fill:true, tension:0.35}]},
         options:{...BASE, plugins:{...BASE.plugins, tooltip:tooltipWithNotes(data)},
-            scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Sekunden',color:'#555870',font:{size:11}}}}}
+            scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:t('axis_seconds'),color:'#555870',font:{size:11}}}}}
     });
 }
 
@@ -2059,7 +2524,7 @@ function drawAllTimes(data, c) {
             }},
             scales:{
                 x:{...BASE.scales.x, type:'linear', ticks:{...BASE.scales.x.ticks, stepSize:1, callback:v=>labelSet[v]||''}},
-                y:{...BASE.scales.y, title:{display:true,text:'Sekunden',color:'#555870',font:{size:11}}}
+                y:{...BASE.scales.y, title:{display:true,text:t('axis_seconds'),color:'#555870',font:{size:11}}}
             }
         }
     });
@@ -2079,7 +2544,7 @@ function drawMonthlyAvg(data, c) {
         data:{labels:labels.map(prettyMonth), datasets:[{data:avgs, backgroundColor:c.bg, borderColor:c.main, borderWidth:2, borderRadius:8, hoverBackgroundColor:c.main}]},
         options:{...BASE, plugins:{...BASE.plugins, tooltip:{...BASE.plugins.tooltip,
             callbacks:{label:t=>t.parsed.y.toFixed(2)+'s', afterBody:items=>{const n=monthNotes[items[0]?.dataIndex]; return n?'📝 '+n:'';}}
-        }}, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Ø Sekunden',color:'#555870',font:{size:11}}}}}
+        }}, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:t('axis_avg_seconds'),color:'#555870',font:{size:11}}}}}
     });
 }
 
@@ -2097,7 +2562,7 @@ function drawMonthlyBest(data, c) {
             borderWidth:2.5, pointBackgroundColor:'#fff', pointBorderColor:c.main, pointBorderWidth:2, pointRadius:5, fill:true, tension:0.3}]},
         options:{...BASE, plugins:{...BASE.plugins, tooltip:{...BASE.plugins.tooltip,
             callbacks:{label:t=>t.parsed.y.toFixed(2)+'s', afterBody:items=>{const n=monthNotes[items[0]?.dataIndex]; return n?'📝 '+n:'';}}
-        }}, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Beste Zeit (s)',color:'#555870',font:{size:11}}}}}
+        }}, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:t('axis_best_time'),color:'#555870',font:{size:11}}}}}
     });
 }
 
@@ -2112,8 +2577,8 @@ function drawVolume(data, c) {
     chartInstances.volume = new Chart(ctx, {
         type:'bar',
         data:{labels:labels.map(prettyMonth), datasets:[
-            {label:'Einheiten', data:sessions, backgroundColor:c.bg, borderColor:c.main, borderWidth:2, borderRadius:8},
-            {label:'Einzelläufe', data:runs, backgroundColor:'rgba(96,165,250,0.18)', borderColor:'#60A5FA', borderWidth:2, borderRadius:8}
+            {label:t('legend_sessions'), data:sessions, backgroundColor:c.bg, borderColor:c.main, borderWidth:2, borderRadius:8},
+            {label:t('legend_individual_runs'), data:runs, backgroundColor:'rgba(96,165,250,0.18)', borderColor:'#60A5FA', borderWidth:2, borderRadius:8}
         ]},
         options:{...BASE, plugins:{...BASE.plugins, legend:{display:true, labels:{color:'#8B8FA7',font:{size:11,family:'Inter'},boxWidth:14,padding:16}}},
             scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}}}}
@@ -2137,8 +2602,8 @@ function drawDistribution(data, c) {
         type:'bar',
         data:{labels:binLabels, datasets:[{data:bins, backgroundColor:c.bg, borderColor:c.main, borderWidth:2, borderRadius:6, hoverBackgroundColor:c.main}]},
         options:{...BASE, scales:{
-            x:{...BASE.scales.x, title:{display:true,text:'Sekunden',color:'#555870',font:{size:11}}},
-            y:{...BASE.scales.y, title:{display:true,text:'Häufigkeit',color:'#555870',font:{size:11}}, ticks:{...BASE.scales.y.ticks,stepSize:1}}
+            x:{...BASE.scales.x, title:{display:true,text:t('axis_seconds'),color:'#555870',font:{size:11}}},
+            y:{...BASE.scales.y, title:{display:true,text:t('axis_frequency'),color:'#555870',font:{size:11}}, ticks:{...BASE.scales.y.ticks,stepSize:1}}
         }}
     });
 }
@@ -2150,32 +2615,32 @@ function buildNICharts(data, c, meters) {
     const container = getChartsContainer();
 
     // 1) Count over time
-    const c1 = makeChartCard('Anzahl Läufe pro Einheit','Balken','ch-ni-count',false);
+    const c1 = makeChartCard(t('chart_ni_runs'),t('chart_tag_bar'),'ch-ni-count',false);
     container.appendChild(c1);
     drawNICount(data, c);
 
     // 2) Meters over time (count × meters)
-    const c2 = makeChartCard('Meter pro Einheit (Läufe × '+meters+'m)','Balken','ch-ni-meters',false);
+    const c2 = makeChartCard(t('chart_ni_meters',{dist:meters}),t('chart_tag_bar'),'ch-ni-meters',false);
     container.appendChild(c2);
     drawNIMeters(data, c, meters);
 
     // 3) Monthly total runs
-    const c3 = makeChartCard('Gesamt-Läufe pro Monat','Balken','ch-ni-monthly',false);
+    const c3 = makeChartCard(t('chart_ni_runs_month'),t('chart_tag_bar'),'ch-ni-monthly',false);
     container.appendChild(c3);
     drawNIMonthly(data, c);
 
     // 4) Monthly total meters
-    const c4 = makeChartCard('Gesamt-Meter pro Monat','Balken','ch-ni-monthly-meters',false);
+    const c4 = makeChartCard(t('chart_ni_meters_month'),t('chart_tag_bar'),'ch-ni-monthly-meters',false);
     container.appendChild(c4);
     drawNIMonthlyMeters(data, c, meters);
 
     // 5) Telemarks over time
-    const c5 = makeChartCard('Telemarks pro Einheit','Balken','ch-ni-telemarks',false);
+    const c5 = makeChartCard(t('chart_ni_tele'),t('chart_tag_bar'),'ch-ni-telemarks',false);
     container.appendChild(c5);
     drawNITelemarks(data, c);
 
     // 6) Monthly total telemarks
-    const c6 = makeChartCard('Gesamt-Telemarks pro Monat','Balken','ch-ni-monthly-tm',false);
+    const c6 = makeChartCard(t('chart_ni_tele_month'),t('chart_tag_bar'),'ch-ni-monthly-tm',false);
     container.appendChild(c6);
     drawNIMonthlyTelemarks(data, c);
 }
@@ -2191,8 +2656,8 @@ function drawNICount(data, c) {
         type:'bar',
         data:{labels, datasets:[{data:vals, backgroundColor:c.bg, borderColor:c.main, borderWidth:2, borderRadius:8, hoverBackgroundColor:c.main}]},
         options:{...BASE, plugins:{...BASE.plugins, tooltip:{...BASE.plugins.tooltip,
-            callbacks:{label:t=>t.parsed.y+' Läufe', afterBody:items=>{const n=notes[items[0]?.dataIndex]; return n?'📝 '+n:'';}}
-        }}, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:'Anzahl',color:'#555870',font:{size:11}}}}}
+            callbacks:{label:ctx=>ctx.parsed.y+' '+t('runs_suffix'), afterBody:items=>{const n=notes[items[0]?.dataIndex]; return n?'📝 '+n:'';}}
+        }}, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:t('axis_count'),color:'#555870',font:{size:11}}}}}
     });
 }
 
@@ -2207,8 +2672,8 @@ function drawNIMeters(data, c, meters) {
         type:'bar',
         data:{labels, datasets:[{data:vals, backgroundColor:'rgba(96,165,250,0.18)', borderColor:'#60A5FA', borderWidth:2, borderRadius:8, hoverBackgroundColor:'#60A5FA'}]},
         options:{...BASE, plugins:{...BASE.plugins, tooltip:{...BASE.plugins.tooltip,
-            callbacks:{label:t=>t.parsed.y.toLocaleString('de-DE')+'m', afterBody:items=>{const n=notes[items[0]?.dataIndex]; return n?'📝 '+n:'';}}
-        }}, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Meter',color:'#555870',font:{size:11}}}}}
+            callbacks:{label:ctx=>ctx.parsed.y.toLocaleString(t('locale'))+'m', afterBody:items=>{const n=notes[items[0]?.dataIndex]; return n?'📝 '+n:'';}}
+        }}, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:t('axis_meters'),color:'#555870',font:{size:11}}}}}
     });
 }
 
@@ -2222,7 +2687,7 @@ function drawNIMonthly(data, c) {
     chartInstances.niMonthly = new Chart(ctx, {
         type:'bar',
         data:{labels:labels.map(prettyMonth), datasets:[{data:totals, backgroundColor:c.bg, borderColor:c.main, borderWidth:2, borderRadius:8}]},
-        options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:'Gesamtläufe',color:'#555870',font:{size:11}}}}}
+        options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:t('axis_total_runs'),color:'#555870',font:{size:11}}}}}
     });
 }
 
@@ -2236,7 +2701,7 @@ function drawNIMonthlyMeters(data, c, meters) {
     chartInstances.niMonthlyMeters = new Chart(ctx, {
         type:'bar',
         data:{labels:labels.map(prettyMonth), datasets:[{data:totals, backgroundColor:'rgba(96,165,250,0.18)', borderColor:'#60A5FA', borderWidth:2, borderRadius:8}]},
-        options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Meter',color:'#555870',font:{size:11}}}}}
+        options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:t('axis_meters'),color:'#555870',font:{size:11}}}}}
     });
 }
 
@@ -2251,8 +2716,8 @@ function drawNITelemarks(data, c) {
         type:'bar',
         data:{labels, datasets:[{data:vals, backgroundColor:'rgba(251,191,36,0.18)', borderColor:'#FBBF24', borderWidth:2, borderRadius:8, hoverBackgroundColor:'#FBBF24'}]},
         options:{...BASE, plugins:{...BASE.plugins, tooltip:{...BASE.plugins.tooltip,
-            callbacks:{label:t=>t.parsed.y+' Telemarks', afterBody:items=>{const n=notes[items[0]?.dataIndex]; return n?'📝 '+n:'';}}
-        }}, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:'Telemarks',color:'#555870',font:{size:11}}}}}
+            callbacks:{label:ctx=>ctx.parsed.y+' '+t('axis_telemarks'), afterBody:items=>{const n=notes[items[0]?.dataIndex]; return n?'📝 '+n:'';}}
+        }}, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:t('axis_telemarks'),color:'#555870',font:{size:11}}}}}
     });
 }
 
@@ -2266,7 +2731,7 @@ function drawNIMonthlyTelemarks(data, c) {
     chartInstances.niMonthlyTm = new Chart(ctx, {
         type:'bar',
         data:{labels:labels.map(prettyMonth), datasets:[{data:totals, backgroundColor:'rgba(251,191,36,0.18)', borderColor:'#FBBF24', borderWidth:2, borderRadius:8}]},
-        options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:'Telemarks',color:'#555870',font:{size:11}}}}}
+        options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:t('axis_telemarks'),color:'#555870',font:{size:11}}}}}
     });
 }
 
@@ -2275,7 +2740,7 @@ function drawNIMonthlyTelemarks(data, c) {
 // ================================================================
 function drawPBTable(data) {
     const container = document.getElementById('pb-table-container');
-    if(!data.length) { container.innerHTML='<p class="empty-chart-msg">Keine Daten vorhanden.</p>'; return; }
+    if(!data.length) { container.innerHTML='<p class="empty-chart-msg">' + t('no_data_available') + '</p>'; return; }
     const runs=[];
     data.forEach(d=>d.times.forEach(t=>runs.push({time:t,date:d.date,notes:d.notes||''})));
     runs.sort((a,b)=>a.time-b.time);
@@ -2294,13 +2759,13 @@ function drawPBTable(data) {
 // ================================================================
 //  HELPERS
 // ================================================================
-function shortDate(d) { return new Date(d+'T00:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}); }
+function shortDate(d) { return new Date(d+'T00:00:00').toLocaleDateString(t('locale'),{day:'2-digit',month:'2-digit'}); }
 function groupByMonth(data) {
     const m={}; data.forEach(d=>{const k=d.date.slice(0,7); if(!m[k])m[k]=[]; m[k].push(d);}); return m;
 }
-function prettyMonth(ym) { const [y,m]=ym.split('-'); return MONTH_NAMES[parseInt(m,10)-1]+' '+y.slice(2); }
+function prettyMonth(ym) { const [y,m]=ym.split('-'); return MONTH_NAMES_T()[parseInt(m,10)-1]+' '+y.slice(2); }
 function emptyChart(ctx) {
-    return new Chart(ctx,{type:'bar',data:{labels:['Keine Daten'],datasets:[{data:[0],backgroundColor:'rgba(255,255,255,0.03)'}]},
+    return new Chart(ctx,{type:'bar',data:{labels:[t('no_data')],datasets:[{data:[0],backgroundColor:'rgba(255,255,255,0.03)'}]},
         options:{...BASE,scales:{x:{display:false},y:{display:false}}}});
 }
 
@@ -2342,13 +2807,13 @@ async function loadCoachDashboard() {
 
 function populateCoachUserSelect(users) {
     const sel = document.getElementById('coach-user-select');
-    sel.innerHTML = '<option value="">-- Bitte wählen --</option>' +
+    sel.innerHTML = '<option value="">-- ' + t('please_select') + ' --</option>' +
         users.map(u => `<option value="${escapeHtml(u)}">${escapeHtml(u.charAt(0).toUpperCase() + u.slice(1))}</option>`).join('');
 }
 
 function renderCoachRanking(users, allData) {
     const container = document.getElementById('coach-ranking');
-    if (!users.length) { container.innerHTML = '<p class="empty-chart-msg">Keine Athleten vorhanden.</p>'; return; }
+    if (!users.length) { container.innerHTML = '<p class="empty-chart-msg">' + t('no_athletes') + '</p>'; return; }
 
     const season = getCurrentSeason();
 
@@ -2378,7 +2843,7 @@ function renderCoachRanking(users, allData) {
 
     container.innerHTML = `
         <div class="coach-ranking-section">
-            <h3>Einheiten Gesamt</h3>
+            <h3>${t('total_sessions')}</h3>
             <div class="coach-ranking-list">
                 ${byTotal.map((s, i) => `<div class="coach-rank-row">
                     <span class="pb-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':'normal'}">${i+1}</span>
@@ -2388,7 +2853,7 @@ function renderCoachRanking(users, allData) {
             </div>
         </div>
         <div class="coach-ranking-section" style="margin-top:16px">
-            <h3>Ø Einheiten pro Woche (Saison ${escapeHtml(season.label)})</h3>
+            <h3>${t('avg_per_week_season', {label: season.label})}</h3>
             <div class="coach-ranking-list">
                 ${byAvg.map((s, i) => `<div class="coach-rank-row">
                     <span class="pb-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':'normal'}">${i+1}</span>
@@ -2398,7 +2863,7 @@ function renderCoachRanking(users, allData) {
             </div>
         </div>
         <div class="coach-ranking-section" style="margin-top:16px">
-            <h3>Einheiten Saison (${escapeHtml(season.label)})</h3>
+            <h3>${t('sessions_season', {label: season.label})}</h3>
             <div class="coach-ranking-list">
                 ${[...stats].sort((a,b) => b.seasonTotal - a.seasonTotal).map((s, i) => `<div class="coach-rank-row">
                     <span class="pb-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':'normal'}">${i+1}</span>
@@ -2416,7 +2881,7 @@ function renderCoachUserStats(userName, entries) {
     chartsContainer.innerHTML = '';
 
     if (!entries.length) {
-        statsContainer.innerHTML = '<div class="card"><p class="empty-chart-msg">Keine Einträge vorhanden.</p></div>';
+        statsContainer.innerHTML = '<div class="card"><p class="empty-chart-msg">' + t('no_entries_athlete') + '</p></div>';
         return;
     }
 
@@ -2437,7 +2902,7 @@ function renderCoachUserStats(userName, entries) {
     // Type breakdown
     const types = {};
     entries.forEach(d => { types[d.type] = (types[d.type] || 0) + 1; });
-    const typeStr = Object.entries(types).map(([k, v]) => `${k}: ${v}`).join(' · ');
+    const typeStr = Object.entries(types).map(([k, v]) => `${translateType(k)}: ${v}`).join(' · ');
 
     // Last session
     const lastEntry = [...entries].sort((a, b) => b.date.localeCompare(a.date))[0];
@@ -2464,32 +2929,32 @@ function renderCoachUserStats(userName, entries) {
                 <div class="stat-card accent-purple">
                     <span class="stat-icon">🏃</span>
                     <span class="stat-value">${total}</span>
-                    <span class="stat-label">Gesamt</span>
+                    <span class="stat-label">${t('stat_total')}</span>
                 </div>
                 <div class="stat-card accent-teal">
                     <span class="stat-icon">📅</span>
                     <span class="stat-value">${seasonTotal}</span>
-                    <span class="stat-label">Saison</span>
+                    <span class="stat-label">${t('stat_season')}</span>
                 </div>
                 <div class="stat-card accent-gold">
                     <span class="stat-icon">📆</span>
                     <span class="stat-value">${avgWeek}</span>
-                    <span class="stat-label">Ø/Woche</span>
+                    <span class="stat-label">${t('coach_avg_week')}</span>
                 </div>
                 <div class="stat-card accent-blue">
                     <span class="stat-icon">⏱️</span>
                     <span class="stat-value">${escapeHtml(sprintPB)}</span>
-                    <span class="stat-label">Sprint PB</span>
+                    <span class="stat-label">${t('sprint_pb')}</span>
                 </div>
                 <div class="stat-card accent-green">
                     <span class="stat-icon">🏋️</span>
                     <span class="stat-value">${escapeHtml(maxKB)}</span>
-                    <span class="stat-label">Max KB (kg)</span>
+                    <span class="stat-label">${t('max_kb_kg')}</span>
                 </div>
                 <div class="stat-card accent-red">
                     <span class="stat-icon">📋</span>
                     <span class="stat-value">${escapeHtml(lastDate)}</span>
-                    <span class="stat-label">Letzte Einheit</span>
+                    <span class="stat-label">${t('stat_last_session')}</span>
                 </div>
             </div>
             <p style="font-size:12px;color:var(--text-tertiary);margin-top:4px">${escapeHtml(typeStr)}</p>
@@ -2501,7 +2966,7 @@ function renderCoachUserStats(userName, entries) {
 
     // Monthly sessions
     if (seasonData.length) {
-        const c1 = makeChartCard(displayName + ' – Einheiten/Monat (Saison)', 'Balken', 'ch-coach-monthly', false);
+        const c1 = makeChartCard(t('chart_coach_monthly',{name:displayName}), t('chart_tag_bar'), 'ch-coach-monthly', false);
         chartsContainer.appendChild(c1);
         const ctx1 = document.getElementById('ch-coach-monthly')?.getContext('2d');
         if (ctx1) {
@@ -2510,22 +2975,22 @@ function renderCoachUserStats(userName, entries) {
             coachChartInstances.coachMonthly = new Chart(ctx1, {
                 type:'bar',
                 data:{labels:labels.map(prettyMonth), datasets:[{data:labels.map(k=>g[k].length), backgroundColor:cPurple.bg, borderColor:cPurple.main, borderWidth:2, borderRadius:8, hoverBackgroundColor:cPurple.main}]},
-                options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:'Einheiten',color:'#555870',font:{size:11}}}}}
+                options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, ticks:{...BASE.scales.y.ticks,stepSize:1}, title:{display:true,text:t('axis_sessions'),color:'#555870',font:{size:11}}}}}
             });
         }
     }
 
     // Type distribution pie
     if (seasonData.length) {
-        const c2 = makeChartCard(displayName + ' – Trainingsverteilung (Saison)', 'Kreis', 'ch-coach-types', false);
+        const c2 = makeChartCard(t('chart_coach_dist',{name:displayName}), t('chart_tag_pie'), 'ch-coach-types', false);
         chartsContainer.appendChild(c2);
         const ctx2 = document.getElementById('ch-coach-types')?.getContext('2d');
         if (ctx2) {
             const tMap = {};
             seasonData.forEach(d => { tMap[d.type] = (tMap[d.type] || 0) + 1; });
-            const tLabels = Object.keys(tMap);
+            const tLabels = Object.keys(tMap).map(translateType);
             const tValues = Object.values(tMap);
-            const tColors = tLabels.map(l => getTypeColor(l).main);
+            const tColors = Object.keys(tMap).map(l => getTypeColor(l).main);
             coachChartInstances.coachTypes = new Chart(ctx2, {
                 type:'doughnut',
                 data:{labels:tLabels, datasets:[{data:tValues, backgroundColor:tColors, borderColor:'#12141C', borderWidth:3}]},
@@ -2539,7 +3004,7 @@ function renderCoachUserStats(userName, entries) {
     // Sprint best time trend
     const sprintSorted = sprintEntries.sort((a,b) => a.date.localeCompare(b.date));
     if (sprintSorted.length >= 2) {
-        const c3 = makeChartCard(displayName + ' – Sprint Bestzeit Trend', 'Linie', 'ch-coach-sprint', false);
+        const c3 = makeChartCard(t('chart_coach_sprint',{name:displayName}), t('chart_tag_line'), 'ch-coach-sprint', false);
         chartsContainer.appendChild(c3);
         const ctx3 = document.getElementById('ch-coach-sprint')?.getContext('2d');
         if (ctx3) {
@@ -2551,7 +3016,7 @@ function renderCoachUserStats(userName, entries) {
                     borderWidth:2.5, pointBackgroundColor:cTeal.main, pointRadius:4, fill:true, tension:0.35}]},
                 options:{...BASE, plugins:{...BASE.plugins, tooltip:{...BASE.plugins.tooltip,
                     callbacks:{label:t=>t.parsed.y.toFixed(2)+'s'}
-                }}, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Sekunden',color:'#555870',font:{size:11}}}}}
+                }}, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:t('axis_seconds'),color:'#555870',font:{size:11}}}}}
             });
         }
     }
@@ -2562,7 +3027,7 @@ function renderCoachUserStats(userName, entries) {
         return kb && (kb.kg || (kb.pyramid && kb.pyramid.length));
     }).sort((a,b) => a.date.localeCompare(b.date));
     if (kbEntries.length >= 2) {
-        const c4 = makeChartCard(displayName + ' – Kniebeugen Max kg', 'Linie', 'ch-coach-kb', false);
+        const c4 = makeChartCard(t('chart_coach_kb',{name:displayName}), t('chart_tag_line'), 'ch-coach-kb', false);
         chartsContainer.appendChild(c4);
         const ctx4 = document.getElementById('ch-coach-kb')?.getContext('2d');
         if (ctx4) {
@@ -2579,7 +3044,7 @@ function renderCoachUserStats(userName, entries) {
                     borderWidth:2.5, pointBackgroundColor:cGold.main, pointRadius:4, fill:true, tension:0.35}]},
                 options:{...BASE, plugins:{...BASE.plugins, tooltip:{...BASE.plugins.tooltip,
                     callbacks:{label:t=>t.parsed.y+'kg'}
-                }}, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Kilogramm',color:'#555870',font:{size:11}}}}}
+                }}, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:t('axis_kg'),color:'#555870',font:{size:11}}}}}
             });
         }
     }
@@ -2600,7 +3065,7 @@ const CT_BASE_MAP = {
 function updateCtBaseOptions() {
     const sel = document.getElementById('ct-base');
     const curVal = sel.value;
-    sel.innerHTML = '<option value="">Neue Kategorie</option>' +
+    sel.innerHTML = '<option value="">' + t('new_category') + '</option>' +
         '<option value="Sprint (50m)">⚡ Sprint (50m)</option>' +
         '<option value="Tempolauf (120m)">🏃 Tempolauf (120m)</option>' +
         '<option value="Tempolauf (150m)">🏃 Tempolauf (150m)</option>' +
@@ -2630,11 +3095,11 @@ function applyBaseVisibility(hasBase) {
     const nameLabel = document.querySelector('#ct-name-group label');
     const nameInput = document.getElementById('ct-name');
     if (hasBase) {
-        nameLabel.textContent = 'Name der Unterkategorie';
-        nameInput.placeholder = 'z.B. Hürden, 200m, Bergsprints';
+        nameLabel.textContent = t('subcat_name_label');
+        nameInput.placeholder = t('subcat_name_ph');
     } else {
-        nameLabel.textContent = 'Name';
-        nameInput.placeholder = 'z.B. Ausdauer, Dehnen, Hürden';
+        nameLabel.textContent = t('name_label');
+        nameInput.placeholder = t('name_ph');
     }
 }
 
@@ -2698,7 +3163,7 @@ function typeEmoji(type) {
 
 document.getElementById('btn-send-report').addEventListener('click', () => {
     const weekVal = document.getElementById('report-week').value;
-    if (!weekVal) { showToast('Bitte Woche auswählen'); return; }
+    if (!weekVal) { showToast(t('toast_select_week')); return; }
     generateWeeklyPDF(weekVal);
 });
 
@@ -2736,7 +3201,7 @@ function generateWeeklyPDF(weekVal) {
     doc.text('TrainLytics', mg, y);
     doc.setFontSize(10);
     doc.setTextColor(...mutedCol);
-    doc.text('Wochenbericht', mg + 55, y);
+    doc.text(t('pdf_report'), mg + 55, y);
 
     // User + Week badge
     y += 3;
@@ -2763,9 +3228,9 @@ function generateWeeklyPDF(weekVal) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(11);
         doc.setTextColor(...mutedCol);
-        doc.text('Keine Trainingseinheiten in dieser Woche.', mg, y);
+        doc.text(t('pdf_no_training'), mg, y);
         doc.save('TrainLytics_' + weekVal + '.pdf');
-        showToast('PDF heruntergeladen');
+        showToast(t('toast_pdf_done'));
         return;
     }
 
@@ -2787,10 +3252,10 @@ function generateWeeklyPDF(weekVal) {
     const daysSet = new Set(training.map(e => e.date));
 
     const cards = [
-        { label: 'Einheiten', value: String(training.length), color: primary },
-        { label: 'Trainingsarten', value: String(typeCount), color: accent },
-        { label: 'Trainingstage', value: String(daysSet.size) + '/7', color: [251, 191, 36] },
-        { label: 'Beste Zeit', value: bestTime, color: [52, 211, 153] },
+        { label: t('pdf_sessions'), value: String(training.length), color: primary },
+        { label: t('pdf_types'), value: String(typeCount), color: accent },
+        { label: t('pdf_training_days'), value: String(daysSet.size) + '/7', color: [251, 191, 36] },
+        { label: t('pdf_best_time'), value: bestTime, color: [52, 211, 153] },
     ];
 
     const cardW = (cw - 9) / 4;
@@ -2821,7 +3286,7 @@ function generateWeeklyPDF(weekVal) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
         doc.setTextColor(251, 191, 36);
-        doc.text('💤 ' + pauseDays + ' Pausetag' + (pauseDays > 1 ? 'e' : ''), mg, y);
+        doc.text('💤 ' + pauseDays + ' ' + (pauseDays > 1 ? t('pdf_pause_plural') : t('pdf_pause_single')), mg, y);
         y += 6;
     }
 
@@ -2829,7 +3294,7 @@ function generateWeeklyPDF(weekVal) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
     doc.setTextColor(...textCol);
-    doc.text('Trainingsarten', mg, y);
+    doc.text(t('pdf_type_section'), mg, y);
     y += 5;
 
     // Type distribution bar
@@ -2877,41 +3342,41 @@ function generateWeeklyPDF(weekVal) {
         if (type.startsWith('Sprint') || type.startsWith('Tempolauf') || (getCustomType(type) && getCustomType(type).trackTimes)) {
             const times = entries.flatMap(e => e.times || []).filter(t => t > 0);
             if (times.length) {
-                detailLines.push('Beste: ' + Math.min(...times).toFixed(2) + 's   |   Ø ' + (times.reduce((a,b)=>a+b,0)/times.length).toFixed(2) + 's   |   ' + times.length + ' Läufe');
+                detailLines.push(t('pdf_best') + ': ' + Math.min(...times).toFixed(2) + 's   |   Ø ' + (times.reduce((a,b)=>a+b,0)/times.length).toFixed(2) + 's   |   ' + times.length + ' ' + t('pdf_runs'));
             }
         }
         if (type === 'Kraft') {
             const exSet = new Set();
             entries.forEach(e => { if (e.exercises) Object.keys(e.exercises).forEach(k => exSet.add(k)); });
-            if (exSet.size) detailLines.push('Übungen: ' + [...exSet].join(', '));
+            if (exSet.size) detailLines.push(t('pdf_exercises') + ': ' + [...exSet].join(', '));
         }
         if (type === 'Joggen (5km)') {
             const jogTimes = entries.map(e => e.joggenTimeSec).filter(t => t > 0);
             if (jogTimes.length) {
                 const best = Math.min(...jogTimes);
-                detailLines.push('Beste: ' + Math.floor(best/60) + ':' + String(best%60).padStart(2,'0') + ' min');
+                detailLines.push(t('pdf_best') + ': ' + Math.floor(best/60) + ':' + String(best%60).padStart(2,'0') + ' min');
             }
         }
         if (type === 'Technik') {
             const cats = entries.map(e => e.technikCategory).filter(Boolean);
-            if (cats.length) detailLines.push('Kategorien: ' + [...new Set(cats)].join(', '));
+            if (cats.length) detailLines.push(t('pdf_categories') + ': ' + [...new Set(cats)].join(', '));
         }
         if (type === 'Sprint (50m)') {
             const cats = entries.map(e => e.sprintCategory).filter(Boolean);
-            if (cats.length) detailLines.push('Kategorien: ' + [...new Set(cats)].join(', '));
+            if (cats.length) detailLines.push(t('pdf_categories') + ': ' + [...new Set(cats)].join(', '));
         }
         const ct = getCustomType(type);
         if (ct && ct.subcategories && ct.subcategories.length) {
             const cats = entries.map(e => e.customCategory).filter(Boolean);
-            if (cats.length) detailLines.push('Kategorien: ' + [...new Set(cats)].join(', '));
+            if (cats.length) detailLines.push(t('pdf_categories') + ': ' + [...new Set(cats)].join(', '));
         }
         if (ct && ct.trackCount) {
             const counts = entries.map(e => e.count).filter(c => c > 0);
-            if (counts.length) detailLines.push('Ø Wiederholungen: ' + (counts.reduce((a,b)=>a+b,0)/counts.length).toFixed(1));
+            if (counts.length) detailLines.push(t('pdf_avg_reps') + ': ' + (counts.reduce((a,b)=>a+b,0)/counts.length).toFixed(1));
         }
         if (ct && ct.trackWeight) {
             const kgs = entries.map(e => e.customKg).filter(k => k > 0);
-            if (kgs.length) detailLines.push('Max: ' + Math.max(...kgs) + 'kg   |   Ø ' + (kgs.reduce((a,b)=>a+b,0)/kgs.length).toFixed(1) + 'kg');
+            if (kgs.length) detailLines.push(t('pdf_max') + ': ' + Math.max(...kgs) + 'kg   |   Ø ' + (kgs.reduce((a,b)=>a+b,0)/kgs.length).toFixed(1) + 'kg');
         }
 
         const rowH = 8 + detailLines.length * 5;
@@ -2957,7 +3422,7 @@ function generateWeeklyPDF(weekVal) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
     doc.setTextColor(...textCol);
-    doc.text('Einzelne Einheiten', mg, y);
+    doc.text(t('pdf_indiv_sessions'), mg, y);
     y += 5;
 
     const sorted = [...week].sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''));
@@ -2992,8 +3457,8 @@ function generateWeeklyPDF(weekVal) {
         const detailParts = [];
         if (e.times && e.times.length) detailParts.push(e.times.map(t => t.toFixed(2) + 's').join(', '));
         if (e.joggenTimeSec) detailParts.push(Math.floor(e.joggenTimeSec/60) + ':' + String(e.joggenTimeSec%60).padStart(2,'0') + ' min');
-        if (e.count) detailParts.push(e.count + ' Wdh');
-        if (e.customKg) detailParts.push(e.customKg + 'kg' + (e.customReps ? ' × ' + e.customReps + ' Wdh' : ''));
+        if (e.count) detailParts.push(e.count + ' ' + t('pdf_wdh'));
+        if (e.customKg) detailParts.push(e.customKg + 'kg' + (e.customReps ? ' × ' + e.customReps + ' ' + t('pdf_wdh') : ''));
         detail = detailParts.join('  |  ');
         if (e.sprintCategory) detail = (e.sprintCategory + '  ' + detail).trim();
         if (e.technikCategory) detail = (e.technikCategory + '  ' + detail).trim();
@@ -3024,7 +3489,7 @@ function generateWeeklyPDF(weekVal) {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(11);
         doc.setTextColor(...textCol);
-        doc.text('Notizen', mg, y);
+        doc.text(t('pdf_notes'), mg, y);
         y += 5;
 
         notes.forEach(e => {
@@ -3051,12 +3516,12 @@ function generateWeeklyPDF(weekVal) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(6.5);
         doc.setTextColor(...mutedCol);
-        doc.text('TrainLytics – trainlytics.de', mg, H - 8);
-        doc.text('Seite ' + p + '/' + pageCount, W - mg, H - 8, { align: 'right' });
+        doc.text(t('pdf_footer'), mg, H - 8);
+        doc.text(t('pdf_page', {p: p, total: pageCount}), W - mg, H - 8, { align: 'right' });
     }
 
     doc.save('TrainLytics_' + weekVal + '.pdf');
-    showToast('PDF heruntergeladen');
+    showToast(t('toast_pdf_done'));
 }
 document.getElementById('ct-modal-close').addEventListener('click', () => { ctModal.classList.remove('show'); });
 ctModal.addEventListener('click', e => { if (e.target === ctModal) ctModal.classList.remove('show'); });
@@ -3126,8 +3591,8 @@ function resetCtForm() {
     document.getElementById('ct-count-no').classList.add('active');
     document.getElementById('ct-weight-yes').classList.remove('active');
     document.getElementById('ct-weight-no').classList.add('active');
-    document.getElementById('ct-form-title').textContent = 'Neue Trainingsart';
-    document.getElementById('ct-save').textContent = 'Hinzufügen';
+    document.getElementById('ct-form-title').textContent = t('new_type');
+    document.getElementById('ct-save').textContent = t('add_btn');
     document.getElementById('ct-cancel-edit').style.display = 'none';
 }
 
@@ -3170,23 +3635,23 @@ document.getElementById('ct-save').addEventListener('click', () => {
     const subcatsRaw = document.getElementById('ct-subcategories').value.trim();
     const subcategories = subcatsRaw ? subcatsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
 
-    if (!name) { showToast('Bitte Name eingeben'); return; }
-    if (name.length > 30) { showToast('Name zu lang (max 30 Zeichen)'); return; }
+    if (!name) { showToast(t('toast_enter_name')); return; }
+    if (name.length > 30) { showToast(t('toast_name_long')); return; }
 
     // Check for reserved names
     const reserved = ['Sprint (50m)', 'Tempolauf (120m)', 'Tempolauf (150m)', 'Kraft', 'Technik', 'Joggen (5km)', 'Allgemein'];
-    if (reserved.includes(name)) { showToast('Dieser Name ist reserviert'); return; }
+    if (reserved.includes(name)) { showToast(t('toast_name_reserved')); return; }
 
     const list = [..._customTypes];
 
     if (ctEditId) {
         const idx = list.findIndex(ct => ct.id === ctEditId);
         if (idx >= 0) {
-            if (list.some((ct, i) => i !== idx && ct.name === name)) { showToast('Name bereits vergeben'); return; }
+            if (list.some((ct, i) => i !== idx && ct.name === name)) { showToast(t('toast_name_taken')); return; }
             list[idx] = { ...list[idx], name, emoji, color, subcategories, trackTimes, trackCount, trackWeight, basedOn: baseVal || null };
         }
     } else {
-        if (list.some(ct => ct.name === name)) { showToast('Name bereits vergeben'); return; }
+        if (list.some(ct => ct.name === name)) { showToast(t('toast_name_taken')); return; }
         list.push({ id: generateId(), name, emoji, color, subcategories, trackTimes, trackCount, trackWeight, basedOn: baseVal || null });
     }
 
@@ -3194,12 +3659,12 @@ document.getElementById('ct-save').addEventListener('click', () => {
     applyUserRestrictions(currentUser);
     renderCustomTypesList();
     resetCtForm();
-    showToast(ctEditId ? 'Aktualisiert ✓' : 'Hinzugefügt ✓');
+    showToast(ctEditId ? t('toast_updated') : t('toast_added'));
 });
 
 function renderCustomTypesList() {
     if (!_customTypes.length) {
-        ctListEl.innerHTML = '<p style="color:var(--text-tertiary);font-size:13px;text-align:center;padding:8px 0">Noch keine eigenen Trainingsarten erstellt.</p>';
+        ctListEl.innerHTML = '<p style="color:var(--text-tertiary);font-size:13px;text-align:center;padding:8px 0">' + t('no_custom_types') + '</p>';
         return;
     }
     ctListEl.innerHTML = _customTypes.map(ct => `
@@ -3208,16 +3673,16 @@ function renderCustomTypesList() {
                 <span class="ct-item-color" style="background:${escapeHtml(ct.color || '#8B8FA7')}"></span>
                 <span class="ct-item-emoji">${escapeHtml(ct.emoji || '📌')}</span>
                 <span class="ct-item-name">${escapeHtml(ct.name)}</span>
-                ${ct.subcategories && ct.subcategories.length ? '<span class="ct-item-subs">' + ct.subcategories.length + ' Kat.</span>' : ''}
+                ${ct.subcategories && ct.subcategories.length ? '<span class="ct-item-subs">' + ct.subcategories.length + t('cat_suffix') + '</span>' : ''}
                 ${ct.trackTimes ? '<span class="ct-item-times">⏱️</span>' : ''}
                 ${ct.trackCount ? '<span class="ct-item-times">🔢</span>' : ''}
                 ${ct.trackWeight ? '<span class="ct-item-times">🏋️</span>' : ''}
             </div>
             <div class="ct-item-actions">
-                <button class="btn-icon ct-edit-btn" data-ctid="${escapeHtml(ct.id)}" title="Bearbeiten">
+                <button class="btn-icon ct-edit-btn" data-ctid="${escapeHtml(ct.id)}" title="${t('edit_title')}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
-                <button class="btn-icon ct-del-btn" data-ctid="${escapeHtml(ct.id)}" title="Löschen">
+                <button class="btn-icon ct-del-btn" data-ctid="${escapeHtml(ct.id)}" title="${t('delete_title')}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                 </button>
             </div>
@@ -3250,8 +3715,8 @@ function renderCustomTypesList() {
             document.getElementById('ct-count-no').classList.toggle('active', !ctTrackCount);
             document.getElementById('ct-weight-yes').classList.toggle('active', ctTrackWeight);
             document.getElementById('ct-weight-no').classList.toggle('active', !ctTrackWeight);
-            document.getElementById('ct-form-title').textContent = 'Trainingsart bearbeiten';
-            document.getElementById('ct-save').textContent = 'Speichern';
+            document.getElementById('ct-form-title').textContent = t('edit_type');
+            document.getElementById('ct-save').textContent = t('save_btn');
             document.getElementById('ct-cancel-edit').style.display = '';
         });
     });
@@ -3260,13 +3725,13 @@ function renderCustomTypesList() {
         btn.addEventListener('click', () => {
             const ct = _customTypes.find(c => c.id === btn.dataset.ctid);
             if (!ct) return;
-            if (!confirm('Trainingsart "' + ct.name + '" wirklich löschen?')) return;
+            if (!confirm(t('confirm_delete_type', {name: ct.name}))) return;
             const list = _customTypes.filter(c => c.id !== ct.id);
             saveCustomTypes(list);
             applyUserRestrictions(currentUser);
             renderCustomTypesList();
             resetCtForm();
-            showToast('Gelöscht');
+            showToast(t('toast_deleted'));
         });
     });
 }
@@ -3281,7 +3746,7 @@ function renderScList() {
         subs.forEach(s => allEntries.push({ type, name: s }));
     });
     if (!allEntries.length) {
-        scListEl.innerHTML = '<p style="color:var(--text-tertiary);font-size:13px;text-align:center;padding:4px 0">Keine eigenen Unterkategorien.</p>';
+        scListEl.innerHTML = '<p style="color:var(--text-tertiary);font-size:13px;text-align:center;padding:4px 0">' + t('no_custom_subcats') + '</p>';
         return;
     }
     scListEl.innerHTML = allEntries.map(e => `
@@ -3290,7 +3755,7 @@ function renderScList() {
                 <span class="ct-item-name" style="font-size:12px">${escapeHtml(e.type)}</span>
                 <span class="ct-item-subs" style="margin-left:6px">${escapeHtml(e.name)}</span>
             </div>
-            <button class="btn-icon sc-del-btn" data-type="${escapeHtml(e.type)}" data-name="${escapeHtml(e.name)}" title="Entfernen">
+            <button class="btn-icon sc-del-btn" data-type="${escapeHtml(e.type)}" data-name="${escapeHtml(e.name)}" title="${t('remove_label')}">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
             </button>
         </div>`).join('');
@@ -3306,7 +3771,7 @@ function renderScList() {
             }
             saveCustomSubcategories(data);
             renderScList();
-            showToast('Entfernt');
+            showToast(t('toast_removed'));
         });
     });
 }
@@ -3314,16 +3779,16 @@ function renderScList() {
 document.getElementById('sc-add').addEventListener('click', () => {
     const type = document.getElementById('sc-type').value;
     const name = document.getElementById('sc-name').value.trim();
-    if (!name) { showToast('Bitte Name eingeben'); return; }
-    if (name.length > 30) { showToast('Name zu lang'); return; }
+    if (!name) { showToast(t('toast_enter_name')); return; }
+    if (name.length > 30) { showToast(t('toast_name_too_long')); return; }
     const data = { ..._customSubcategories };
     if (!data[type]) data[type] = [];
-    if (data[type].includes(name)) { showToast('Existiert bereits'); return; }
+    if (data[type].includes(name)) { showToast(t('toast_exists')); return; }
     data[type].push(name);
     saveCustomSubcategories(data);
     document.getElementById('sc-name').value = '';
     renderScList();
-    showToast('Hinzugefügt ✓');
+    showToast(t('toast_added'));
 });
 
 // ================================================================
@@ -3348,18 +3813,18 @@ document.getElementById('add-type-btn').addEventListener('click', () => {
     section.dataset.idx = idx;
     section.innerHTML = `
         <div class="additional-type-header">
-            <span class="additional-type-label">Weitere Trainingsart</span>
-            <button type="button" class="btn-icon btn-remove-additional" title="Entfernen">&times;</button>
+            <span class="additional-type-label">${t('additional_type')}</span>
+            <button type="button" class="btn-icon btn-remove-additional" title="${t('remove_label')}">&times;</button>
         </div>
         <div class="form-group">
-            <label>Trainingsart</label>
+            <label>${t('type_label')}</label>
             <select class="at-type" data-idx="${idx}">
-                <option value="">-- Bitte wählen --</option>
+                <option value="">-- ${t('please_select')} --</option>
             </select>
         </div>
         <div class="at-cat-group" style="display:none">
             <div class="form-group">
-                <label>Kategorie</label>
+            <label>${t('category_label')}</label>
                 <select class="at-category"></select>
             </div>
         </div>
@@ -3409,7 +3874,7 @@ document.getElementById('add-type-btn').addEventListener('click', () => {
         }
 
         if (options.length) {
-            catSel.innerHTML = '<option value="">-- Bitte wählen --</option>' +
+            catSel.innerHTML = '<option value="">-- ' + t('please_select') + ' --</option>' +
                 options.map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('');
             catGroup.style.display = '';
         } else {
@@ -3509,15 +3974,15 @@ wkForm.addEventListener('submit', e => {
     const discs = [];
     wkForm.querySelectorAll('.wk-disciplines input:checked').forEach(cb => discs.push(cb.value));
 
-    if (!name || !date || !time) { showToast('Bitte alle Felder ausfüllen'); return; }
-    if (!discs.length) { showToast('Bitte mindestens eine Disziplin wählen'); return; }
+    if (!name || !date || !time) { showToast(t('toast_comp_fill')); return; }
+    if (!discs.length) { showToast(t('toast_comp_discipline')); return; }
 
     const list = loadCompetitions();
     list.push({ id: generateId(), name, date, time, disciplines: discs });
     list.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
     saveCompetitions(list);
     wkModal.classList.remove('show');
-    showToast('Wettkampf gespeichert ✓');
+    showToast(t('toast_comp_saved'));
     renderCalendar();
 });
 
@@ -3527,13 +3992,13 @@ function deleteCompetition(id) {
     const list = loadCompetitions().filter(w => w.id !== id);
     saveCompetitions(list);
     renderCalendar();
-    showToast('Wettkampf gelöscht');
+    showToast(t('toast_comp_deleted'));
 }
 
 // ---- Calendar Rendering ----
 function renderCalendar() {
     const season = getCurrentSeason();
-    document.getElementById('cal-season-label').textContent = 'Saison ' + season.label;
+    document.getElementById('cal-season-label').textContent = t('season_label') + ' ' + season.label;
 
     const trainings = loadData();
     const competitions = loadCompetitions();
@@ -3553,14 +4018,14 @@ function renderCalendar() {
     if (upcoming.length) {
         const next = upcoming[0];
         const daysLeft = Math.ceil((new Date(next.date + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000);
-        const daysText = daysLeft === 0 ? 'Heute!' : daysLeft === 1 ? 'Morgen!' : 'Noch ' + daysLeft + ' Tage';
+        const daysText = daysLeft === 0 ? t('today_text') : daysLeft === 1 ? t('tomorrow_text') : t('days_left', {n: daysLeft});
         countdownEl.innerHTML = `
             <div class="countdown-name">${escapeHtml(next.name)}</div>
             <div class="countdown-days">${daysText}</div>
-            <div class="countdown-date">${escapeHtml(fmtDate(next.date))} · ${escapeHtml(next.time)} Uhr</div>
+            <div class="countdown-date">${escapeHtml(fmtDate(next.date))} · ${escapeHtml(next.time)} ${t('clock_suffix')}</div>
             <div class="countdown-discs">${next.disciplines.map(d => '<span class="wk-disc-tag">' + escapeHtml(d) + '</span>').join('')}</div>`;
     } else {
-        countdownEl.innerHTML = '<span class="countdown-none">Kein Wettkampf geplant</span>';
+        countdownEl.innerHTML = '<span class="countdown-none">' + t('no_comp_planned') + '</span>';
     }
 
     // Build month grid (Sep to Aug)
@@ -3571,12 +4036,12 @@ function renderCalendar() {
     for (let m = 8; m < 12; m++) months.push({ year: startYear, month: m });
     for (let m = 0; m < 8; m++) months.push({ year: startYear + 1, month: m });
 
-    const dayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+    const dayNames = t('weekdays_cal');
 
     months.forEach(({ year, month }) => {
         const monthEl = document.createElement('div');
         monthEl.className = 'cal-month';
-        const mLabel = MONTH_NAMES[month] + ' ' + year;
+        const mLabel = MONTH_NAMES_T()[month] + ' ' + year;
         let html = '<div class="cal-month-label">' + mLabel + '</div>';
         html += '<div class="cal-days-header">' + dayNames.map(d => '<span>' + d + '</span>').join('') + '</div>';
         html += '<div class="cal-days">';
@@ -3599,8 +4064,8 @@ function renderCalendar() {
             if (hasTrain) cls += ' trained';
             if (hasWk) cls += ' wk';
             const tooltip = [];
-            if (hasTrain) tooltip.push('🏃 Training');
-            if (hasWk) tooltip.push('🏆 ' + hasWk.map(w => w.name).join(', '));
+            if (hasTrain) tooltip.push(t('cal_training'));
+            if (hasWk) tooltip.push(t('cal_comp_prefix') + hasWk.map(w => w.name).join(', '));
             html += '<span class="' + cls + '"' + (tooltip.length ? ' title="' + escapeHtml(tooltip.join(' | ')) + '"' : '') + '>' + d + '</span>';
         }
         html += '</div>';
@@ -3611,7 +4076,7 @@ function renderCalendar() {
     // Competition list
     const wkListEl = document.getElementById('wk-list');
     if (!competitions.length) {
-        wkListEl.innerHTML = '<div class="empty-state"><p>Noch keine Wettkämpfe eingetragen.</p></div>';
+        wkListEl.innerHTML = '<div class="empty-state"><p>' + t('no_competitions') + '</p></div>';
     } else {
         wkListEl.innerHTML = competitions.sort((a, b) => a.date.localeCompare(b.date)).map(w => {
             const isPast = w.date < today;
@@ -3619,9 +4084,9 @@ function renderCalendar() {
                 <div class="wk-entry-header">
                     <div>
                         <div class="wk-entry-name">${escapeHtml(w.name)}</div>
-                        <div class="wk-entry-date">${escapeHtml(fmtDate(w.date))} · ${escapeHtml(w.time)} Uhr</div>
+                        <div class="wk-entry-date">${escapeHtml(fmtDate(w.date))} · ${escapeHtml(w.time)} ${t('clock_suffix')}</div>
                     </div>
-                    <button class="btn-icon btn-del wk-del-btn" data-wkid="${escapeHtml(w.id)}" title="Löschen">
+                    <button class="btn-icon btn-del wk-del-btn" data-wkid="${escapeHtml(w.id)}" title="${escapeHtml(t('delete_btn'))}">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                     </button>
                 </div>
@@ -3710,14 +4175,14 @@ injuryForm.addEventListener('submit', e => {
     const pain = parseInt(painSlider.value, 10);
     const notes = document.getElementById('injury-notes').value.trim();
 
-    if (!date || !bodypart) { showToast('Bitte Datum und Körperteil angeben'); return; }
+    if (!date || !bodypart) { showToast(t('toast_injury_fill')); return; }
 
     const list = loadInjuries();
     list.push({ id: generateId(), date, bodypart, side: injurySide, pain, notes });
     list.sort((a, b) => b.date.localeCompare(a.date));
     saveInjuries(list);
     injuryModal.classList.remove('show');
-    showToast('Eintrag gespeichert ✓');
+    showToast(t('toast_injury_saved'));
     renderInjuryList();
 });
 
@@ -3733,7 +4198,7 @@ function renderInjuryList() {
     const statsCard = document.getElementById('injury-stats-card');
 
     if (!list.length) {
-        el.innerHTML = '<div class="empty-state"><p>Noch keine Einträge vorhanden.</p></div>';
+        el.innerHTML = '<div class="empty-state"><p>' + t('no_diary_entries') + '</p></div>';
         statsCard.style.display = 'none';
         return;
     }
@@ -3742,11 +4207,11 @@ function renderInjuryList() {
         <div class="injury-entry">
             <div class="injury-entry-header">
                 <div class="injury-entry-info">
-                    <span class="injury-bodypart">${escapeHtml(inj.bodypart)}</span>
-                    <span class="injury-side-tag">${escapeHtml(inj.side)}</span>
+                    <span class="injury-bodypart">${escapeHtml(translateBody(inj.bodypart))}</span>
+                    <span class="injury-side-tag">${escapeHtml(translateSide(inj.side))}</span>
                     <span class="injury-pain-badge" style="background:${painColor(inj.pain)}20;color:${painColor(inj.pain)}">${inj.pain}/10</span>
                 </div>
-                <button class="btn-icon btn-del injury-del-btn" data-injid="${escapeHtml(inj.id)}" title="Löschen">
+                <button class="btn-icon btn-del injury-del-btn" data-injid="${escapeHtml(inj.id)}" title="${escapeHtml(t('delete_btn'))}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                 </button>
             </div>
@@ -3760,7 +4225,7 @@ function renderInjuryList() {
             const list2 = loadInjuries().filter(i => i.id !== b.dataset.injid);
             saveInjuries(list2);
             renderInjuryList();
-            showToast('Eintrag gelöscht');
+            showToast(t('toast_injury_deleted'));
         });
     });
 
@@ -3789,21 +4254,21 @@ function renderInjuryStats(list) {
         <div class="injury-stats-grid">
             <div class="injury-stat">
                 <span class="injury-stat-val">${list.length}</span>
-                <span class="injury-stat-label">Einträge gesamt</span>
+                <span class="injury-stat-label">${t('injury_total')}</span>
             </div>
             <div class="injury-stat">
                 <span class="injury-stat-val" style="color:${painColor(Math.round(avgPain))}">${avgPain}</span>
-                <span class="injury-stat-label">Ø Schmerzlevel</span>
+                <span class="injury-stat-label">${t('injury_avg_pain')}</span>
             </div>
             <div class="injury-stat">
-                <span class="injury-stat-val">${escapeHtml(most[0])}</span>
-                <span class="injury-stat-label">Häufigste Stelle (${most[1]}×)</span>
+                <span class="injury-stat-val">${escapeHtml(translateBody(most[0]))}</span>
+                <span class="injury-stat-label">${t('injury_most_frequent', {n: most[1]})}</span>
             </div>
         </div>
         <div class="injury-freq-bars">
             ${sorted.map(([part, count]) => `
                 <div class="injury-freq-row">
-                    <span class="injury-freq-label">${escapeHtml(part)}</span>
+                    <span class="injury-freq-label">${escapeHtml(translateBody(part))}</span>
                     <div class="injury-freq-bar-bg"><div class="injury-freq-bar-fill" style="width:${Math.round(count / sorted[0][1] * 100)}%"></div></div>
                     <span class="injury-freq-count">${count}</span>
                 </div>`).join('')}
@@ -3840,7 +4305,7 @@ document.getElementById('btn-save-plan')?.addEventListener('click', async () => 
     const weekStart = document.getElementById('plan-week').value;
     const notes = document.getElementById('plan-notes').value.trim();
 
-    if (!user || !weekStart) { showToast('Bitte Athlet und Woche wählen'); return; }
+    if (!user || !weekStart) { showToast(t('toast_plan_select')); return; }
 
     const days = {};
     document.querySelectorAll('#plan-days .plan-day-row').forEach(row => {
@@ -3849,7 +4314,7 @@ document.getElementById('btn-save-plan')?.addEventListener('click', async () => 
         if (val) days[day] = val;
     });
 
-    if (!Object.keys(days).length) { showToast('Bitte mindestens einen Tag ausfüllen'); return; }
+    if (!Object.keys(days).length) { showToast(t('toast_plan_fill')); return; }
 
     const plan = { weekStart, days, notes, createdAt: new Date().toISOString() };
     const targets = user === '__alle__' ? _planUsers : [user];
@@ -3865,7 +4330,7 @@ document.getElementById('btn-save-plan')?.addEventListener('click', async () => 
             plans.sort((a, b) => a.weekStart.localeCompare(b.weekStart));
             await docRef.set({ trainingPlans: plans, trainingPlan: null }, { merge: true });
         }
-        showToast(targets.length > 1 ? `Plan an ${targets.length} Athleten zugewiesen ✓` : 'Plan zugewiesen ✓');
+        showToast(targets.length > 1 ? t('toast_plan_assigned_multi', {n: targets.length}) : t('toast_plan_assigned'));
         // Reset form
         document.querySelectorAll('#plan-days .plan-day-input').forEach(inp => { inp.value = ''; });
         document.getElementById('plan-notes').value = '';
@@ -3875,7 +4340,7 @@ document.getElementById('btn-save-plan')?.addEventListener('click', async () => 
         if (targets.length === 1) await renderCoachSentPlans(targets[0]);
         else await renderCoachSentPlansAll();
     } catch(e) {
-        showToast('Fehler beim Speichern');
+        showToast(t('toast_plan_error'));
     }
 });
 
@@ -3908,8 +4373,8 @@ document.getElementById('plan-user-select')?.addEventListener('change', async ()
 async function renderCoachSentPlansAll() {
     const container = document.getElementById('plan-sent-list');
     const infoEl = document.getElementById('plan-current-info');
-    const dayOrder = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
-    const dayShort = { Montag: 'Mo', Dienstag: 'Di', Mittwoch: 'Mi', Donnerstag: 'Do', Freitag: 'Fr', Samstag: 'Sa', Sonntag: 'So' };
+    const dayOrder = t('day_order');
+    const dayShort = t('day_short');
 
     try {
         // Load plans from all users
@@ -3922,7 +4387,7 @@ async function renderCoachSentPlansAll() {
 
         if (!allUserPlans.length) {
             container.innerHTML = '';
-            infoEl.innerHTML = '<span class="plan-info-badge">Noch keine Pläne vorhanden</span>';
+            infoEl.innerHTML = '<span class="plan-info-badge">' + t('no_plans') + '</span>';
             infoEl.style.display = '';
             return;
         }
@@ -3945,14 +4410,14 @@ async function renderCoachSentPlansAll() {
             const userCount = items.length;
             return `<div class="card glass-card">
                 <div class="card-header">
-                    <h2>Woche ab ${escapeHtml(fmtDate(ws))}</h2>
+                    <h2>${t('week_from_text', {date: escapeHtml(fmtDate(ws))})}</h2>
                     <div style="display:flex;align-items:center;gap:6px">
-                        ${expired ? '<span class="card-badge" style="background:rgba(255,255,255,0.06);color:var(--text-muted)">abgelaufen</span>' : '<span class="card-badge" style="background:rgba(52,211,153,0.12);color:#34D399">aktiv</span>'}
+                        ${expired ? '<span class="card-badge" style="background:rgba(255,255,255,0.06);color:var(--text-muted)">' + t('expired') + '</span>' : '<span class="card-badge" style="background:rgba(52,211,153,0.12);color:#34D399">' + t('active') + '</span>'}
                     </div>
                 </div>
                 <div class="sent-plan-bulk-actions" style="display:flex;gap:8px;margin-bottom:12px;">
-                    <button class="btn btn-small sent-plan-edit-week" data-ws="${escapeHtml(ws)}" title="Plan für alle Athleten bearbeiten">✏️ Alle bearbeiten</button>
-                    <button class="btn btn-small btn-danger sent-plan-del-week" data-ws="${escapeHtml(ws)}" title="Plan für alle Athleten löschen">🗑️ Alle löschen (${userCount})</button>
+                    <button class="btn btn-small sent-plan-edit-week" data-ws="${escapeHtml(ws)}" title="${t('edit_all')}">${t('edit_all')}</button>
+                    <button class="btn btn-small btn-danger sent-plan-del-week" data-ws="${escapeHtml(ws)}" title="${t('delete_all', {n: userCount})}">${t('delete_all', {n: userCount})}</button>
                 </div>
                 ${items.map(({ user, plan }) => {
                     const name = user.charAt(0).toUpperCase() + user.slice(1);
@@ -3962,10 +4427,10 @@ async function renderCoachSentPlansAll() {
                                 <span class="sent-plan-user">${escapeHtml(name)}</span>
                             </div>
                             <div class="sent-plan-actions">
-                                <button class="btn-icon sent-plan-edit-all" data-ws="${escapeHtml(plan.weekStart)}" data-user="${escapeHtml(user)}" title="Bearbeiten">
+                                <button class="btn-icon sent-plan-edit-all" data-ws="${escapeHtml(plan.weekStart)}" data-user="${escapeHtml(user)}" title="${t('edit_title')}">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                 </button>
-                                <button class="btn-icon sent-plan-del-all" data-ws="${escapeHtml(plan.weekStart)}" data-user="${escapeHtml(user)}" title="Löschen">
+                                <button class="btn-icon sent-plan-del-all" data-ws="${escapeHtml(plan.weekStart)}" data-user="${escapeHtml(user)}" title="${t('delete_title')}">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                                 </button>
                             </div>
@@ -4000,7 +4465,7 @@ async function renderCoachSentPlansAll() {
                     row.querySelector('.plan-day-input').value = firstPlan.days[row.dataset.day] || '';
                 });
                 const infoEl2 = document.getElementById('plan-current-info');
-                infoEl2.innerHTML = `<span class="plan-info-badge">✏️ Plan für ALLE Athleten wird bearbeitet (${items.length} Athleten)</span>`;
+                infoEl2.innerHTML = `<span class="plan-info-badge">${t('editing_plan_all', {n: items.length})}</span>`;
                 infoEl2.style.display = '';
                 document.getElementById('coach-plan').scrollIntoView({ behavior: 'smooth' });
             });
@@ -4012,7 +4477,7 @@ async function renderCoachSentPlansAll() {
                 const ws = btn.dataset.ws;
                 const items = byWeek[ws];
                 if (!items || !items.length) return;
-                if (!confirm(`Plan (${fmtDate(ws)}) für ALLE ${items.length} Athleten wirklich löschen?`)) return;
+                if (!confirm(t('confirm_delete_plan_all', {date: fmtDate(ws), n: items.length}))) return;
                 try {
                     for (const { user } of items) {
                         const docRef = db.collection('users').doc(user.toLowerCase().trim());
@@ -4021,10 +4486,10 @@ async function renderCoachSentPlansAll() {
                         updatedPlans = updatedPlans.filter(p => p.weekStart !== ws);
                         await docRef.set({ trainingPlans: updatedPlans }, { merge: true });
                     }
-                    showToast(`Plan bei ${items.length} Athleten gelöscht`);
+                    showToast(t('plan_deleted_multi', {n: items.length}));
                     await renderCoachSentPlansAll();
                 } catch {
-                    showToast('Fehler beim Löschen');
+                    showToast(t('toast_plan_delete_error'));
                 }
             });
         });
@@ -4047,7 +4512,7 @@ async function renderCoachSentPlansAll() {
                 });
                 const infoEl2 = document.getElementById('plan-current-info');
                 const name = targetUser.charAt(0).toUpperCase() + targetUser.slice(1);
-                infoEl2.innerHTML = `<span class="plan-info-badge">✏️ Plan für ${escapeHtml(name)} wird bearbeitet</span>`;
+                infoEl2.innerHTML = `<span class="plan-info-badge">${t('editing_plan_for', {name: escapeHtml(name)})}</span>`;
                 infoEl2.style.display = '';
                 document.getElementById('coach-plan').scrollIntoView({ behavior: 'smooth' });
             });
@@ -4059,17 +4524,17 @@ async function renderCoachSentPlansAll() {
                 const targetUser = btn.dataset.user;
                 const ws = btn.dataset.ws;
                 const name = targetUser.charAt(0).toUpperCase() + targetUser.slice(1);
-                if (!confirm(`Plan (${fmtDate(ws)}) für ${name} wirklich löschen?`)) return;
+                if (!confirm(t('confirm_delete_plan', {date: fmtDate(ws), name: name}))) return;
                 try {
                     const docRef = db.collection('users').doc(targetUser.toLowerCase().trim());
                     const snap = await docRef.get();
                     let updatedPlans = snap.exists ? getPlansFromData(snap.data()) : [];
                     updatedPlans = updatedPlans.filter(p => p.weekStart !== ws);
                     await docRef.set({ trainingPlans: updatedPlans }, { merge: true });
-                    showToast('Plan gelöscht');
+                    showToast(t('toast_plan_deleted'));
                     await renderCoachSentPlansAll();
                 } catch {
-                    showToast('Fehler beim Löschen');
+                    showToast(t('toast_plan_delete_error'));
                 }
             });
         });
@@ -4089,33 +4554,33 @@ async function renderCoachSentPlans(user) {
 
         if (!plans.length) {
             container.innerHTML = '';
-            infoEl.innerHTML = '<span class="plan-info-badge">Noch kein Plan vorhanden — neuen erstellen</span>';
+            infoEl.innerHTML = '<span class="plan-info-badge">' + t('no_plan_create') + '</span>';
             infoEl.style.display = '';
             return;
         }
         infoEl.style.display = 'none';
         plans.sort((a, b) => b.weekStart.localeCompare(a.weekStart));
 
-        const dayOrder = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
-        const dayShort = { Montag: 'Mo', Dienstag: 'Di', Mittwoch: 'Mi', Donnerstag: 'Do', Freitag: 'Fr', Samstag: 'Sa', Sonntag: 'So' };
+        const dayOrder = t('day_order');
+        const dayShort = t('day_short');
         const name = user.charAt(0).toUpperCase() + user.slice(1);
 
         container.innerHTML = `
             <div class="card glass-card">
-                <div class="card-header"><h2>📄 Gesendete Pläne – ${escapeHtml(name)}</h2><span class="card-badge">${plans.length}</span></div>
+                <div class="card-header"><h2>${t('sent_plans', {name: escapeHtml(name)})}</h2><span class="card-badge">${plans.length}</span></div>
                 ${plans.map(p => {
                     const expired = isPlanExpired(p);
                     return `<div class="sent-plan-entry${expired ? ' sent-plan-expired' : ''}">
                         <div class="sent-plan-header">
                             <div>
-                                <span class="sent-plan-week">Woche ab ${escapeHtml(fmtDate(p.weekStart))}</span>
-                                ${expired ? '<span class="sent-plan-tag expired">abgelaufen</span>' : '<span class="sent-plan-tag active">aktiv</span>'}
+                                <span class="sent-plan-week">${t('week_from_text', {date: escapeHtml(fmtDate(p.weekStart))})}</span>
+                                ${expired ? '<span class="sent-plan-tag expired">' + t('expired') + '</span>' : '<span class="sent-plan-tag active">' + t('active') + '</span>'}
                             </div>
                             <div class="sent-plan-actions">
-                                <button class="btn-icon sent-plan-edit" data-ws="${escapeHtml(p.weekStart)}" title="Bearbeiten">
+                                <button class="btn-icon sent-plan-edit" data-ws="${escapeHtml(p.weekStart)}" title="${t('edit_title')}">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                 </button>
-                                <button class="btn-icon sent-plan-del" data-ws="${escapeHtml(p.weekStart)}" title="Löschen">
+                                <button class="btn-icon sent-plan-del" data-ws="${escapeHtml(p.weekStart)}" title="${t('delete_title')}">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                                 </button>
                             </div>
@@ -4142,7 +4607,7 @@ async function renderCoachSentPlans(user) {
                 document.querySelectorAll('#plan-days .plan-day-row').forEach(row => {
                     row.querySelector('.plan-day-input').value = plan.days[row.dataset.day] || '';
                 });
-                infoEl.innerHTML = '<span class="plan-info-badge">✏️ Plan wird bearbeitet</span>';
+                infoEl.innerHTML = '<span class="plan-info-badge">' + t('editing_plan') + '</span>';
                 infoEl.style.display = '';
                 // Scroll to form top
                 document.getElementById('coach-plan').scrollIntoView({ behavior: 'smooth' });
@@ -4152,7 +4617,7 @@ async function renderCoachSentPlans(user) {
         // Delete button
         container.querySelectorAll('.sent-plan-del').forEach(btn => {
             btn.addEventListener('click', async () => {
-                if (!confirm('Plan für Woche ab ' + fmtDate(btn.dataset.ws) + ' wirklich löschen?')) return;
+                if (!confirm(t('confirm_delete_plan_athlete', {date: fmtDate(btn.dataset.ws)}))) return;
                 const ws = btn.dataset.ws;
                 try {
                     const docRef = db.collection('users').doc(user.toLowerCase().trim());
@@ -4160,10 +4625,10 @@ async function renderCoachSentPlans(user) {
                     let updatedPlans = snap.exists ? getPlansFromData(snap.data()) : [];
                     updatedPlans = updatedPlans.filter(p => p.weekStart !== ws);
                     await docRef.set({ trainingPlans: updatedPlans }, { merge: true });
-                    showToast('Plan gelöscht');
+                    showToast(t('toast_plan_deleted'));
                     await renderCoachSentPlans(user);
                 } catch {
-                    showToast('Fehler beim Löschen');
+                    showToast(t('toast_plan_delete_error'));
                 }
             });
         });
@@ -4178,8 +4643,8 @@ function populatePlanUserSelect(users) {
     _planUsers = users;
     const sel = document.getElementById('plan-user-select');
     if (!sel) return;
-    sel.innerHTML = '<option value="">-- Bitte wählen --</option>' +
-        '<option value="__alle__">📢 Alle Athleten</option>' +
+    sel.innerHTML = '<option value="">-- ' + t('please_select') + ' --</option>' +
+        '<option value="__alle__">' + t('all_athletes_option') + '</option>' +
         users.map(u => `<option value="${escapeHtml(u)}">${escapeHtml(u.charAt(0).toUpperCase() + u.slice(1))}</option>`).join('');
 }
 
@@ -4187,7 +4652,7 @@ function populatePlanUserSelect(users) {
 function populateCoachDiarySelect(users) {
     const sel = document.getElementById('coach-diary-user-select');
     if (!sel) return;
-    sel.innerHTML = '<option value="">-- Bitte wählen --</option>' +
+    sel.innerHTML = '<option value="">-- ' + t('please_select') + ' --</option>' +
         users.map(u => `<option value="${escapeHtml(u)}">${escapeHtml(u.charAt(0).toUpperCase() + u.slice(1))}</option>`).join('');
 }
 
@@ -4203,7 +4668,7 @@ document.getElementById('coach-diary-user-select')?.addEventListener('change', a
         const injuries = (doc.exists && doc.data().injuries) ? doc.data().injuries : [];
 
         if (!injuries.length) {
-            container.innerHTML = '<div class="card glass-card"><div class="empty-state"><p>Keine Einträge vorhanden.</p></div></div>';
+            container.innerHTML = '<div class="card glass-card"><div class="empty-state"><p>' + t('no_diary') + '</p></div></div>';
             return;
         }
 
@@ -4216,38 +4681,38 @@ document.getElementById('coach-diary-user-select')?.addEventListener('change', a
 
         container.innerHTML = `
             <div class="card glass-card">
-                <div class="card-header"><h2>📊 Übersicht – ${escapeHtml(name)}</h2></div>
+                <div class="card-header"><h2>${t('diary_overview', {name: escapeHtml(name)})}</h2></div>
                 <div class="injury-stats-grid">
                     <div class="injury-stat">
                         <span class="injury-stat-val">${injuries.length}</span>
-                        <span class="injury-stat-label">Einträge</span>
+                        <span class="injury-stat-label">${t('diary_entries_label')}</span>
                     </div>
                     <div class="injury-stat">
                         <span class="injury-stat-val" style="color:${painColor(Math.round(avgPain))}">${avgPain}</span>
-                        <span class="injury-stat-label">Ø Schmerz</span>
+                        <span class="injury-stat-label">${t('diary_avg_pain')}</span>
                     </div>
                     <div class="injury-stat">
-                        <span class="injury-stat-val">${escapeHtml(sorted[0][0])}</span>
-                        <span class="injury-stat-label">Häufigste (${sorted[0][1]}×)</span>
+                        <span class="injury-stat-val">${escapeHtml(translateBody(sorted[0][0]))}</span>
+                        <span class="injury-stat-label">${t('diary_most_frequent', {n: sorted[0][1]})}</span>
                     </div>
                 </div>
                 <div class="injury-freq-bars" style="margin-top:12px">
                     ${sorted.map(([part, count]) => `
                         <div class="injury-freq-row">
-                            <span class="injury-freq-label">${escapeHtml(part)}</span>
+                            <span class="injury-freq-label">${escapeHtml(translateBody(part))}</span>
                             <div class="injury-freq-bar-bg"><div class="injury-freq-bar-fill" style="width:${Math.round(count / sorted[0][1] * 100)}%"></div></div>
                             <span class="injury-freq-count">${count}</span>
                         </div>`).join('')}
                 </div>
             </div>
             <div class="card glass-card">
-                <div class="card-header"><h2>📋 Einträge</h2></div>
+                <div class="card-header"><h2>${t('diary_entries')}</h2></div>
                 ${injuries.map(inj => `
                     <div class="injury-entry">
                         <div class="injury-entry-header">
                             <div class="injury-entry-info">
-                                <span class="injury-bodypart">${escapeHtml(inj.bodypart)}</span>
-                                <span class="injury-side-tag">${escapeHtml(inj.side)}</span>
+                                <span class="injury-bodypart">${escapeHtml(translateBody(inj.bodypart))}</span>
+                                <span class="injury-side-tag">${escapeHtml(translateSide(inj.side))}</span>
                                 <span class="injury-pain-badge" style="background:${painColor(inj.pain)}20;color:${painColor(inj.pain)}">${inj.pain}/10</span>
                             </div>
                         </div>
@@ -4257,7 +4722,7 @@ document.getElementById('coach-diary-user-select')?.addEventListener('change', a
                     </div>`).join('')}
             </div>`;
     } catch {
-        container.innerHTML = '<div class="card glass-card"><div class="empty-state"><p>Fehler beim Laden.</p></div></div>';
+        container.innerHTML = '<div class="card glass-card"><div class="empty-state"><p>' + t('diary_load_error') + '</p></div></div>';
     }
 });
 
@@ -4312,12 +4777,12 @@ function renderAthletePlan() {
     const plan = _athletePlans[_athletePlanIdx];
     if (!plan) return;
 
-    indicator.textContent = 'Woche ab ' + fmtDate(plan.weekStart);
+    indicator.textContent = t('week_from_text', {date: fmtDate(plan.weekStart)});
     document.getElementById('plan-prev').style.visibility = _athletePlanIdx > 0 ? 'visible' : 'hidden';
     document.getElementById('plan-next').style.visibility = _athletePlanIdx < _athletePlans.length - 1 ? 'visible' : 'hidden';
 
-    const dayOrder = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
-    const dayShort = { Montag: 'Mo', Dienstag: 'Di', Mittwoch: 'Mi', Donnerstag: 'Do', Freitag: 'Fr', Samstag: 'Sa', Sonntag: 'So' };
+    const dayOrder = t('day_order');
+    const dayShort = t('day_short');
 
     planDisplay.innerHTML = `
         <div class="plan-grid">
