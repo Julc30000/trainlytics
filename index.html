@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=build019">
+    <link rel="stylesheet" href="styles.css?v=build020">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -953,7 +953,7 @@
                         <option value="Joggen (5km)">🏃‍♀️ Joggen (5km)</option>
                     </select>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="ct-name-group">
                     <label for="ct-name">Name</label>
                     <input type="text" id="ct-name" placeholder="z.B. Ausdauer, Dehnen, Hürden" maxlength="30" autocomplete="off">
                 </div>
@@ -974,18 +974,18 @@
                         <span class="ct-color-opt" data-color="#E879F9" style="background:#E879F9"></span>
                     </div>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="ct-subcategories-group">
                     <label for="ct-subcategories">Unterkategorien <span class="label-hint">(kommagetrennt, optional)</span></label>
                     <input type="text" id="ct-subcategories" placeholder="z.B. Hürden, Koordination, Sprint" maxlength="200" autocomplete="off">
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="ct-times-group">
                     <label>Zeiten erfassen?</label>
                     <div class="toggle-row">
                         <button type="button" class="toggle-btn" id="ct-times-no" data-val="no">Nein</button>
                         <button type="button" class="toggle-btn active" id="ct-times-yes" data-val="yes">Ja</button>
                     </div>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="ct-count-group">
                     <label>Wiederholungen erfassen?</label>
                     <div class="toggle-row">
                         <button type="button" class="toggle-btn active" id="ct-count-no" data-val="no">Nein</button>
@@ -1002,6 +1002,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=build019"></script>
+    <script src="app.js?v=build020"></script>
 </body>
 </html>

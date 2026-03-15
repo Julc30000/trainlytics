@@ -2442,13 +2442,57 @@ function renderCoachUserStats(userName, entries) {
 //  CUSTOM TRAINING TYPES MANAGEMENT
 // ================================================================
 const CT_BASE_MAP = {
-    'Sprint (50m)':     { emoji: '⚡', color: '#B4A8FF' },
-    'Tempolauf (120m)': { emoji: '🏃', color: '#22D3C5' },
-    'Tempolauf (150m)': { emoji: '🏃', color: '#FBBF24' },
-    'Kraft':            { emoji: '💪', color: '#F87171' },
-    'Technik':          { emoji: '🎯', color: '#FB923C' },
-    'Joggen (5km)':     { emoji: '🏃‍♀️', color: '#34D399' },
+    'Sprint (50m)':     { emoji: '⚡', color: '#B4A8FF', trackTimes: true, trackCount: false },
+    'Tempolauf (120m)': { emoji: '🏃', color: '#22D3C5', trackTimes: true, trackCount: false },
+    'Tempolauf (150m)': { emoji: '🏃', color: '#FBBF24', trackTimes: true, trackCount: false },
+    'Kraft':            { emoji: '💪', color: '#F87171', trackTimes: false, trackCount: false },
+    'Technik':          { emoji: '🎯', color: '#FB923C', trackTimes: false, trackCount: false },
+    'Joggen (5km)':     { emoji: '🏃‍♀️', color: '#34D399', trackTimes: false, trackCount: false },
 };
+
+function updateCtBaseOptions() {
+    const sel = document.getElementById('ct-base');
+    const curVal = sel.value;
+    sel.innerHTML = '<option value="">Neue Kategorie</option>' +
+        '<option value="Sprint (50m)">⚡ Sprint (50m)</option>' +
+        '<option value="Tempolauf (120m)">🏃 Tempolauf (120m)</option>' +
+        '<option value="Tempolauf (150m)">🏃 Tempolauf (150m)</option>' +
+        '<option value="Kraft">💪 Kraft</option>' +
+        '<option value="Technik">🎯 Technik</option>' +
+        '<option value="Joggen (5km)">🏃‍♀️ Joggen (5km)</option>';
+    _customTypes.forEach(ct => {
+        if (ctEditId && ct.id === ctEditId) return;
+        const opt = document.createElement('option');
+        opt.value = ct.name;
+        opt.textContent = (ct.emoji || '📌') + ' ' + ct.name;
+        sel.appendChild(opt);
+    });
+    sel.value = curVal;
+}
+
+function resolveBase(val) {
+    if (CT_BASE_MAP[val]) return CT_BASE_MAP[val];
+    const ct = _customTypes.find(c => c.name === val);
+    if (ct) return { emoji: ct.emoji || '', color: ct.color || '#B4A8FF', trackTimes: ct.trackTimes !== false, trackCount: ct.trackCount === true };
+    return null;
+}
+
+function applyBaseVisibility(hasBase) {
+    document.getElementById('ct-emoji-group').style.display = hasBase ? 'none' : '';
+    document.getElementById('ct-color-group').style.display = hasBase ? 'none' : '';
+    document.getElementById('ct-subcategories-group').style.display = hasBase ? 'none' : '';
+    document.getElementById('ct-times-group').style.display = hasBase ? 'none' : '';
+    document.getElementById('ct-count-group').style.display = hasBase ? 'none' : '';
+    const nameLabel = document.querySelector('#ct-name-group label');
+    const nameInput = document.getElementById('ct-name');
+    if (hasBase) {
+        nameLabel.textContent = 'Name der Unterkategorie';
+        nameInput.placeholder = 'z.B. Hürden, 200m, Bergsprints';
+    } else {
+        nameLabel.textContent = 'Name';
+        nameInput.placeholder = 'z.B. Ausdauer, Dehnen, Hürden';
+    }
+}
 
 const ctModal = document.getElementById('custom-types-modal');
 const ctListEl = document.getElementById('custom-types-list');
@@ -2890,12 +2934,12 @@ document.getElementById('ct-count-no').addEventListener('click', () => {
 
 function resetCtForm() {
     ctEditId = null;
+    updateCtBaseOptions();
     document.getElementById('ct-base').value = '';
     document.getElementById('ct-name').value = '';
     document.getElementById('ct-emoji').value = '';
     document.getElementById('ct-subcategories').value = '';
-    document.getElementById('ct-emoji-group').style.display = '';
-    document.getElementById('ct-color-group').style.display = '';
+    applyBaseVisibility(false);
     ctSelectedColor = '#B4A8FF';
     ctTrackTimes = true;
     ctTrackCount = false;
@@ -2913,31 +2957,32 @@ function resetCtForm() {
 // Base category selector — auto-fill emoji & color
 document.getElementById('ct-base').addEventListener('change', () => {
     const val = document.getElementById('ct-base').value;
-    const base = CT_BASE_MAP[val];
+    const base = resolveBase(val);
     if (base) {
         document.getElementById('ct-emoji').value = base.emoji;
         ctSelectedColor = base.color;
+        ctTrackTimes = base.trackTimes;
+        ctTrackCount = base.trackCount;
         document.querySelectorAll('.ct-color-opt').forEach(o => {
             o.classList.toggle('selected', o.dataset.color === ctSelectedColor);
         });
-        document.getElementById('ct-emoji-group').style.display = 'none';
-        document.getElementById('ct-color-group').style.display = 'none';
     } else {
         document.getElementById('ct-emoji').value = '';
-        document.getElementById('ct-emoji-group').style.display = '';
-        document.getElementById('ct-color-group').style.display = '';
     }
+    applyBaseVisibility(!!base);
 });
 
 document.getElementById('ct-cancel-edit').addEventListener('click', resetCtForm);
 
 document.getElementById('ct-save').addEventListener('click', () => {
     const baseVal = document.getElementById('ct-base').value;
-    const base = CT_BASE_MAP[baseVal];
+    const base = resolveBase(baseVal);
     const name = document.getElementById('ct-name').value.trim();
     const emoji = base ? base.emoji : document.getElementById('ct-emoji').value.trim();
     const color = base ? base.color : ctSelectedColor;
-    const subcatsRaw = document.getElementById('ct-subcategories').value.trim();
+    const trackTimes = base ? base.trackTimes : ctTrackTimes;
+    const trackCount = base ? base.trackCount : ctTrackCount;
+    const subcatsRaw = base ? '' : document.getElementById('ct-subcategories').value.trim();
     const subcategories = subcatsRaw ? subcatsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
 
     if (!name) { showToast('Bitte Name eingeben'); return; }
@@ -2953,11 +2998,11 @@ document.getElementById('ct-save').addEventListener('click', () => {
         const idx = list.findIndex(ct => ct.id === ctEditId);
         if (idx >= 0) {
             if (list.some((ct, i) => i !== idx && ct.name === name)) { showToast('Name bereits vergeben'); return; }
-            list[idx] = { ...list[idx], name, emoji, color, subcategories, trackTimes: ctTrackTimes, trackCount: ctTrackCount, basedOn: baseVal || null };
+            list[idx] = { ...list[idx], name, emoji, color, subcategories, trackTimes, trackCount, basedOn: baseVal || null };
         }
     } else {
         if (list.some(ct => ct.name === name)) { showToast('Name bereits vergeben'); return; }
-        list.push({ id: generateId(), name, emoji, color, subcategories, trackTimes: ctTrackTimes, trackCount: ctTrackCount, basedOn: baseVal || null });
+        list.push({ id: generateId(), name, emoji, color, subcategories, trackTimes, trackCount, basedOn: baseVal || null });
     }
 
     saveCustomTypes(list);
@@ -2998,11 +3043,11 @@ function renderCustomTypesList() {
             if (!ct) return;
             ctEditId = ct.id;
             // Restore base selector
+            updateCtBaseOptions();
             const baseVal = ct.basedOn || '';
             document.getElementById('ct-base').value = baseVal;
-            const hasBase = !!CT_BASE_MAP[baseVal];
-            document.getElementById('ct-emoji-group').style.display = hasBase ? 'none' : '';
-            document.getElementById('ct-color-group').style.display = hasBase ? 'none' : '';
+            const hasBase = !!resolveBase(baseVal);
+            applyBaseVisibility(hasBase);
             document.getElementById('ct-name').value = ct.name;
             document.getElementById('ct-emoji').value = ct.emoji || '';
             document.getElementById('ct-subcategories').value = (ct.subcategories || []).join(', ');
