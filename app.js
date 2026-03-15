@@ -1534,6 +1534,10 @@ const BASE = {
 
 function destroyAll() { Object.keys(chartInstances).forEach(k => { if(chartInstances[k]){chartInstances[k].destroy();chartInstances[k]=null;} }); }
 
+function filterByType(type) {
+    return loadData().filter(d => d.type === type || (d.additionalTypes && d.additionalTypes.some(at => at.type === type)));
+}
+
 function updateAnalytics() {
     const type = analyticsTypeEl.value;
     const isGeneral = type === 'Allgemein';
@@ -1563,28 +1567,28 @@ function updateAnalytics() {
     }
 
     if (isKraft) {
-        const kraftData = loadData().filter(d => d.type === 'Kraft').sort((a,b) => a.date.localeCompare(b.date));
+        const kraftData = filterByType('Kraft').sort((a,b) => a.date.localeCompare(b.date));
         updateKraftStats(kraftData);
         buildKraftCharts(kraftData);
         return;
     }
 
     if (isTechnik) {
-        const technikData = loadData().filter(d => d.type === 'Technik').sort((a,b) => a.date.localeCompare(b.date));
+        const technikData = filterByType('Technik').sort((a,b) => a.date.localeCompare(b.date));
         updateTechnikStats(technikData);
         buildTechnikCharts(technikData);
         return;
     }
 
     if (isJoggen) {
-        const joggenData = loadData().filter(d => d.type === 'Joggen (5km)').sort((a,b) => a.date.localeCompare(b.date));
+        const joggenData = filterByType('Joggen (5km)').sort((a,b) => a.date.localeCompare(b.date));
         updateJoggenStats(joggenData);
         buildJoggenCharts(joggenData);
         return;
     }
 
     if (customType) {
-        const ctData = loadData().filter(d => d.type === type).sort((a,b) => a.date.localeCompare(b.date));
+        const ctData = filterByType(type).sort((a,b) => a.date.localeCompare(b.date));
         updateCustomTypeStats(ctData, customType);
         buildCustomTypeCharts(ctData, customType);
         return;
@@ -1594,7 +1598,7 @@ function updateAnalytics() {
     const sprintCatFilter = (type === 'Sprint (50m)') ? analyticsSprintCatEl.value : 'all';
     const isNI = intFilter === 'NI';
 
-    let data = loadData().filter(d => d.type === type);
+    let data = filterByType(type);
     if (intFilter !== 'all') data = data.filter(d => d.intensity === intFilter);
     if (sprintCatFilter !== 'all') data = data.filter(d => d.sprintCategory === sprintCatFilter);
     data.sort((a,b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
@@ -2944,7 +2948,10 @@ function renderCoachUserStats(userName, entries) {
 
     // Type breakdown (excl. Pausetag)
     const types = {};
-    training.forEach(d => { types[d.type] = (types[d.type] || 0) + 1; });
+    training.forEach(d => {
+        types[d.type] = (types[d.type] || 0) + 1;
+        if (d.additionalTypes) d.additionalTypes.forEach(at => { types[at.type] = (types[at.type] || 0) + 1; });
+    });
     const typeStr = Object.entries(types).map(([k, v]) => `${translateType(k)}: ${v}`).join(' · ');
 
     // Last session
@@ -2952,11 +2959,11 @@ function renderCoachUserStats(userName, entries) {
     const lastDate = lastEntry ? fmtDate(lastEntry.date) : '--';
 
     // Sprint PB
-    const sprintEntries = entries.filter(d => d.type === 'Sprint (50m)' && d.times && d.times.length);
+    const sprintEntries = entries.filter(d => (d.type === 'Sprint (50m)' || (d.additionalTypes && d.additionalTypes.some(at => at.type === 'Sprint (50m)'))) && d.times && d.times.length);
     const sprintPB = sprintEntries.length ? Math.min(...sprintEntries.flatMap(d => d.times)).toFixed(2) + 's' : '--';
 
     // Kraft stats
-    const kraftEntries = entries.filter(d => d.type === 'Kraft');
+    const kraftEntries = entries.filter(d => d.type === 'Kraft' || (d.additionalTypes && d.additionalTypes.some(at => at.type === 'Kraft')));
     let maxKB = '--';
     kraftEntries.forEach(d => {
         const kb = d.exercises?.kniebeugen;
@@ -3030,7 +3037,10 @@ function renderCoachUserStats(userName, entries) {
         const ctx2 = document.getElementById('ch-coach-types')?.getContext('2d');
         if (ctx2) {
             const tMap = {};
-            seasonData.forEach(d => { tMap[d.type] = (tMap[d.type] || 0) + 1; });
+            seasonData.forEach(d => {
+                tMap[d.type] = (tMap[d.type] || 0) + 1;
+                if (d.additionalTypes) d.additionalTypes.forEach(at => { tMap[at.type] = (tMap[at.type] || 0) + 1; });
+            });
             const tLabels = Object.keys(tMap).map(translateType);
             const tValues = Object.values(tMap);
             const tColors = Object.keys(tMap).map(l => getTypeColor(l).main);
