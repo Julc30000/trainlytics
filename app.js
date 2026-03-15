@@ -428,6 +428,13 @@ function applyLanguage() {
     });
     const aIntensity = document.getElementById('analytics-intensity');
     if (aIntensity) aIntensity.querySelector('option[value="all"]').textContent = t('all_intensities');
+    const aCustomCat = document.getElementById('analytics-custom-cat');
+    if (aCustomCat) {
+        const allOpt = aCustomCat.querySelector('option[value="all"]');
+        if (allOpt) allOpt.textContent = t('all_categories');
+        const aCustomCatLabel = document.querySelector('label[for="analytics-custom-cat"]');
+        if (aCustomCatLabel) aCustomCatLabel.textContent = t('category_label');
+    }
 
     // Coach plan day labels
     document.querySelectorAll('#plan-days .plan-day-row').forEach(row => {
@@ -1532,20 +1539,52 @@ const analyticsIntEl = document.getElementById('analytics-intensity');
 
 const analyticsSprintCatGroup = document.getElementById('analytics-sprint-cat-group');
 const analyticsSprintCatEl = document.getElementById('analytics-sprint-cat');
+const analyticsCustomCatGroup = document.getElementById('analytics-custom-cat-group');
+const analyticsCustomCatEl = document.getElementById('analytics-custom-cat');
 
 analyticsTypeEl.addEventListener('change', () => {
     const val = analyticsTypeEl.value;
     const isGeneral = val === 'Allgemein';
     const isTempo = val.startsWith('Tempolauf');
     const isSprint = val === 'Sprint (50m)';
+    const isTechnik = val === 'Technik';
+    const customType = getCustomType(val);
     analyticsIntGroup.style.display = (isTempo && !isGeneral) ? '' : 'none';
     analyticsSprintCatGroup.style.display = isSprint ? '' : 'none';
     if (!isTempo) analyticsIntEl.value = 'all';
     if (!isSprint) analyticsSprintCatEl.value = 'all';
+    // Show custom category filter for Technik and custom types with subcategories
+    const showCustomCat = isTechnik || (customType && customType.subcategories && customType.subcategories.length);
+    analyticsCustomCatGroup.style.display = showCustomCat ? '' : 'none';
+    if (showCustomCat) {
+        populateAnalyticsCustomCat(val, customType);
+    } else {
+        analyticsCustomCatEl.value = 'all';
+    }
     updateAnalytics();
 });
 analyticsIntEl.addEventListener('change', updateAnalytics);
 analyticsSprintCatEl.addEventListener('change', updateAnalytics);
+analyticsCustomCatEl.addEventListener('change', updateAnalytics);
+
+function populateAnalyticsCustomCat(type, customType) {
+    const curVal = analyticsCustomCatEl.value;
+    let cats = [];
+    if (type === 'Technik') {
+        // Built-in + extended subcategories
+        const builtIn = ['Hütchen', 'Schirm', 'Sonstiges'];
+        const extended = scEntryNames('Technik');
+        cats = [...builtIn, ...extended.filter(s => !builtIn.includes(s))];
+    } else if (customType && customType.subcategories) {
+        const extended = scEntryNames(type).filter(s => !customType.subcategories.includes(s));
+        cats = [...customType.subcategories, ...extended];
+    }
+    analyticsCustomCatEl.innerHTML = '<option value="all">' + escapeHtml(t('all_categories')) + '</option>' +
+        cats.map(c => '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>').join('');
+    // Restore previous value if still valid
+    if (curVal && cats.includes(curVal)) analyticsCustomCatEl.value = curVal;
+    else analyticsCustomCatEl.value = 'all';
+}
 
 const chartInstances = {};
 const COLORS = {
@@ -1610,6 +1649,12 @@ function updateAnalytics() {
     const customType = getCustomType(type);
     analyticsIntGroup.style.display = (isTempo && !isGeneral && !isKraft && !isJoggen) ? '' : 'none';
 
+    // Show/hide custom category filter for Technik and custom types with subcategories
+    const showCustomCat = isTechnik || (customType && customType.subcategories && customType.subcategories.length);
+    analyticsCustomCatGroup.style.display = showCustomCat ? '' : 'none';
+    if (showCustomCat) populateAnalyticsCustomCat(type, customType);
+    else analyticsCustomCatEl.value = 'all';
+
     // Show/hide stats rows
     document.getElementById('stats-row-general').style.display = isGeneral ? '' : 'none';
     document.getElementById('stats-row').style.display = (isGeneral || isKraft || isJoggen || isTechnik || customType) ? 'none' : '';
@@ -1636,7 +1681,12 @@ function updateAnalytics() {
     }
 
     if (isTechnik) {
-        const technikData = filterByType('Technik').sort((a,b) => a.date.localeCompare(b.date));
+        let technikData = filterByType('Technik').sort((a,b) => a.date.localeCompare(b.date));
+        const techCatFilter = analyticsCustomCatEl.value;
+        if (techCatFilter !== 'all') technikData = technikData.filter(d => {
+            const cat = d.technikCategory === 'Sonstiges' && d.technikCustom ? d.technikCustom : (d.technikCategory || '');
+            return cat === techCatFilter || d.technikCategory === techCatFilter;
+        });
         updateTechnikStats(technikData);
         buildTechnikCharts(technikData);
         return;
@@ -1650,9 +1700,19 @@ function updateAnalytics() {
     }
 
     if (customType) {
-        const ctData = filterByType(type).sort((a,b) => a.date.localeCompare(b.date));
-        updateCustomTypeStats(ctData, customType);
-        buildCustomTypeCharts(ctData, customType);
+        let ctData = filterByType(type).sort((a,b) => a.date.localeCompare(b.date));
+        const ctCatFilter = analyticsCustomCatEl.value;
+        if (ctCatFilter !== 'all') ctData = ctData.filter(d => d.customCategory === ctCatFilter);
+        // Determine effective tracking settings (subcategory override when filtered)
+        let effCt = { ...customType };
+        if (ctCatFilter !== 'all') {
+            const scOverride = scFindEntry(type, ctCatFilter);
+            if (scOverride && typeof scOverride === 'object') {
+                effCt = { ...customType, trackTimes: scOverride.trackTimes, trackCount: scOverride.trackCount, trackWeight: scOverride.trackWeight, trackDistance: scOverride.trackDistance };
+            }
+        }
+        updateCustomTypeStats(ctData, effCt);
+        buildCustomTypeCharts(ctData, effCt);
         return;
     }
 
