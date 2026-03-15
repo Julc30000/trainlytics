@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=build020">
+    <link rel="stylesheet" href="styles.css?v=build021">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -334,6 +334,20 @@
                         <div class="form-group">
                             <label for="training-count">Anzahl Läufe</label>
                             <input type="number" id="training-count" min="1" step="1" placeholder="z.B. 6">
+                        </div>
+                    </div>
+
+                    <div id="ct-kg-container" style="display:none">
+                        <label>Gewicht</label>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="ct-kg-value">Kilogramm</label>
+                                <input type="number" id="ct-kg-value" min="0" step="0.5" placeholder="kg">
+                            </div>
+                            <div class="form-group">
+                                <label for="ct-kg-reps">Wiederholungen</label>
+                                <input type="number" id="ct-kg-reps" min="1" step="1" placeholder="Wdh">
+                            </div>
                         </div>
                     </div>
 
@@ -992,6 +1006,13 @@
                         <button type="button" class="toggle-btn" id="ct-count-yes" data-val="yes">Ja</button>
                     </div>
                 </div>
+                <div class="form-group" id="ct-weight-group">
+                    <label>Kilogramm erfassen?</label>
+                    <div class="toggle-row">
+                        <button type="button" class="toggle-btn active" id="ct-weight-no" data-val="no">Nein</button>
+                        <button type="button" class="toggle-btn" id="ct-weight-yes" data-val="yes">Ja</button>
+                    </div>
+                </div>
                 <div class="ct-form-actions">
                     <button type="button" class="btn-ghost" id="ct-cancel-edit" style="display:none">Abbrechen</button>
                     <button type="button" class="btn-primary" id="ct-save">Hinzufügen</button>
@@ -1002,6 +1023,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=build020"></script>
+    <script src="app.js?v=build021"></script>
 </body>
 </html>

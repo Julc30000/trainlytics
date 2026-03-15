@@ -284,6 +284,7 @@ function resetAppUI() {
     document.getElementById('custom-cat-group').style.display = 'none';
     document.getElementById('custom-category').value = '';
     document.getElementById('kraft-container').style.display = 'none';
+    document.getElementById('ct-kg-container').style.display = 'none';
     joggenContainer.style.display = 'none';
     timesContainer.style.display = '';
     countContainer.style.display = 'none';
@@ -447,6 +448,7 @@ trainingType.addEventListener('change', () => {
     } else if (customType) {
         timesContainer.style.display = customType.trackTimes ? '' : 'none';
         countContainer.style.display = customType.trackCount ? '' : 'none';
+        document.getElementById('ct-kg-container').style.display = customType.trackWeight ? '' : 'none';
         telemarkContainer.style.display = 'none';
         if (!customType.trackTimes && !customType.trackCount) {
             trainingIntensity.value = '';
@@ -624,6 +626,8 @@ form.addEventListener('submit', e => {
     let telemarks = null;
     let exercises = null;
     let joggenTimeSec = null;
+    let customKg = null;
+    let customReps = null;
 
     if (isKraft) {
         exercises = {};
@@ -683,6 +687,13 @@ form.addEventListener('submit', e => {
             count = parseInt(document.getElementById('training-count').value, 10);
             if (!count || count < 1) { showToast('Bitte Anzahl eingeben'); return; }
         }
+        if (customType.trackWeight) {
+            const kgVal = parseFloat(document.getElementById('ct-kg-value').value);
+            const repsVal = parseInt(document.getElementById('ct-kg-reps').value, 10);
+            if (!kgVal || kgVal <= 0) { showToast('Bitte Kilogramm eingeben'); return; }
+            customKg = kgVal;
+            customReps = repsVal > 0 ? repsVal : null;
+        }
     } else if (isCountMode) {
         count = parseInt(document.getElementById('training-count').value, 10);
         if (!count || count < 1) { showToast('Bitte Anzahl eingeben'); return; }
@@ -706,7 +717,7 @@ form.addEventListener('submit', e => {
         if (!ok || !times.length) { showToast('Bitte gültige Zeiten eingeben'); return; }
     }
 
-    const entry = { id: generateId(), date, time, type, intensity, sprintCategory, technikCategory, technikCustom, customCategory, times, count, telemarks, exercises, joggenTimeSec, notes };
+    const entry = { id: generateId(), date, time, type, intensity, sprintCategory, technikCategory, technikCustom, customCategory, times, count, telemarks, exercises, joggenTimeSec, customKg, customReps, notes };
     const data = loadData();
     data.unshift(entry);
     saveData(data);
@@ -730,6 +741,9 @@ form.addEventListener('submit', e => {
     telemarkNo.classList.remove('active');
     telemarkCountGroup.style.display = '';
     document.getElementById('kraft-container').style.display = 'none';
+    document.getElementById('ct-kg-container').style.display = 'none';
+    document.getElementById('ct-kg-value').value = '';
+    document.getElementById('ct-kg-reps').value = '';
     joggenContainer.style.display = 'none';
     KRAFT_EXERCISES.forEach(ex => {
         const det = document.getElementById('kraft-' + ex + '-details');
@@ -826,10 +840,15 @@ function renderList() {
                   }).join('')}</div>`
                 : en.type === 'Joggen (5km)' && en.joggenTimeSec
                 ? `<div class="entry-times"><span class="time-chip joggen-chip">${fmtJoggenTime(en.joggenTimeSec)}</span></div>`
-                : getCustomType(en.type) && !getCustomType(en.type).trackTimes && !getCustomType(en.type).trackCount
-                ? ''
-                : getCustomType(en.type) && getCustomType(en.type).trackCount && en.count
-                ? `<div class="entry-count">Anzahl: <strong>${en.count}</strong></div>`
+                : getCustomType(en.type)
+                ? (() => {
+                    const _ct = getCustomType(en.type);
+                    let parts = [];
+                    if (_ct.trackTimes && en.times && en.times.length) parts.push(`<div class="entry-times">${en.times.map(t=>`<span class="time-chip">${escapeHtml(String(t))}s</span>`).join('')}</div>`);
+                    if (_ct.trackCount && en.count) parts.push(`<div class="entry-count">Anzahl: <strong>${en.count}</strong></div>`);
+                    if (_ct.trackWeight && en.customKg) parts.push(`<div class="entry-count">${en.customKg}kg${en.customReps ? ' × ' + en.customReps + ' Wdh' : ''}</div>`);
+                    return parts.join('');
+                  })()
                 : en.intensity === 'NI'
                 ? `<div class="entry-count">Anzahl Läufe: <strong>${en.count || 0}</strong>${en.telemarks != null ? ` · Telemarks: <strong>${en.telemarks}</strong>` : ''}</div>`
                 : (en.times && en.times.length) ? `<div class="entry-times">${en.times.map(t=>`<span class="time-chip">${escapeHtml(String(t))}s</span>`).join('')}</div>` : ''
@@ -1606,6 +1625,46 @@ function buildCustomTypeCharts(data, ct) {
                     data:{labels, datasets:[{data:vals, borderColor:cCol.main, backgroundColor:grad(ctx3,cCol),
                         borderWidth:2.5, pointBackgroundColor:cCol.main, pointRadius:3.5, fill:true, tension:0.35}]},
                     options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Sekunden',color:'#555870',font:{size:11}}}}}
+                });
+            }
+        }
+    }
+
+    // 4) Count trend (if tracking count)
+    if (ct.trackCount) {
+        const withCount = data.filter(d => d.count && d.count > 0);
+        if (withCount.length) {
+            const c4 = makeChartCard('Wiederholungen pro Einheit','Linie','ch-ct-counttrend',false);
+            container.appendChild(c4);
+            const ctx4 = document.getElementById('ch-ct-counttrend')?.getContext('2d');
+            if (ctx4) {
+                const labels = withCount.map(d => shortDate(d.date));
+                const vals = withCount.map(d => d.count);
+                chartInstances['ch-ct-counttrend'] = new Chart(ctx4, {
+                    type:'line',
+                    data:{labels, datasets:[{data:vals, borderColor:cCol.main, backgroundColor:grad(ctx4,cCol),
+                        borderWidth:2.5, pointBackgroundColor:cCol.main, pointRadius:3.5, fill:true, tension:0.35}]},
+                    options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, beginAtZero:true, title:{display:true,text:'Anzahl',color:'#555870',font:{size:11}}}}}
+                });
+            }
+        }
+    }
+
+    // 5) Weight trend (if tracking weight)
+    if (ct.trackWeight) {
+        const withKg = data.filter(d => d.customKg && d.customKg > 0);
+        if (withKg.length) {
+            const c5 = makeChartCard('Kilogramm pro Einheit','Linie','ch-ct-kgtrend',false);
+            container.appendChild(c5);
+            const ctx5 = document.getElementById('ch-ct-kgtrend')?.getContext('2d');
+            if (ctx5) {
+                const labels = withKg.map(d => shortDate(d.date));
+                const vals = withKg.map(d => d.customKg);
+                chartInstances['ch-ct-kgtrend'] = new Chart(ctx5, {
+                    type:'line',
+                    data:{labels, datasets:[{data:vals, borderColor:cCol.main, backgroundColor:grad(ctx5,cCol),
+                        borderWidth:2.5, pointBackgroundColor:cCol.main, pointRadius:3.5, fill:true, tension:0.35}]},
+                    options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:'Kilogramm',color:'#555870',font:{size:11}}}}}
                 });
             }
         }
@@ -2442,12 +2501,12 @@ function renderCoachUserStats(userName, entries) {
 //  CUSTOM TRAINING TYPES MANAGEMENT
 // ================================================================
 const CT_BASE_MAP = {
-    'Sprint (50m)':     { emoji: '⚡', color: '#B4A8FF', trackTimes: true, trackCount: false },
-    'Tempolauf (120m)': { emoji: '🏃', color: '#22D3C5', trackTimes: true, trackCount: false },
-    'Tempolauf (150m)': { emoji: '🏃', color: '#FBBF24', trackTimes: true, trackCount: false },
-    'Kraft':            { emoji: '💪', color: '#F87171', trackTimes: false, trackCount: false },
-    'Technik':          { emoji: '🎯', color: '#FB923C', trackTimes: false, trackCount: false },
-    'Joggen (5km)':     { emoji: '🏃‍♀️', color: '#34D399', trackTimes: false, trackCount: false },
+    'Sprint (50m)':     { emoji: '⚡', color: '#B4A8FF', trackTimes: true, trackCount: false, trackWeight: false },
+    'Tempolauf (120m)': { emoji: '🏃', color: '#22D3C5', trackTimes: true, trackCount: false, trackWeight: false },
+    'Tempolauf (150m)': { emoji: '🏃', color: '#FBBF24', trackTimes: true, trackCount: false, trackWeight: false },
+    'Kraft':            { emoji: '💪', color: '#F87171', trackTimes: false, trackCount: false, trackWeight: true },
+    'Technik':          { emoji: '🎯', color: '#FB923C', trackTimes: false, trackCount: false, trackWeight: false },
+    'Joggen (5km)':     { emoji: '🏃‍♀️', color: '#34D399', trackTimes: false, trackCount: false, trackWeight: false },
 };
 
 function updateCtBaseOptions() {
@@ -2473,7 +2532,7 @@ function updateCtBaseOptions() {
 function resolveBase(val) {
     if (CT_BASE_MAP[val]) return CT_BASE_MAP[val];
     const ct = _customTypes.find(c => c.name === val);
-    if (ct) return { emoji: ct.emoji || '', color: ct.color || '#B4A8FF', trackTimes: ct.trackTimes !== false, trackCount: ct.trackCount === true };
+    if (ct) return { emoji: ct.emoji || '', color: ct.color || '#B4A8FF', trackTimes: ct.trackTimes !== false, trackCount: ct.trackCount === true, trackWeight: ct.trackWeight === true };
     return null;
 }
 
@@ -2483,6 +2542,7 @@ function applyBaseVisibility(hasBase) {
     document.getElementById('ct-subcategories-group').style.display = hasBase ? 'none' : '';
     document.getElementById('ct-times-group').style.display = hasBase ? 'none' : '';
     document.getElementById('ct-count-group').style.display = hasBase ? 'none' : '';
+    document.getElementById('ct-weight-group').style.display = hasBase ? 'none' : '';
     const nameLabel = document.querySelector('#ct-name-group label');
     const nameInput = document.getElementById('ct-name');
     if (hasBase) {
@@ -2500,6 +2560,7 @@ let ctEditId = null;
 let ctSelectedColor = '#B4A8FF';
 let ctTrackTimes = true;
 let ctTrackCount = false;
+let ctTrackWeight = false;
 
 document.getElementById('btn-settings').addEventListener('click', () => {
     renderCustomTypesList();
@@ -2748,6 +2809,14 @@ function generateWeeklyPDF(weekVal) {
             const cats = entries.map(e => e.customCategory).filter(Boolean);
             if (cats.length) detailLines.push('Kategorien: ' + [...new Set(cats)].join(', '));
         }
+        if (ct && ct.trackCount) {
+            const counts = entries.map(e => e.count).filter(c => c > 0);
+            if (counts.length) detailLines.push('Ø Wiederholungen: ' + (counts.reduce((a,b)=>a+b,0)/counts.length).toFixed(1));
+        }
+        if (ct && ct.trackWeight) {
+            const kgs = entries.map(e => e.customKg).filter(k => k > 0);
+            if (kgs.length) detailLines.push('Max: ' + Math.max(...kgs) + 'kg   |   Ø ' + (kgs.reduce((a,b)=>a+b,0)/kgs.length).toFixed(1) + 'kg');
+        }
 
         const rowH = 8 + detailLines.length * 5;
         doc.setFillColor(...cardBg);
@@ -2824,9 +2893,12 @@ function generateWeeklyPDF(weekVal) {
 
         // Times summary or detail
         let detail = '';
-        if (e.times && e.times.length) detail = e.times.map(t => t.toFixed(2) + 's').join(', ');
-        else if (e.joggenTimeSec) detail = Math.floor(e.joggenTimeSec/60) + ':' + String(e.joggenTimeSec%60).padStart(2,'0') + ' min';
-        else if (e.count) detail = e.count + ' Läufe';
+        const detailParts = [];
+        if (e.times && e.times.length) detailParts.push(e.times.map(t => t.toFixed(2) + 's').join(', '));
+        if (e.joggenTimeSec) detailParts.push(Math.floor(e.joggenTimeSec/60) + ':' + String(e.joggenTimeSec%60).padStart(2,'0') + ' min');
+        if (e.count) detailParts.push(e.count + ' Wdh');
+        if (e.customKg) detailParts.push(e.customKg + 'kg' + (e.customReps ? ' × ' + e.customReps + ' Wdh' : ''));
+        detail = detailParts.join('  |  ');
         if (e.sprintCategory) detail = (e.sprintCategory + '  ' + detail).trim();
         if (e.technikCategory) detail = (e.technikCategory + '  ' + detail).trim();
         if (e.customCategory) detail = (e.customCategory + '  ' + detail).trim();
@@ -2902,14 +2974,11 @@ document.querySelectorAll('.ct-color-opt').forEach(el => {
     });
 });
 
-// Times toggle
+// Times toggle (independent)
 document.getElementById('ct-times-yes').addEventListener('click', () => {
     ctTrackTimes = true;
-    ctTrackCount = false;
     document.getElementById('ct-times-yes').classList.add('active');
     document.getElementById('ct-times-no').classList.remove('active');
-    document.getElementById('ct-count-yes').classList.remove('active');
-    document.getElementById('ct-count-no').classList.add('active');
 });
 document.getElementById('ct-times-no').addEventListener('click', () => {
     ctTrackTimes = false;
@@ -2917,19 +2986,28 @@ document.getElementById('ct-times-no').addEventListener('click', () => {
     document.getElementById('ct-times-yes').classList.remove('active');
 });
 
-// Count toggle
+// Count toggle (independent)
 document.getElementById('ct-count-yes').addEventListener('click', () => {
     ctTrackCount = true;
-    ctTrackTimes = false;
     document.getElementById('ct-count-yes').classList.add('active');
     document.getElementById('ct-count-no').classList.remove('active');
-    document.getElementById('ct-times-yes').classList.remove('active');
-    document.getElementById('ct-times-no').classList.add('active');
 });
 document.getElementById('ct-count-no').addEventListener('click', () => {
     ctTrackCount = false;
     document.getElementById('ct-count-no').classList.add('active');
     document.getElementById('ct-count-yes').classList.remove('active');
+});
+
+// Weight toggle (independent)
+document.getElementById('ct-weight-yes').addEventListener('click', () => {
+    ctTrackWeight = true;
+    document.getElementById('ct-weight-yes').classList.add('active');
+    document.getElementById('ct-weight-no').classList.remove('active');
+});
+document.getElementById('ct-weight-no').addEventListener('click', () => {
+    ctTrackWeight = false;
+    document.getElementById('ct-weight-no').classList.add('active');
+    document.getElementById('ct-weight-yes').classList.remove('active');
 });
 
 function resetCtForm() {
@@ -2943,12 +3021,15 @@ function resetCtForm() {
     ctSelectedColor = '#B4A8FF';
     ctTrackTimes = true;
     ctTrackCount = false;
+    ctTrackWeight = false;
     document.querySelectorAll('.ct-color-opt').forEach(o => o.classList.remove('selected'));
     document.querySelector('.ct-color-opt[data-color="#B4A8FF"]').classList.add('selected');
     document.getElementById('ct-times-yes').classList.add('active');
     document.getElementById('ct-times-no').classList.remove('active');
     document.getElementById('ct-count-yes').classList.remove('active');
     document.getElementById('ct-count-no').classList.add('active');
+    document.getElementById('ct-weight-yes').classList.remove('active');
+    document.getElementById('ct-weight-no').classList.add('active');
     document.getElementById('ct-form-title').textContent = 'Neue Trainingsart';
     document.getElementById('ct-save').textContent = 'Hinzufügen';
     document.getElementById('ct-cancel-edit').style.display = 'none';
@@ -2963,6 +3044,7 @@ document.getElementById('ct-base').addEventListener('change', () => {
         ctSelectedColor = base.color;
         ctTrackTimes = base.trackTimes;
         ctTrackCount = base.trackCount;
+        ctTrackWeight = base.trackWeight;
         document.querySelectorAll('.ct-color-opt').forEach(o => {
             o.classList.toggle('selected', o.dataset.color === ctSelectedColor);
         });
@@ -2982,6 +3064,7 @@ document.getElementById('ct-save').addEventListener('click', () => {
     const color = base ? base.color : ctSelectedColor;
     const trackTimes = base ? base.trackTimes : ctTrackTimes;
     const trackCount = base ? base.trackCount : ctTrackCount;
+    const trackWeight = base ? base.trackWeight : ctTrackWeight;
     const subcatsRaw = base ? '' : document.getElementById('ct-subcategories').value.trim();
     const subcategories = subcatsRaw ? subcatsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
 
@@ -2998,11 +3081,11 @@ document.getElementById('ct-save').addEventListener('click', () => {
         const idx = list.findIndex(ct => ct.id === ctEditId);
         if (idx >= 0) {
             if (list.some((ct, i) => i !== idx && ct.name === name)) { showToast('Name bereits vergeben'); return; }
-            list[idx] = { ...list[idx], name, emoji, color, subcategories, trackTimes, trackCount, basedOn: baseVal || null };
+            list[idx] = { ...list[idx], name, emoji, color, subcategories, trackTimes, trackCount, trackWeight, basedOn: baseVal || null };
         }
     } else {
         if (list.some(ct => ct.name === name)) { showToast('Name bereits vergeben'); return; }
-        list.push({ id: generateId(), name, emoji, color, subcategories, trackTimes, trackCount, basedOn: baseVal || null });
+        list.push({ id: generateId(), name, emoji, color, subcategories, trackTimes, trackCount, trackWeight, basedOn: baseVal || null });
     }
 
     saveCustomTypes(list);
@@ -3026,6 +3109,7 @@ function renderCustomTypesList() {
                 ${ct.subcategories && ct.subcategories.length ? '<span class="ct-item-subs">' + ct.subcategories.length + ' Kat.</span>' : ''}
                 ${ct.trackTimes ? '<span class="ct-item-times">⏱️</span>' : ''}
                 ${ct.trackCount ? '<span class="ct-item-times">🔢</span>' : ''}
+                ${ct.trackWeight ? '<span class="ct-item-times">🏋️</span>' : ''}
             </div>
             <div class="ct-item-actions">
                 <button class="btn-icon ct-edit-btn" data-ctid="${escapeHtml(ct.id)}" title="Bearbeiten">
@@ -3054,6 +3138,7 @@ function renderCustomTypesList() {
             ctSelectedColor = ct.color || '#B4A8FF';
             ctTrackTimes = ct.trackTimes !== false;
             ctTrackCount = ct.trackCount === true;
+            ctTrackWeight = ct.trackWeight === true;
             document.querySelectorAll('.ct-color-opt').forEach(o => {
                 o.classList.toggle('selected', o.dataset.color === ctSelectedColor);
             });
@@ -3061,6 +3146,8 @@ function renderCustomTypesList() {
             document.getElementById('ct-times-no').classList.toggle('active', !ctTrackTimes);
             document.getElementById('ct-count-yes').classList.toggle('active', ctTrackCount);
             document.getElementById('ct-count-no').classList.toggle('active', !ctTrackCount);
+            document.getElementById('ct-weight-yes').classList.toggle('active', ctTrackWeight);
+            document.getElementById('ct-weight-no').classList.toggle('active', !ctTrackWeight);
             document.getElementById('ct-form-title').textContent = 'Trainingsart bearbeiten';
             document.getElementById('ct-save').textContent = 'Speichern';
             document.getElementById('ct-cancel-edit').style.display = '';
