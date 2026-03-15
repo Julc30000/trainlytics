@@ -526,13 +526,24 @@ async function loadFromFirestore(user) {
         try { doc = await db.collection('users').doc(user.toLowerCase().trim()).get({ source: 'server' }); }
         catch { doc = await db.collection('users').doc(user.toLowerCase().trim()).get(); }
         if (doc.exists) {
-            _cachedEntries = doc.data().entries || [];
+            const serverEntries = doc.data().entries;
+            const localEntries = JSON.parse(localStorage.getItem(storageKeyFor(user)) || '[]');
+            if (Array.isArray(serverEntries)) {
+                _cachedEntries = serverEntries;
+            } else if (localEntries.length) {
+                // Firestore doc exists but entries field is missing — use local data and restore
+                _cachedEntries = localEntries;
+                db.collection('users').doc(user.toLowerCase().trim())
+                  .set({ entries: _cachedEntries }, { merge: true }).catch(() => {});
+            } else {
+                _cachedEntries = [];
+            }
             localStorage.setItem(storageKeyFor(user), JSON.stringify(_cachedEntries));
         } else {
             _cachedEntries = JSON.parse(localStorage.getItem(storageKeyFor(user))) || [];
             if (_cachedEntries.length) {
                 db.collection('users').doc(user.toLowerCase().trim())
-                  .set({ entries: _cachedEntries }).catch(() => {});
+                  .set({ entries: _cachedEntries }, { merge: true }).catch(() => {});
             }
         }
     } catch(e) {
@@ -596,9 +607,17 @@ function startListener(user) {
       .onSnapshot(doc => {
         if (doc.exists && !doc.metadata.hasPendingWrites) {
             const data = doc.data();
-            // Sync entries
-            _cachedEntries = data.entries || [];
-            localStorage.setItem(storageKeyFor(user), JSON.stringify(_cachedEntries));
+            // Sync entries — guard against accidental data wipe
+            const incoming = data.entries;
+            if (Array.isArray(incoming)) {
+                _cachedEntries = incoming;
+                localStorage.setItem(storageKeyFor(user), JSON.stringify(_cachedEntries));
+            } else if (incoming === undefined && _cachedEntries.length > 0) {
+                // entries field missing from Firestore but we have local data — restore it
+                console.warn('[TrainLytics] entries field missing in Firestore, restoring from local cache');
+                db.collection('users').doc(user.toLowerCase().trim())
+                  .set({ entries: _cachedEntries }, { merge: true }).catch(() => {});
+            }
             renderList();
             // Sync competitions
             if (data.competitions) {
@@ -2819,18 +2838,19 @@ function renderCoachRanking(users, allData) {
 
     // Calculate stats per user
     const stats = users.map(u => {
-        const entries = allData[u] || [];
+        const entries = (allData[u] || []).filter(d => d.type !== 'Pausetag');
         const seasonEntries = entries.filter(d => d.date >= season.start && d.date <= season.end);
         const total = entries.length;
         const seasonTotal = seasonEntries.length;
 
-        // Avg per week (season)
+        // Avg per week (from tracking start, matching individual analytics)
         let avgWeek = 0;
-        if (seasonTotal > 0) {
-            const seasonStart = new Date(season.start + 'T00:00:00');
+        const weeklyData = seasonEntries.filter(d => d.date >= WEEKLY_TRACK_START);
+        if (weeklyData.length) {
+            const trackStart = new Date(WEEKLY_TRACK_START + 'T00:00:00');
             const now = new Date();
-            const diffWeeks = Math.max(1, Math.ceil((now - seasonStart) / (7 * 86400000)));
-            avgWeek = seasonTotal / diffWeeks;
+            const diffWeeks = Math.max(1, Math.ceil((now - trackStart) / (7 * 86400000)));
+            avgWeek = weeklyData.length / diffWeeks;
         }
 
         return { name: u, total, seasonTotal, avgWeek };
@@ -2887,21 +2907,23 @@ function renderCoachUserStats(userName, entries) {
 
     const displayName = userName.charAt(0).toUpperCase() + userName.slice(1);
     const season = getCurrentSeason();
-    const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+    const training = entries.filter(d => d.type !== 'Pausetag');
+    const sorted = [...training].sort((a, b) => a.date.localeCompare(b.date));
     const seasonData = sorted.filter(d => d.date >= season.start && d.date <= season.end);
 
-    // Overall stats
-    const total = entries.length;
+    // Overall stats (excl. Pausetag, matching individual analytics)
+    const total = training.length;
     const seasonTotal = seasonData.length;
     let avgWeek = '--';
-    if (seasonTotal > 0) {
-        const diffWeeks = Math.max(1, Math.ceil((new Date() - new Date(season.start + 'T00:00:00')) / (7 * 86400000)));
-        avgWeek = (seasonTotal / diffWeeks).toFixed(1);
+    const weeklyData = seasonData.filter(d => d.date >= WEEKLY_TRACK_START);
+    if (weeklyData.length) {
+        const diffWeeks = Math.max(1, Math.ceil((new Date() - new Date(WEEKLY_TRACK_START + 'T00:00:00')) / (7 * 86400000)));
+        avgWeek = (weeklyData.length / diffWeeks).toFixed(1);
     }
 
-    // Type breakdown
+    // Type breakdown (excl. Pausetag)
     const types = {};
-    entries.forEach(d => { types[d.type] = (types[d.type] || 0) + 1; });
+    training.forEach(d => { types[d.type] = (types[d.type] || 0) + 1; });
     const typeStr = Object.entries(types).map(([k, v]) => `${translateType(k)}: ${v}`).join(' · ');
 
     // Last session
