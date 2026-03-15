@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=build023">
+    <link rel="stylesheet" href="styles.css?v=build024">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -436,6 +436,13 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Additional training types for combined sessions -->
+                    <div id="additional-types-container"></div>
+                    <button type="button" id="add-type-btn" class="btn-ghost" style="display:none;margin:8px 0">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Weitere Trainingsart hinzufügen
+                    </button>
 
                     <div class="form-group">
                         <label for="training-notes">Notizen <span class="label-hint">(optional)</span></label>
@@ -1024,11 +1031,35 @@
                     <button type="button" class="btn-primary" id="ct-save">Hinzufügen</button>
                 </div>
             </div>
+
+            <!-- Subcategory management -->
+            <div class="custom-type-form" style="margin-top:16px">
+                <h4>Unterkategorien erweitern</h4>
+                <div class="form-group">
+                    <label for="sc-type">Trainingsart</label>
+                    <select id="sc-type">
+                        <option value="Sprint (50m)">⚡ Sprint (50m)</option>
+                        <option value="Tempolauf (120m)">🏃 Tempolauf (120m)</option>
+                        <option value="Tempolauf (150m)">🏃 Tempolauf (150m)</option>
+                        <option value="Kraft">💪 Kraft</option>
+                        <option value="Technik">🎯 Technik</option>
+                        <option value="Joggen (5km)">🏃‍♀️ Joggen (5km)</option>
+                    </select>
+                </div>
+                <div style="display:flex;gap:8px;align-items:flex-end">
+                    <div class="form-group" style="flex:1;margin-bottom:0">
+                        <label for="sc-name">Neue Unterkategorie</label>
+                        <input type="text" id="sc-name" placeholder="z.B. Hürden, Staffel" maxlength="30" autocomplete="off">
+                    </div>
+                    <button type="button" class="btn-primary" id="sc-add" style="height:38px;padding:0 14px;white-space:nowrap">+ Hinzufügen</button>
+                </div>
+                <div id="sc-list" style="margin-top:10px"></div>
+            </div>
             </div><!-- /tab-types -->
 
         </div>
     </div>
 
-    <script src="app.js?v=build023"></script>
+    <script src="app.js?v=build024"></script>
 </body>
 </html>

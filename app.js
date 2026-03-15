@@ -115,13 +115,27 @@ async function loadCustomTypesFromFirestore(user) {
         let doc;
         try { doc = await db.collection('users').doc(user.toLowerCase().trim()).get({ source: 'server' }); }
         catch { doc = await db.collection('users').doc(user.toLowerCase().trim()).get(); }
-        if (doc.exists && doc.data().customTypes) {
-            _customTypes = doc.data().customTypes;
-            localStorage.setItem(customTypesKey(), JSON.stringify(_customTypes));
+        if (doc.exists) {
+            if (doc.data().customTypes) {
+                _customTypes = doc.data().customTypes;
+                localStorage.setItem(customTypesKey(), JSON.stringify(_customTypes));
+            } else { loadCustomTypes(); }
+            if (doc.data().customSubcategories) {
+                _customSubcategories = doc.data().customSubcategories;
+            }
         } else {
             loadCustomTypes();
         }
     } catch { loadCustomTypes(); }
+}
+
+let _customSubcategories = {};
+
+function saveCustomSubcategories(data) {
+    _customSubcategories = data;
+    if (!currentUser) return;
+    db.collection('users').doc(currentUser.toLowerCase().trim())
+      .set({ customSubcategories: data }, { merge: true }).catch(() => {});
 }
 
 function getCustomType(typeName) {
@@ -155,6 +169,10 @@ function startListener(user) {
                 _customTypes = data.customTypes;
                 localStorage.setItem(customTypesKey(), JSON.stringify(_customTypes));
                 applyUserRestrictions(currentUser);
+            }
+            // Sync custom subcategories
+            if (data.customSubcategories) {
+                _customSubcategories = data.customSubcategories;
             }
         }
     });
@@ -275,6 +293,7 @@ loginForm.addEventListener('submit', e => { e.preventDefault(); loginAs(loginNam
 function resetAppUI() {
     form.reset();
     setDefaults();
+    clearAdditionalTypes();
     // Explicitly clear fields that form.reset() may miss
     document.getElementById('training-notes').value = '';
     document.getElementById('joggen-min').value = '';
@@ -430,17 +449,43 @@ trainingType.addEventListener('change', () => {
     const isTechnik = val === 'Technik';
     const isPause = val === 'Pausetag';
     const customType = getCustomType(val);
-    document.getElementById('sprint-cat-group').style.display = isSprint ? '' : 'none';
-    if (!isSprint) document.getElementById('sprint-category').value = '';
-    document.getElementById('technik-cat-group').style.display = isTechnik ? '' : 'none';
+    // Sprint subcategories (hardcoded + custom)
+    if (isSprint) {
+        const sprintSel = document.getElementById('sprint-category');
+        const builtIn = ['Locker', 'Sub-Max', 'Max', 'Seil'];
+        const custom = _customSubcategories['Sprint (50m)'] || [];
+        sprintSel.innerHTML = '<option value="">-- Bitte wählen --</option>' +
+            [...builtIn, ...custom].map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('');
+        document.getElementById('sprint-cat-group').style.display = '';
+    } else {
+        document.getElementById('sprint-cat-group').style.display = 'none';
+        document.getElementById('sprint-category').value = '';
+    }
+    // Technik subcategories (hardcoded + custom)
+    if (isTechnik) {
+        const technikSel = document.getElementById('technik-category');
+        const builtIn = ['Hütchen', 'Schirm'];
+        const custom = _customSubcategories['Technik'] || [];
+        technikSel.innerHTML = '<option value="">-- Bitte wählen --</option>' +
+            [...builtIn, ...custom].map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('') +
+            '<option value="Sonstiges">Sonstiges</option>';
+        document.getElementById('technik-cat-group').style.display = '';
+    } else {
+        document.getElementById('technik-cat-group').style.display = 'none';
+    }
     document.getElementById('technik-custom-group').style.display = 'none';
     if (!isTechnik) { document.getElementById('technik-category').value = ''; document.getElementById('technik-custom').value = ''; }
-    // Custom type subcategory
+    // Custom type subcategory OR built-in type custom subcategories
     const customCatGroup = document.getElementById('custom-cat-group');
     const customCatSel = document.getElementById('custom-category');
+    const builtInCustomSubs = (!customType && !isSprint && !isTechnik) ? (_customSubcategories[val] || []) : [];
     if (customType && customType.subcategories && customType.subcategories.length) {
         customCatSel.innerHTML = '<option value="">-- Bitte wählen --</option>' +
             customType.subcategories.map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('');
+        customCatGroup.style.display = '';
+    } else if (builtInCustomSubs.length) {
+        customCatSel.innerHTML = '<option value="">-- Bitte wählen --</option>' +
+            builtInCustomSubs.map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('');
         customCatGroup.style.display = '';
     } else {
         customCatGroup.style.display = 'none';
@@ -622,7 +667,7 @@ form.addEventListener('submit', e => {
     const sprintCategory = isSprint ? document.getElementById('sprint-category').value : '';
     const technikCategory = isTechnik ? document.getElementById('technik-category').value : '';
     const technikCustom = (isTechnik && technikCategory === 'Sonstiges') ? document.getElementById('technik-custom').value.trim() : '';
-    const customCategory = customType ? document.getElementById('custom-category').value : '';
+    const customCategory = (customType || (!isSprint && !isTechnik && (_customSubcategories[type] || []).length)) ? document.getElementById('custom-category').value : '';
     const isCountMode = intensity === 'NI';
 
     if (isTempo && !intensity) { showToast('Bitte Intensität wählen'); return; }
@@ -630,6 +675,7 @@ form.addEventListener('submit', e => {
     if (isTechnik && !technikCategory) { showToast('Bitte Technik-Kategorie wählen'); return; }
     if (isTechnik && technikCategory === 'Sonstiges' && !technikCustom) { showToast('Bitte Beschreibung eingeben'); return; }
     if (customType && customType.subcategories && customType.subcategories.length && !customCategory) { showToast('Bitte Kategorie wählen'); return; }
+    if (!customType && !isSprint && !isTechnik && (_customSubcategories[type] || []).length && !customCategory) { showToast('Bitte Kategorie wählen'); return; }
 
     // Pausetag — no data collection needed
     if (isPause) {
@@ -742,12 +788,18 @@ form.addEventListener('submit', e => {
     }
 
     const entry = { id: generateId(), date, time, type, intensity, sprintCategory, technikCategory, technikCustom, customCategory, times, count, telemarks, exercises, joggenTimeSec, customKg, customReps, notes };
+
+    // Collect additional training types
+    const additionalTypes = collectAdditionalTypes();
+    if (additionalTypes.length) entry.additionalTypes = additionalTypes;
+
     const data = loadData();
     data.unshift(entry);
     saveData(data);
 
     form.reset();
     setDefaults();
+    clearAdditionalTypes();
     document.getElementById('training-notes').value = '';
     document.getElementById('joggen-min').value = '';
     document.getElementById('joggen-sec').value = '';
@@ -824,7 +876,7 @@ function fmtJoggenTime(totalSec) {
 function renderList() {
     const data = loadData();
     const f = historyFilter.value;
-    const list = (f === 'all' ? data : data.filter(d => d.type === f))
+    const list = (f === 'all' ? data : data.filter(d => d.type === f || (d.additionalTypes && d.additionalTypes.some(at => at.type === f))))
         .sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
 
     if (!list.length) {
@@ -847,6 +899,7 @@ function renderList() {
                     ${en.technikCategory ? `<span class="intensity-badge technik-cat-badge">${escapeHtml(en.technikCategory === 'Sonstiges' && en.technikCustom ? en.technikCustom : en.technikCategory)}</span>` : ''}
                     ${en.customCategory ? `<span class="intensity-badge custom-cat-badge">${escapeHtml(en.customCategory)}</span>` : ''}
                     ${en.intensity ? `<span class="intensity-badge">${escapeHtml(en.intensity)}</span>` : ''}
+                    ${(en.additionalTypes || []).map(at => `<span class="type-badge ${typeCss(at.type)}"${(() => { const ct = getCustomType(at.type); return ct ? ' style="background:' + ct.color + '20;color:' + ct.color + '"' : ''; })()}>${escapeHtml(at.type)}</span>${at.category ? `<span class="intensity-badge">${escapeHtml(at.category)}</span>` : ''}`).join('')}
                 </div>
             </div>
             ${en.type === 'Pausetag'
@@ -1214,7 +1267,10 @@ function drawGenTypePie(data) {
     if (!ctx) return;
     if (!data.length) { chartInstances.genTypePie = emptyChart(ctx); return; }
     const types = {};
-    data.forEach(d => { types[d.type] = (types[d.type] || 0) + 1; });
+    data.forEach(d => {
+        types[d.type] = (types[d.type] || 0) + 1;
+        if (d.additionalTypes) d.additionalTypes.forEach(at => { types[at.type] = (types[at.type] || 0) + 1; });
+    });
     const labels = Object.keys(types);
     const values = Object.values(types);
     const colors = labels.map(l => getTypeColor(l).main);
@@ -2608,6 +2664,7 @@ document.getElementById('btn-settings').addEventListener('click', () => {
     document.querySelector('.settings-tab[data-tab="tab-report"]').classList.add('active');
     document.getElementById('tab-report').classList.add('active');
     ctModal.classList.add('show');
+    renderScList();
 });
 
 // Tab switching
@@ -3212,6 +3269,185 @@ function renderCustomTypesList() {
             showToast('Gelöscht');
         });
     });
+}
+
+// ================================================================
+//  CUSTOM SUBCATEGORIES MANAGEMENT
+// ================================================================
+function renderScList() {
+    const scListEl = document.getElementById('sc-list');
+    const allEntries = [];
+    Object.entries(_customSubcategories).forEach(([type, subs]) => {
+        subs.forEach(s => allEntries.push({ type, name: s }));
+    });
+    if (!allEntries.length) {
+        scListEl.innerHTML = '<p style="color:var(--text-tertiary);font-size:13px;text-align:center;padding:4px 0">Keine eigenen Unterkategorien.</p>';
+        return;
+    }
+    scListEl.innerHTML = allEntries.map(e => `
+        <div class="ct-item" style="padding:6px 8px">
+            <div class="ct-item-info">
+                <span class="ct-item-name" style="font-size:12px">${escapeHtml(e.type)}</span>
+                <span class="ct-item-subs" style="margin-left:6px">${escapeHtml(e.name)}</span>
+            </div>
+            <button class="btn-icon sc-del-btn" data-type="${escapeHtml(e.type)}" data-name="${escapeHtml(e.name)}" title="Entfernen">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            </button>
+        </div>`).join('');
+
+    scListEl.querySelectorAll('.sc-del-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const type = btn.dataset.type;
+            const name = btn.dataset.name;
+            const data = { ..._customSubcategories };
+            if (data[type]) {
+                data[type] = data[type].filter(s => s !== name);
+                if (!data[type].length) delete data[type];
+            }
+            saveCustomSubcategories(data);
+            renderScList();
+            showToast('Entfernt');
+        });
+    });
+}
+
+document.getElementById('sc-add').addEventListener('click', () => {
+    const type = document.getElementById('sc-type').value;
+    const name = document.getElementById('sc-name').value.trim();
+    if (!name) { showToast('Bitte Name eingeben'); return; }
+    if (name.length > 30) { showToast('Name zu lang'); return; }
+    const data = { ..._customSubcategories };
+    if (!data[type]) data[type] = [];
+    if (data[type].includes(name)) { showToast('Existiert bereits'); return; }
+    data[type].push(name);
+    saveCustomSubcategories(data);
+    document.getElementById('sc-name').value = '';
+    renderScList();
+    showToast('Hinzugefügt ✓');
+});
+
+// ================================================================
+//  MULTI-TYPE TRAINING SESSIONS
+// ================================================================
+let _additionalTypeIndex = 0;
+
+function showAddTypeButton() {
+    const btn = document.getElementById('add-type-btn');
+    const mainType = document.getElementById('training-type').value;
+    btn.style.display = (mainType && mainType !== 'Pausetag') ? '' : 'none';
+}
+
+document.getElementById('training-type').addEventListener('change', showAddTypeButton);
+
+document.getElementById('add-type-btn').addEventListener('click', () => {
+    _additionalTypeIndex++;
+    const idx = _additionalTypeIndex;
+    const container = document.getElementById('additional-types-container');
+    const section = document.createElement('div');
+    section.className = 'additional-type-section';
+    section.dataset.idx = idx;
+    section.innerHTML = `
+        <div class="additional-type-header">
+            <span class="additional-type-label">Weitere Trainingsart</span>
+            <button type="button" class="btn-icon btn-remove-additional" title="Entfernen">&times;</button>
+        </div>
+        <div class="form-group">
+            <label>Trainingsart</label>
+            <select class="at-type" data-idx="${idx}">
+                <option value="">-- Bitte wählen --</option>
+            </select>
+        </div>
+        <div class="at-cat-group" style="display:none">
+            <div class="form-group">
+                <label>Kategorie</label>
+                <select class="at-category"></select>
+            </div>
+        </div>
+    `;
+    container.appendChild(section);
+
+    // Populate type selector (exclude already selected types and Pausetag)
+    const usedTypes = getUsedTypes();
+    const typeSel = section.querySelector('.at-type');
+    const allTypes = ['Sprint (50m)', 'Tempolauf (120m)', 'Tempolauf (150m)', 'Kraft', 'Technik'];
+    if (currentUser && currentUser.toLowerCase() !== ANGELIKA_NAME) {
+        allTypes.forEach(t => {
+            if (!usedTypes.includes(t)) {
+                typeSel.insertAdjacentHTML('beforeend', '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>');
+            }
+        });
+        _customTypes.forEach(ct => {
+            if (!usedTypes.includes(ct.name)) {
+                typeSel.insertAdjacentHTML('beforeend', '<option value="' + escapeHtml(ct.name) + '">' + escapeHtml(ct.name) + '</option>');
+            }
+        });
+    }
+
+    // Type change handler for additional type
+    typeSel.addEventListener('change', () => {
+        const val = typeSel.value;
+        const catGroup = section.querySelector('.at-cat-group');
+        const catSel = section.querySelector('.at-category');
+        let options = [];
+
+        if (val === 'Sprint (50m)') {
+            const builtIn = ['Locker', 'Sub-Max', 'Max', 'Seil'];
+            const custom = _customSubcategories['Sprint (50m)'] || [];
+            options = [...builtIn, ...custom];
+        } else if (val === 'Technik') {
+            const builtIn = ['Hütchen', 'Schirm'];
+            const custom = _customSubcategories['Technik'] || [];
+            options = [...builtIn, ...custom, 'Sonstiges'];
+        } else {
+            const ct = getCustomType(val);
+            if (ct && ct.subcategories && ct.subcategories.length) {
+                options = ct.subcategories;
+            } else {
+                const custom = _customSubcategories[val] || [];
+                if (custom.length) options = custom;
+            }
+        }
+
+        if (options.length) {
+            catSel.innerHTML = '<option value="">-- Bitte wählen --</option>' +
+                options.map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('');
+            catGroup.style.display = '';
+        } else {
+            catGroup.style.display = 'none';
+            catSel.innerHTML = '';
+        }
+    });
+
+    // Remove button
+    section.querySelector('.btn-remove-additional').addEventListener('click', () => {
+        section.remove();
+    });
+});
+
+function getUsedTypes() {
+    const used = [document.getElementById('training-type').value];
+    document.querySelectorAll('.at-type').forEach(sel => {
+        if (sel.value) used.push(sel.value);
+    });
+    return used;
+}
+
+function collectAdditionalTypes() {
+    const result = [];
+    document.querySelectorAll('.additional-type-section').forEach(section => {
+        const type = section.querySelector('.at-type').value;
+        if (!type) return;
+        const catSel = section.querySelector('.at-category');
+        const category = catSel ? catSel.value : '';
+        result.push({ type, category });
+    });
+    return result;
+}
+
+function clearAdditionalTypes() {
+    document.getElementById('additional-types-container').innerHTML = '';
+    _additionalTypeIndex = 0;
+    document.getElementById('add-type-btn').style.display = 'none';
 }
 
 // ---- Init ----
