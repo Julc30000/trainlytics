@@ -608,18 +608,27 @@ async function loadCustomTypesFromFirestore(user) {
             } else { loadCustomTypes(); }
             if (doc.data().customSubcategories) {
                 _customSubcategories = doc.data().customSubcategories;
+                localStorage.setItem(customSubcategoriesKey(), JSON.stringify(_customSubcategories));
+            } else {
+                try { _customSubcategories = JSON.parse(localStorage.getItem(customSubcategoriesKey())) || {}; } catch { _customSubcategories = {}; }
             }
 
         } else {
             loadCustomTypes();
+            try { _customSubcategories = JSON.parse(localStorage.getItem(customSubcategoriesKey())) || {}; } catch { _customSubcategories = {}; }
         }
-    } catch { loadCustomTypes(); }
+    } catch {
+        loadCustomTypes();
+        try { _customSubcategories = JSON.parse(localStorage.getItem(customSubcategoriesKey())) || {}; } catch { _customSubcategories = {}; }
+    }
 }
 
 let _customSubcategories = {};
+function customSubcategoriesKey() { return 'trainlytics_customsubcats_' + (currentUser || '').toLowerCase().trim(); }
 function saveCustomSubcategories(data) {
     _customSubcategories = data;
     if (!currentUser) return;
+    localStorage.setItem(customSubcategoriesKey(), JSON.stringify(data));
     db.collection('users').doc(currentUser.toLowerCase().trim())
       .set({ customSubcategories: data }, { merge: true }).catch(() => {});
 }
@@ -672,6 +681,7 @@ function startListener(user) {
             // Sync custom subcategories
             if (data.customSubcategories) {
                 _customSubcategories = data.customSubcategories;
+                localStorage.setItem(customSubcategoriesKey(), JSON.stringify(_customSubcategories));
             }
 
         }
@@ -679,7 +689,7 @@ function startListener(user) {
 }
 
 function generateId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
-function escapeHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function escapeHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML.replace(/"/g, '&quot;'); }
 
 // ---- Splash Screen ----
 const splashScreen = document.getElementById('splash-screen');
@@ -850,6 +860,7 @@ document.getElementById('btn-logout').addEventListener('click', () => {
     _competitions = [];
     _injuries = [];
     _customTypes = [];
+    _customSubcategories = {};
     resetAppUI();
     loginScreen.style.display = '';
     loginScreen.classList.remove('fade-in');
@@ -920,6 +931,7 @@ function applyUserRestrictions(userName) {
             {v:'Tempolauf (150m)', l:translateType('Tempolauf (150m)')},
             {v:'Kraft', l:translateType('Kraft')},
             {v:'Technik', l:translateType('Technik')},
+            {v:'Joggen (5km)', l:translateType('Joggen (5km)')},
             {v:'Pausetag', l:translateType('Pausetag')},
         ];
         const biAnalytics = [
@@ -928,6 +940,7 @@ function applyUserRestrictions(userName) {
             {v:'Tempolauf (150m)', e:'🏃'},
             {v:'Kraft', e:'💪'},
             {v:'Technik', e:'🎯'},
+            {v:'Joggen (5km)', e:'🏃‍♀️'},
         ];
         sel.innerHTML = '<option value="">' + escapeHtml(t('please_select')) + '</option>' +
             biTraining.map(bt => '<option value="' + escapeHtml(bt.v) + '">' + escapeHtml(bt.l) + '</option>').join('');
@@ -3005,8 +3018,11 @@ async function loadCoachDashboard() {
     populateCoachDiarySelect(users);
 
     const coachUserSelect = document.getElementById('coach-user-select');
-    coachUserSelect.addEventListener('change', () => {
-        const sel = coachUserSelect.value;
+    // Bug #9 fix: remove old listener to prevent stacking on re-login
+    const newSelect = coachUserSelect.cloneNode(true);
+    coachUserSelect.parentNode.replaceChild(newSelect, coachUserSelect);
+    newSelect.addEventListener('change', () => {
+        const sel = newSelect.value;
         if (sel && allData[sel]) renderCoachUserStats(sel, allData[sel]);
         else { document.getElementById('coach-stats-container').innerHTML = ''; document.getElementById('coach-charts-container').innerHTML = ''; destroyCoachCharts(); }
     });
@@ -3823,11 +3839,36 @@ document.getElementById('ct-save').addEventListener('click', () => {
         list.push({ id: generateId(), name, emoji, color, subcategories, trackTimes, trackCount, trackWeight, trackDistance });
     }
 
+    // Bug #5 fix: if renaming, migrate all existing entries to the new name
+    if (ctEditId) {
+        const oldType = _customTypes.find(ct => ct.id === ctEditId);
+        if (oldType && oldType.name !== name) {
+            const entries = loadData();
+            let changed = false;
+            entries.forEach(e => {
+                if (e.type === oldType.name) { e.type = name; changed = true; }
+                if (e.additionalTypes) {
+                    e.additionalTypes.forEach(at => { if (at.type === oldType.name) { at.type = name; changed = true; } });
+                }
+            });
+            if (changed) saveData(entries);
+            // Migrate custom subcategories key
+            if (_customSubcategories[oldType.name]) {
+                _customSubcategories[name] = _customSubcategories[oldType.name];
+                delete _customSubcategories[oldType.name];
+                saveCustomSubcategories(_customSubcategories);
+            }
+        }
+    }
+
+    // Bug #1 fix: save edit state before resetCtForm nulls ctEditId
+    const wasEdit = !!ctEditId;
+
     saveCustomTypes(list);
     applyUserRestrictions(currentUser);
     renderCustomTypesList();
     resetCtForm();
-    showToast(ctEditId ? t('toast_updated') : t('toast_added'));
+    showToast(wasEdit ? t('toast_updated') : t('toast_added'));
 });
 
 function renderCustomTypesList() {
