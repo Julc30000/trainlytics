@@ -48,7 +48,9 @@ function addUser(name) {
 
 async function syncUsers() {
     try {
-        const doc = await db.collection('meta').doc('users').get();
+        let doc;
+        try { doc = await db.collection('meta').doc('users').get({ source: 'server' }); }
+        catch { doc = await db.collection('meta').doc('users').get(); }
         if (doc.exists) {
             const remote = doc.data().list || [];
             const local = getUsers();
@@ -72,7 +74,9 @@ function saveData(data) {
 
 async function loadFromFirestore(user) {
     try {
-        const doc = await db.collection('users').doc(user.toLowerCase().trim()).get();
+        let doc;
+        try { doc = await db.collection('users').doc(user.toLowerCase().trim()).get({ source: 'server' }); }
+        catch { doc = await db.collection('users').doc(user.toLowerCase().trim()).get(); }
         if (doc.exists) {
             _cachedEntries = doc.data().entries || [];
             localStorage.setItem(storageKeyFor(user), JSON.stringify(_cachedEntries));
@@ -108,7 +112,9 @@ function saveCustomTypes(list) {
 
 async function loadCustomTypesFromFirestore(user) {
     try {
-        const doc = await db.collection('users').doc(user.toLowerCase().trim()).get();
+        let doc;
+        try { doc = await db.collection('users').doc(user.toLowerCase().trim()).get({ source: 'server' }); }
+        catch { doc = await db.collection('users').doc(user.toLowerCase().trim()).get(); }
         if (doc.exists && doc.data().customTypes) {
             _customTypes = doc.data().customTypes;
             localStorage.setItem(customTypesKey(), JSON.stringify(_customTypes));
@@ -136,12 +142,13 @@ function startListener(user) {
             if (data.competitions) {
                 _competitions = data.competitions;
                 localStorage.setItem(competitionsKey(), JSON.stringify(_competitions));
-                if (document.querySelector('.tab-content#kalender.active')) renderCalendar();
+                renderCalendar();
             }
             // Sync injuries
             if (data.injuries) {
                 _injuries = data.injuries;
                 localStorage.setItem(injuriesKey(), JSON.stringify(_injuries));
+                renderInjuryList();
             }
             // Sync custom types
             if (data.customTypes) {
@@ -3197,7 +3204,9 @@ function saveCompetitions(list) {
 
 async function loadCompetitionsFromFirestore(user) {
     try {
-        const doc = await db.collection('users').doc(user.toLowerCase().trim()).get();
+        let doc;
+        try { doc = await db.collection('users').doc(user.toLowerCase().trim()).get({ source: 'server' }); }
+        catch { doc = await db.collection('users').doc(user.toLowerCase().trim()).get(); }
         if (doc.exists && doc.data().competitions) {
             _competitions = doc.data().competitions;
             localStorage.setItem(competitionsKey(), JSON.stringify(_competitions));
@@ -3374,7 +3383,9 @@ function saveInjuries(list) {
 
 async function loadInjuriesFromFirestore(user) {
     try {
-        const doc = await db.collection('users').doc(user.toLowerCase().trim()).get();
+        let doc;
+        try { doc = await db.collection('users').doc(user.toLowerCase().trim()).get({ source: 'server' }); }
+        catch { doc = await db.collection('users').doc(user.toLowerCase().trim()).get(); }
         if (doc.exists && doc.data().injuries) {
             _injuries = doc.data().injuries;
             localStorage.setItem(injuriesKey(), JSON.stringify(_injuries));
