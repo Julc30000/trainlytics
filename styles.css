@@ -257,7 +257,7 @@ body {
    NAVIGATION — Top Tab Bar (sticky)
    ================================================================ */
 .tab-nav {
-    display:grid; grid-template-columns:repeat(4,1fr);
+    display:grid; grid-template-columns:repeat(2,1fr);
     gap:6px;
     padding:8px 0 10px;
     position:sticky; top:0; z-index:500;
