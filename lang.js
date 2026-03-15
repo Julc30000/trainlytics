@@ -543,6 +543,14 @@ de: {
     chat_a_notes_none: 'Kein Eintrag mit "{q}" in den Notizen gefunden.',
     chat_a_notes_found: '{n} Einträge mit "{q}" in den Notizen gefunden.',
     chat_ask_hint: 'Hier sind ein paar Vorschläge:',
+
+    // Privacy
+    privacy_title: 'Datenschutzzustimmung',
+    privacy_intro: 'Um TrainLytics nutzen zu können, lies bitte unsere Datenschutzerklärung und stimme der Verarbeitung deiner Daten zu.',
+    privacy_toggle_label: '📄 Datenschutzerklärung lesen',
+    privacy_accept: 'Ich stimme zu',
+    privacy_decline: 'Ablehnen & Abmelden',
+    privacy_policy: '<h4>1. Verantwortlicher</h4><p>TrainLytics wird privat und nicht-kommerziell betrieben. Die App dient ausschließlich einem geschlossenen Personenkreis (Athleten und Trainer) zur Dokumentation und Auswertung von Trainingsdaten. Es werden keine Daten an Dritte verkauft oder zu Werbezwecken genutzt.</p><h4>2. Welche Daten werden erhoben?</h4><ul><li>Von dir eingegebener Name (Vorname oder Spitzname)</li><li>Trainingsdaten: Datum, Uhrzeit, Trainingstyp, Zeiten, Wiederholungen, Gewichte, Distanzen, Notizen</li><li>Wettkampfdaten: Name, Datum, Disziplin, Ergebnis</li><li>Schmerzeinträge: Bereich, Stärke, Beschreibung</li><li>App-Einstellungen: Sprache, benutzerdefinierte Trainingstypen</li></ul><h4>3. Zweck der Datenverarbeitung</h4><p>Deine Daten werden ausschließlich verwendet, um:</p><ul><li>deine Trainingseinheiten zu speichern und anzuzeigen,</li><li>Statistiken und Auswertungen für dich bereitzustellen,</li><li>deinem Trainer Einblick in deinen Trainingsfortschritt zu geben.</li></ul><h4>4. Speicherung &amp; Sicherheit</h4><p>Deine Daten werden in Google Firestore (EU-Server) und lokal im Browser (localStorage) gespeichert. Die Übertragung erfolgt verschlüsselt (HTTPS/TLS). Der Zugriff ist nur über dein Gerät und den angemeldeten Namen möglich.</p><h4>5. Wer kann meine Daten einsehen?</h4><ul><li><strong>Du selbst</strong> — alle deine Trainingsdaten</li><li><strong>Dein Trainer (Coach-Zugang)</strong> — Übersicht deiner Trainingsstatistiken</li><li><strong>Niemand sonst</strong> — kein Zugriff durch Dritte, keine Weitergabe</li></ul><h4>6. Rechtsgrundlage</h4><p>Die Verarbeitung erfolgt auf Grundlage deiner Einwilligung gemäß Art.&nbsp;6 Abs.&nbsp;1 lit.&nbsp;a DSGVO. Du kannst deine Einwilligung jederzeit widerrufen.</p><h4>7. Deine Rechte</h4><p>Du hast jederzeit das Recht auf:</p><ul><li>Auskunft über deine gespeicherten Daten</li><li>Berichtigung unrichtiger Daten</li><li>Löschung deiner Daten (&quot;Recht auf Vergessenwerden&quot;)</li><li>Widerruf deiner Einwilligung</li></ul><p>Wende dich hierzu an deinen Trainer.</p><h4>8. Keine kommerzielle Nutzung</h4><p>TrainLytics ist ein privates, nicht-kommerzielles Projekt. Es werden keine Einnahmen erzielt, keine Werbung geschaltet und keine Daten an Dritte weitergegeben oder verkauft.</p><h4>9. Änderungen</h4><p>Diese Datenschutzerklärung kann bei Bedarf angepasst werden. Bei wesentlichen Änderungen wirst du erneut um Zustimmung gebeten.</p>',
 },
 ro: {
     months: ['Ian','Feb','Mar','Apr','Mai','Iun','Iul','Aug','Sep','Oct','Nov','Dec'],
@@ -1038,6 +1046,14 @@ ro: {
     chat_a_notes_none: 'Nicio intrare cu „{q}" în notițe.',
     chat_a_notes_found: '{n} intrări cu „{q}" în notițe găsite.',
     chat_ask_hint: 'Iată câteva sugestii:',
+
+    // Privacy
+    privacy_title: 'Consimțământ protecția datelor',
+    privacy_intro: 'Pentru a utiliza TrainLytics, te rugăm să citești declarația noastră de confidențialitate și să îți dai acordul pentru prelucrarea datelor tale.',
+    privacy_toggle_label: '📄 Citește declarația de confidențialitate',
+    privacy_accept: 'Sunt de acord',
+    privacy_decline: 'Refuz & Deconectare',
+    privacy_policy: '<h4>1. Responsabil</h4><p>TrainLytics este operat privat și non-comercial. Aplicația servește exclusiv unui grup restrâns de persoane (sportivi și antrenori) pentru documentarea și evaluarea datelor de antrenament.</p><h4>2. Ce date sunt colectate?</h4><ul><li>Numele introdus de tine (prenume sau poreclă)</li><li>Date de antrenament: dată, oră, tip, timpi, repetări, greutăți, distanțe, notițe</li><li>Date de competiție: nume, dată, disciplină, rezultat</li><li>Intrări durere: zonă, intensitate, descriere</li><li>Setări aplicație: limbă, tipuri personalizate</li></ul><h4>3. Scopul prelucrării datelor</h4><p>Datele tale sunt utilizate exclusiv pentru:</p><ul><li>salvarea și afișarea sesiunilor tale de antrenament,</li><li>furnizarea de statistici și analize pentru tine,</li><li>oferirea antrenorului tău o privire de ansamblu asupra progresului tău.</li></ul><h4>4. Stocare &amp; Securitate</h4><p>Datele tale sunt stocate în Google Firestore (servere UE) și local în browser (localStorage). Transferul este criptat (HTTPS/TLS).</p><h4>5. Cine poate vedea datele mele?</h4><ul><li><strong>Tu</strong> — toate datele tale de antrenament</li><li><strong>Antrenorul tău (acces Coach)</strong> — statisticile tale de antrenament</li><li><strong>Nimeni altcineva</strong> — fără acces terți</li></ul><h4>6. Baza legală</h4><p>Prelucrarea se realizează pe baza consimțământului tău conform Art.&nbsp;6 Alin.&nbsp;1 lit.&nbsp;a GDPR.</p><h4>7. Drepturile tale</h4><p>Ai oricând dreptul la: informare, rectificare, ștergere și retragerea consimțământului. Contactează antrenorul tău.</p><h4>8. Nicio utilizare comercială</h4><p>TrainLytics este un proiect privat, non-comercial. Nu se obțin venituri, nu se afișează reclame și nu se transmit date terților.</p>',
 }
 };
 

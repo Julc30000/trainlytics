@@ -796,6 +796,82 @@ async function loginAs(name) {
     applyUserRestrictions(clean);
     startListener(clean);
     renderList();
+
+    // Privacy consent check — show on first login
+    await checkPrivacyConsent(clean);
+}
+
+// ================================================================
+//  PRIVACY CONSENT
+// ================================================================
+function privacyConsentKey(user) { return 'trainlytics_privacy_' + user.toLowerCase().trim(); }
+
+async function checkPrivacyConsent(user) {
+    if (localStorage.getItem(privacyConsentKey(user)) === '1') return;
+    try {
+        const doc = await db.collection('users').doc(user.toLowerCase().trim()).get();
+        if (doc.exists && doc.data().privacyConsent) {
+            localStorage.setItem(privacyConsentKey(user), '1');
+            return;
+        }
+    } catch {}
+    await showPrivacyModal(user);
+}
+
+function showPrivacyModal(user) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('privacy-modal');
+        const toggle = document.getElementById('privacy-toggle');
+        const textEl = document.getElementById('privacy-text');
+        const acceptBtn = document.getElementById('privacy-accept');
+        const declineBtn = document.getElementById('privacy-decline');
+
+        document.getElementById('privacy-title').textContent = t('privacy_title');
+        document.getElementById('privacy-intro').textContent = t('privacy_intro');
+        document.getElementById('privacy-toggle-label').textContent = t('privacy_toggle_label');
+        document.getElementById('privacy-accept-label').textContent = t('privacy_accept');
+        document.getElementById('privacy-decline-label').textContent = t('privacy_decline');
+        textEl.innerHTML = t('privacy_policy');
+
+        acceptBtn.disabled = true;
+        textEl.style.display = 'none';
+        toggle.classList.remove('open');
+
+        modal.classList.add('show');
+
+        function onToggle() {
+            const isOpen = toggle.classList.toggle('open');
+            textEl.style.display = isOpen ? '' : 'none';
+            if (isOpen) acceptBtn.disabled = false;
+        }
+
+        function onAccept() {
+            if (acceptBtn.disabled) return;
+            localStorage.setItem(privacyConsentKey(user), '1');
+            db.collection('users').doc(user.toLowerCase().trim())
+              .set({ privacyConsent: true, privacyConsentDate: new Date().toISOString() }, { merge: true }).catch(() => {});
+            modal.classList.remove('show');
+            cleanup();
+            resolve();
+        }
+
+        function onDecline() {
+            modal.classList.remove('show');
+            cleanup();
+            document.getElementById('btn-logout').click();
+            resolve();
+        }
+
+        function cleanup() {
+            toggle.removeEventListener('click', onToggle);
+            acceptBtn.removeEventListener('click', onAccept);
+            declineBtn.removeEventListener('click', onDecline);
+        }
+
+        toggle.addEventListener('click', onToggle);
+        acceptBtn.addEventListener('click', onAccept);
+        declineBtn.addEventListener('click', onDecline);
+    });
 }
 
 loginForm.addEventListener('submit', e => { e.preventDefault(); loginAs(loginNameInput.value); });

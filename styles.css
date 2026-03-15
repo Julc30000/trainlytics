@@ -685,6 +685,35 @@ textarea { resize:vertical; min-height:48px; }
 .modal-actions .btn-ghost { margin-bottom:0; border-style:solid; }
 
 /* ================================================================
+   PRIVACY CONSENT MODAL
+   ================================================================ */
+.privacy-icon { font-size:36px; margin-bottom:10px; }
+.privacy-intro { text-align:left; font-size:13px; color:var(--text-secondary); line-height:1.5; margin-bottom:12px; }
+.privacy-toggle {
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--bg-tertiary); border:1px solid var(--border);
+    border-radius:var(--radius); padding:10px 14px;
+    cursor:pointer; font-size:13px; font-weight:600; color:var(--text-primary);
+    transition:background 0.15s;
+}
+.privacy-toggle:hover { background:var(--bg-hover); }
+.privacy-chevron { transition:transform 0.2s; flex-shrink:0; }
+.privacy-toggle.open .privacy-chevron { transform:rotate(180deg); }
+.privacy-text {
+    max-height:260px; overflow-y:auto; text-align:left;
+    font-size:11.5px; line-height:1.6; color:var(--text-secondary);
+    background:var(--bg-tertiary); border:1px solid var(--border);
+    border-radius:var(--radius); padding:14px 16px;
+    margin-top:8px;
+}
+.privacy-text h4 { font-size:12.5px; font-weight:700; color:var(--text-primary); margin:10px 0 4px; }
+.privacy-text h4:first-child { margin-top:0; }
+.privacy-text ul { margin:4px 0 8px 16px; padding:0; }
+.privacy-text li { margin-bottom:3px; }
+#privacy-accept:disabled { opacity:0.45; cursor:not-allowed; }
+#privacy-accept:not(:disabled) { animation:fadeSlideUp 0.2s ease; }
+
+/* ================================================================
    SCROLLBAR
    ================================================================ */
 ::-webkit-scrollbar { width:4px; }
