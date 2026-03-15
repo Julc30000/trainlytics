@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=build034">
+    <link rel="stylesheet" href="styles.css?v=build035">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -357,6 +357,21 @@
                                 <input type="number" id="ct-kg-reps" min="1" step="1" placeholder="Wdh">
                             </div>
                         </div>
+                    </div>
+
+                    <div id="distance-container" style="display:none">
+                        <label>Weiten <span class="label-hint">(in Metern)</span></label>
+                        <div class="distance-list" id="distance-list">
+                            <div class="time-entry">
+                                <span class="time-index">1</span>
+                                <input type="number" step="0.01" min="0" placeholder="z.B. 4.52" class="distance-input">
+                                <button type="button" class="btn-remove-time" title="Entfernen" disabled>&times;</button>
+                            </div>
+                        </div>
+                        <button type="button" id="add-distance-btn" class="btn-ghost">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Weitere Weite
+                        </button>
                     </div>
 
                     <!-- Telemarks (only visible for NI) -->
@@ -1021,6 +1036,13 @@
                         <button type="button" class="toggle-btn" id="ct-weight-yes" data-val="yes">Ja</button>
                     </div>
                 </div>
+                <div class="form-group" id="ct-distance-group">
+                    <label>Weite erfassen?</label>
+                    <div class="toggle-row">
+                        <button type="button" class="toggle-btn active" id="ct-distance-no" data-val="no">Nein</button>
+                        <button type="button" class="toggle-btn" id="ct-distance-yes" data-val="yes">Ja</button>
+                    </div>
+                </div>
                 <div class="ct-form-actions">
                     <button type="button" class="btn-ghost" id="ct-cancel-edit" style="display:none">Abbrechen</button>
                     <button type="button" class="btn-primary" id="ct-save">Hinzufügen</button>
@@ -1059,6 +1081,13 @@
                         <button type="button" class="toggle-btn" id="sc-weight-yes" data-val="yes">Ja</button>
                     </div>
                 </div>
+                <div class="form-group" id="sc-distance-group">
+                    <label>Weite erfassen?</label>
+                    <div class="toggle-row">
+                        <button type="button" class="toggle-btn active" id="sc-distance-no" data-val="no">Nein</button>
+                        <button type="button" class="toggle-btn" id="sc-distance-yes" data-val="yes">Ja</button>
+                    </div>
+                </div>
                 <button type="button" class="btn-primary" id="sc-add" style="width:100%">+ Hinzufügen</button>
                 <div id="sc-list" style="margin-top:10px"></div>
             </div>
@@ -1083,7 +1112,7 @@
         </form>
     </div>
 
-    <script src="lang.js?v=build034"></script>
-    <script src="app.js?v=build034"></script>
+    <script src="lang.js?v=build035"></script>
+    <script src="app.js?v=build035"></script>
 </body>
 </html>

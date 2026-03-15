@@ -111,6 +111,12 @@ function applyLanguage() {
     const addTimeBtn = document.getElementById('add-time-btn');
     if (addTimeBtn) { const svg = addTimeBtn.querySelector('svg'); addTimeBtn.textContent = ''; if (svg) addTimeBtn.appendChild(svg); addTimeBtn.append(' ' + t('add_time')); }
 
+    // Distance labels
+    const distanceLabel = document.querySelector('#distance-container > label');
+    if (distanceLabel) distanceLabel.innerHTML = t('distance_label') + ' <span class="label-hint">' + t('distance_hint') + '</span>';
+    const addDistBtn = document.getElementById('add-distance-btn');
+    if (addDistBtn) { const svg = addDistBtn.querySelector('svg'); addDistBtn.textContent = ''; if (svg) addDistBtn.appendChild(svg); addDistBtn.append(' ' + t('add_distance')); }
+
     // Joggen labels
     const joggenMinLabel = document.querySelector('label[for="joggen-min"]');
     if (joggenMinLabel) joggenMinLabel.textContent = t('minutes_label');
@@ -351,6 +357,10 @@ function applyLanguage() {
     if (ctWeightLabel) ctWeightLabel.textContent = t('track_kg');
     document.getElementById('ct-weight-no').textContent = t('no');
     document.getElementById('ct-weight-yes').textContent = t('yes');
+    const ctDistanceLabel = document.querySelector('#ct-distance-group > label');
+    if (ctDistanceLabel) ctDistanceLabel.textContent = t('track_distance');
+    document.getElementById('ct-distance-no').textContent = t('no');
+    document.getElementById('ct-distance-yes').textContent = t('yes');
     const ctCancelBtn = document.getElementById('ct-cancel-edit');
     if (ctCancelBtn) ctCancelBtn.textContent = t('cancel_btn');
     const ctSaveBtn = document.getElementById('ct-save');
@@ -375,6 +385,10 @@ function applyLanguage() {
     if (scWeightLabel) scWeightLabel.textContent = t('track_kg');
     document.getElementById('sc-weight-no').textContent = t('no');
     document.getElementById('sc-weight-yes').textContent = t('yes');
+    const scDistanceLabel = document.querySelector('#sc-distance-group > label');
+    if (scDistanceLabel) scDistanceLabel.textContent = t('track_distance');
+    document.getElementById('sc-distance-no').textContent = t('no');
+    document.getElementById('sc-distance-yes').textContent = t('yes');
     // Section titles
     const scSectionTitle = document.getElementById('sc-section-title');
     if (scSectionTitle) scSectionTitle.textContent = t('extend_subcats');
@@ -996,11 +1010,13 @@ trainingType.addEventListener('change', () => {
         timesContainer.style.display = 'none';
         countContainer.style.display = 'none';
         document.getElementById('ct-kg-container').style.display = 'none';
+        distanceContainer.style.display = 'none';
         telemarkContainer.style.display = 'none';
     } else if (customType) {
         timesContainer.style.display = customType.trackTimes ? '' : 'none';
         countContainer.style.display = customType.trackCount ? '' : 'none';
         document.getElementById('ct-kg-container').style.display = customType.trackWeight ? '' : 'none';
+        distanceContainer.style.display = customType.trackDistance ? '' : 'none';
         telemarkContainer.style.display = 'none';
         if (customType.trackCount) {
             document.querySelector('label[for="training-count"]').textContent = t('count_prefix');
@@ -1140,6 +1156,36 @@ timesList.querySelector('.btn-remove-time').addEventListener('click', function()
 
 document.getElementById('add-time-btn').addEventListener('click', () => addTimeEntry());
 
+// ---- Distance entries ----
+const distanceList = document.getElementById('distance-list');
+const distanceContainer = document.getElementById('distance-container');
+
+function addDistanceEntry(value = '') {
+    const idx = distanceList.querySelectorAll('.time-entry').length + 1;
+    const e = document.createElement('div');
+    e.className = 'time-entry';
+    e.innerHTML = `<span class="time-index">${idx}</span>
+        <input type="number" step="0.01" min="0" placeholder="${t('distance_ph')}" class="distance-input" value="${escapeHtml(String(value))}">
+        <button type="button" class="btn-remove-time" title="${t('remove_label')}">&times;</button>`;
+    e.querySelector('.btn-remove-time').addEventListener('click', () => { e.remove(); refreshDistanceIdx(); });
+    distanceList.appendChild(e);
+    refreshDistanceIdx();
+}
+
+function refreshDistanceIdx() {
+    const entries = distanceList.querySelectorAll('.time-entry');
+    entries.forEach((el, i) => {
+        el.querySelector('.time-index').textContent = i + 1;
+        el.querySelector('.btn-remove-time').disabled = entries.length <= 1;
+    });
+}
+
+distanceList.querySelector('.btn-remove-time').addEventListener('click', function() {
+    if (distanceList.querySelectorAll('.time-entry').length > 1) { this.closest('.time-entry').remove(); refreshDistanceIdx(); }
+});
+
+document.getElementById('add-distance-btn').addEventListener('click', () => addDistanceEntry());
+
 function setDefaults() {
     const n = new Date();
     document.getElementById('training-date').value = n.toISOString().split('T')[0];
@@ -1181,7 +1227,7 @@ form.addEventListener('submit', e => {
 
     // Pausetag — no data collection needed
     if (isPause) {
-        const entry = { id: generateId(), date, time, type: 'Pausetag', intensity: '', sprintCategory: '', technikCategory: '', technikCustom: '', customCategory: '', times: [], count: null, telemarks: null, exercises: null, joggenTimeSec: null, customKg: null, customReps: null, notes };
+        const entry = { id: generateId(), date, time, type: 'Pausetag', intensity: '', sprintCategory: '', technikCategory: '', technikCustom: '', customCategory: '', times: [], count: null, telemarks: null, exercises: null, joggenTimeSec: null, customKg: null, customReps: null, distances: [], notes };
         const data = loadData();
         data.unshift(entry);
         saveData(data);
@@ -1200,6 +1246,7 @@ form.addEventListener('submit', e => {
     let joggenTimeSec = null;
     let customKg = null;
     let customReps = null;
+    let distances = [];
 
     if (isKraft) {
         exercises = {};
@@ -1249,6 +1296,7 @@ form.addEventListener('submit', e => {
         const effTimes = (scOverride && typeof scOverride === 'object') ? scOverride.trackTimes : customType.trackTimes;
         const effCount = (scOverride && typeof scOverride === 'object') ? scOverride.trackCount : customType.trackCount;
         const effWeight = (scOverride && typeof scOverride === 'object') ? scOverride.trackWeight : customType.trackWeight;
+        const effDistance = (scOverride && typeof scOverride === 'object') ? scOverride.trackDistance : customType.trackDistance;
         if (effTimes) {
             const inputs = timesList.querySelectorAll('.time-input');
             let ok = true;
@@ -1269,6 +1317,16 @@ form.addEventListener('submit', e => {
             if (!kgVal || kgVal <= 0) { showToast(t('toast_enter_kg')); return; }
             customKg = kgVal;
             customReps = repsVal > 0 ? repsVal : null;
+        }
+        if (effDistance) {
+            const inputs = distanceList.querySelectorAll('.distance-input');
+            let ok = true;
+            inputs.forEach(inp => {
+                const v = parseFloat(inp.value);
+                if (isNaN(v) || v <= 0) { ok = false; inp.style.borderColor = 'var(--danger)'; }
+                else { inp.style.borderColor = ''; distances.push(v); }
+            });
+            if (!ok || !distances.length) { showToast(t('toast_valid_distances')); return; }
         }
     } else if (isCountMode) {
         count = parseInt(document.getElementById('training-count').value, 10);
@@ -1293,7 +1351,7 @@ form.addEventListener('submit', e => {
         if (!ok || !times.length) { showToast(t('toast_valid_times')); return; }
     }
 
-    const entry = { id: generateId(), date, time, type, intensity, sprintCategory, technikCategory, technikCustom, customCategory, times, count, telemarks, exercises, joggenTimeSec, customKg, customReps, notes };
+    const entry = { id: generateId(), date, time, type, intensity, sprintCategory, technikCategory, technikCustom, customCategory, times, count, telemarks, exercises, joggenTimeSec, customKg, customReps, distances, notes };
 
     // Collect additional training types
     const additionalTypes = collectAdditionalTypes();
@@ -1326,6 +1384,9 @@ form.addEventListener('submit', e => {
     document.getElementById('ct-kg-container').style.display = 'none';
     document.getElementById('ct-kg-value').value = '';
     document.getElementById('ct-kg-reps').value = '';
+    distanceContainer.style.display = 'none';
+    distanceList.innerHTML = '';
+    addDistanceEntry();
     joggenContainer.style.display = 'none';
     KRAFT_EXERCISES.forEach(ex => {
         const det = document.getElementById('kraft-' + ex + '-details');
@@ -1430,6 +1491,7 @@ function renderList() {
                 ? (() => {
                     let parts = [];
                     if (en.times && en.times.length) parts.push(`<div class="entry-times">${en.times.map(t=>`<span class="time-chip">${escapeHtml(String(t))}s</span>`).join('')}</div>`);
+                    if (en.distances && en.distances.length) parts.push(`<div class="entry-times">${en.distances.map(d=>`<span class="time-chip">${escapeHtml(String(d))}m</span>`).join('')}</div>`);
                     if (en.count) parts.push(`<div class="entry-count">${t('count_prefix')}: <strong>${en.count}</strong></div>`);
                     if (en.customKg) parts.push(`<div class="entry-count">${en.customKg}kg${en.customReps ? ' × ' + en.customReps + ' ' + t('reps_short') : ''}</div>`);
                     return parts.join('');
@@ -2262,6 +2324,26 @@ function buildCustomTypeCharts(data, ct) {
                     data:{labels, datasets:[{data:vals, borderColor:cCol.main, backgroundColor:grad(ctx5,cCol),
                         borderWidth:2.5, pointBackgroundColor:cCol.main, pointRadius:3.5, fill:true, tension:0.35}]},
                     options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:t('axis_kg'),color:'#555870',font:{size:11}}}}}
+                });
+            }
+        }
+    }
+
+    // 6) Distance trend (if tracking distance)
+    if (ct.trackDistance) {
+        const withDist = data.filter(d => d.distances && d.distances.length);
+        if (withDist.length) {
+            const c6 = makeChartCard(t('chart_ct_distance'),t('chart_tag_line'),'ch-ct-disttrend',false);
+            container.appendChild(c6);
+            const ctx6 = document.getElementById('ch-ct-disttrend')?.getContext('2d');
+            if (ctx6) {
+                const labels = withDist.map(d => shortDate(d.date));
+                const vals = withDist.map(d => Math.max(...d.distances));
+                chartInstances['ch-ct-disttrend'] = new Chart(ctx6, {
+                    type:'line',
+                    data:{labels, datasets:[{data:vals, borderColor:cCol.main, backgroundColor:grad(ctx6,cCol),
+                        borderWidth:2.5, pointBackgroundColor:cCol.main, pointRadius:3.5, fill:true, tension:0.35}]},
+                    options:{...BASE, scales:{...BASE.scales, y:{...BASE.scales.y, title:{display:true,text:t('axis_distance'),color:'#555870',font:{size:11}}}}}
                 });
             }
         }
@@ -3114,6 +3196,7 @@ let ctSelectedColor = '#B4A8FF';
 let ctTrackTimes = true;
 let ctTrackCount = false;
 let ctTrackWeight = false;
+let ctTrackDistance = false;
 
 document.getElementById('btn-settings').addEventListener('click', () => {
     renderCustomTypesList();
@@ -3389,6 +3472,10 @@ function generateWeeklyPDF(weekVal) {
             const kgs = entries.map(e => e.customKg).filter(k => k > 0);
             if (kgs.length) detailLines.push(t('pdf_max') + ': ' + Math.max(...kgs) + 'kg   |   Ø ' + (kgs.reduce((a,b)=>a+b,0)/kgs.length).toFixed(1) + 'kg');
         }
+        if (ct && ct.trackDistance) {
+            const dists = entries.flatMap(e => e.distances || []).filter(d => d > 0);
+            if (dists.length) detailLines.push(t('pdf_best_distance') + ': ' + Math.max(...dists).toFixed(2) + 'm   |   Ø ' + (dists.reduce((a,b)=>a+b,0)/dists.length).toFixed(2) + 'm');
+        }
 
         const rowH = 8 + detailLines.length * 5;
         doc.setFillColor(...cardBg);
@@ -3468,6 +3555,7 @@ function generateWeeklyPDF(weekVal) {
         let detail = '';
         const detailParts = [];
         if (e.times && e.times.length) detailParts.push(e.times.map(t => t.toFixed(2) + 's').join(', '));
+        if (e.distances && e.distances.length) detailParts.push(e.distances.map(d => d.toFixed(2) + 'm').join(', '));
         if (e.joggenTimeSec) detailParts.push(Math.floor(e.joggenTimeSec/60) + ':' + String(e.joggenTimeSec%60).padStart(2,'0') + ' min');
         if (e.count) detailParts.push(e.count + ' ' + t('pdf_wdh'));
         if (e.customKg) detailParts.push(e.customKg + 'kg' + (e.customReps ? ' × ' + e.customReps + ' ' + t('pdf_wdh') : ''));
@@ -3583,6 +3671,18 @@ document.getElementById('ct-weight-no').addEventListener('click', () => {
     document.getElementById('ct-weight-yes').classList.remove('active');
 });
 
+// Distance toggle (independent)
+document.getElementById('ct-distance-yes').addEventListener('click', () => {
+    ctTrackDistance = true;
+    document.getElementById('ct-distance-yes').classList.add('active');
+    document.getElementById('ct-distance-no').classList.remove('active');
+});
+document.getElementById('ct-distance-no').addEventListener('click', () => {
+    ctTrackDistance = false;
+    document.getElementById('ct-distance-no').classList.add('active');
+    document.getElementById('ct-distance-yes').classList.remove('active');
+});
+
 function resetCtForm() {
     ctEditId = null;
     updateScTypeOptions();
@@ -3593,6 +3693,7 @@ function resetCtForm() {
     ctTrackTimes = true;
     ctTrackCount = false;
     ctTrackWeight = false;
+    ctTrackDistance = false;
     document.querySelectorAll('.ct-color-opt').forEach(o => o.classList.remove('selected'));
     document.querySelector('.ct-color-opt[data-color="#B4A8FF"]').classList.add('selected');
     document.getElementById('ct-times-yes').classList.add('active');
@@ -3601,6 +3702,8 @@ function resetCtForm() {
     document.getElementById('ct-count-no').classList.add('active');
     document.getElementById('ct-weight-yes').classList.remove('active');
     document.getElementById('ct-weight-no').classList.add('active');
+    document.getElementById('ct-distance-yes').classList.remove('active');
+    document.getElementById('ct-distance-no').classList.add('active');
     document.getElementById('ct-form-title').textContent = t('new_type');
     document.getElementById('ct-save').textContent = t('add_btn');
     document.getElementById('ct-cancel-edit').style.display = 'none';
@@ -3615,6 +3718,7 @@ document.getElementById('ct-save').addEventListener('click', () => {
     const trackTimes = ctTrackTimes;
     const trackCount = ctTrackCount;
     const trackWeight = ctTrackWeight;
+    const trackDistance = ctTrackDistance;
     const subcatsRaw = document.getElementById('ct-subcategories').value.trim();
     const subcategories = subcatsRaw ? subcatsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
 
@@ -3631,11 +3735,11 @@ document.getElementById('ct-save').addEventListener('click', () => {
         const idx = list.findIndex(ct => ct.id === ctEditId);
         if (idx >= 0) {
             if (list.some((ct, i) => i !== idx && ct.name === name)) { showToast(t('toast_name_taken')); return; }
-            list[idx] = { ...list[idx], name, emoji, color, subcategories, trackTimes, trackCount, trackWeight };
+            list[idx] = { ...list[idx], name, emoji, color, subcategories, trackTimes, trackCount, trackWeight, trackDistance };
         }
     } else {
         if (list.some(ct => ct.name === name)) { showToast(t('toast_name_taken')); return; }
-        list.push({ id: generateId(), name, emoji, color, subcategories, trackTimes, trackCount, trackWeight });
+        list.push({ id: generateId(), name, emoji, color, subcategories, trackTimes, trackCount, trackWeight, trackDistance });
     }
 
     saveCustomTypes(list);
@@ -3660,6 +3764,7 @@ function renderCustomTypesList() {
                 ${ct.trackTimes ? '<span class="ct-item-times">⏱️</span>' : ''}
                 ${ct.trackCount ? '<span class="ct-item-times">🔢</span>' : ''}
                 ${ct.trackWeight ? '<span class="ct-item-times">🏋️</span>' : ''}
+                ${ct.trackDistance ? '<span class="ct-item-times">📏</span>' : ''}
             </div>
             <div class="ct-item-actions">
                 <button class="btn-icon ct-edit-btn" data-ctid="${escapeHtml(ct.id)}" title="${t('edit_title')}">
@@ -3683,6 +3788,7 @@ function renderCustomTypesList() {
             ctTrackTimes = ct.trackTimes !== false;
             ctTrackCount = ct.trackCount === true;
             ctTrackWeight = ct.trackWeight === true;
+            ctTrackDistance = ct.trackDistance === true;
             document.querySelectorAll('.ct-color-opt').forEach(o => {
                 o.classList.toggle('selected', o.dataset.color === ctSelectedColor);
             });
@@ -3692,6 +3798,8 @@ function renderCustomTypesList() {
             document.getElementById('ct-count-no').classList.toggle('active', !ctTrackCount);
             document.getElementById('ct-weight-yes').classList.toggle('active', ctTrackWeight);
             document.getElementById('ct-weight-no').classList.toggle('active', !ctTrackWeight);
+            document.getElementById('ct-distance-yes').classList.toggle('active', ctTrackDistance);
+            document.getElementById('ct-distance-no').classList.toggle('active', !ctTrackDistance);
             document.getElementById('ct-form-title').textContent = t('edit_type');
             document.getElementById('ct-save').textContent = t('save_btn');
             document.getElementById('ct-cancel-edit').style.display = '';
@@ -3719,6 +3827,7 @@ function renderCustomTypesList() {
 let scTrackTimes = false;
 let scTrackCount = false;
 let scTrackWeight = false;
+let scTrackDistance = false;
 
 function updateScTypeOptions() {
     const sel = document.getElementById('sc-type');
@@ -3744,7 +3853,7 @@ function renderScList() {
         subs.forEach(s => {
             const name = scEntryName(s);
             const icons = typeof s === 'object'
-                ? (s.trackTimes ? '⏱️' : '') + (s.trackCount ? '🔢' : '') + (s.trackWeight ? '🏋️' : '')
+                ? (s.trackTimes ? '⏱️' : '') + (s.trackCount ? '🔢' : '') + (s.trackWeight ? '🏋️' : '') + (s.trackDistance ? '📏' : '')
                 : '';
             allEntries.push({ type, name, icons });
         });
@@ -3782,7 +3891,7 @@ function renderScList() {
 }
 
 function resetScForm() {
-    scTrackTimes = false; scTrackCount = false; scTrackWeight = false;
+    scTrackTimes = false; scTrackCount = false; scTrackWeight = false; scTrackDistance = false;
     document.getElementById('sc-name').value = '';
     document.getElementById('sc-times-yes').classList.remove('active');
     document.getElementById('sc-times-no').classList.add('active');
@@ -3790,6 +3899,8 @@ function resetScForm() {
     document.getElementById('sc-count-no').classList.add('active');
     document.getElementById('sc-weight-yes').classList.remove('active');
     document.getElementById('sc-weight-no').classList.add('active');
+    document.getElementById('sc-distance-yes').classList.remove('active');
+    document.getElementById('sc-distance-no').classList.add('active');
 }
 
 // SC tracking toggles
@@ -3824,6 +3935,18 @@ document.getElementById('sc-weight-no').addEventListener('click', () => {
     document.getElementById('sc-weight-yes').classList.remove('active');
 });
 
+// SC Distance toggle
+document.getElementById('sc-distance-yes').addEventListener('click', () => {
+    scTrackDistance = true;
+    document.getElementById('sc-distance-yes').classList.add('active');
+    document.getElementById('sc-distance-no').classList.remove('active');
+});
+document.getElementById('sc-distance-no').addEventListener('click', () => {
+    scTrackDistance = false;
+    document.getElementById('sc-distance-no').classList.add('active');
+    document.getElementById('sc-distance-yes').classList.remove('active');
+});
+
 document.getElementById('sc-add').addEventListener('click', () => {
     const type = document.getElementById('sc-type').value;
     const name = document.getElementById('sc-name').value.trim();
@@ -3832,7 +3955,7 @@ document.getElementById('sc-add').addEventListener('click', () => {
     const data = { ..._customSubcategories };
     if (!data[type]) data[type] = [];
     if (scEntryNames(type).includes(name)) { showToast(t('toast_exists')); return; }
-    data[type].push({ name, trackTimes: scTrackTimes, trackCount: scTrackCount, trackWeight: scTrackWeight });
+    data[type].push({ name, trackTimes: scTrackTimes, trackCount: scTrackCount, trackWeight: scTrackWeight, trackDistance: scTrackDistance });
     saveCustomSubcategories(data);
     resetScForm();
     renderScList();
@@ -3853,6 +3976,7 @@ document.getElementById('custom-category').addEventListener('change', () => {
         timesContainer.style.display = entry.trackTimes ? '' : 'none';
         countContainer.style.display = entry.trackCount ? '' : 'none';
         document.getElementById('ct-kg-container').style.display = entry.trackWeight ? '' : 'none';
+        distanceContainer.style.display = entry.trackDistance ? '' : 'none';
         if (entry.trackCount) document.querySelector('label[for="training-count"]').textContent = t('count_prefix');
     } else if (!cat) {
         // Revert to type defaults
@@ -3861,6 +3985,7 @@ document.getElementById('custom-category').addEventListener('change', () => {
             timesContainer.style.display = customType.trackTimes ? '' : 'none';
             countContainer.style.display = customType.trackCount ? '' : 'none';
             document.getElementById('ct-kg-container').style.display = customType.trackWeight ? '' : 'none';
+            distanceContainer.style.display = customType.trackDistance ? '' : 'none';
         }
     }
 });
