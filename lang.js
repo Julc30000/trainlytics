@@ -184,6 +184,8 @@ de: {
     // Custom type stats
     stat_custom_most_cat: 'Häufigste Kategorie',
     stat_custom_last: 'Letzte Einheit',
+    stat_best_distance: 'Beste Weite',
+    stat_avg_distance: 'Ø Weite',
 
     // Sprint/Tempo stats
     stat_pb: 'Beste Zeit',
@@ -703,6 +705,8 @@ ro: {
     stat_trend: 'Tendință',
 
     stat_custom_most_cat: 'Cea mai frecventă categorie',
+    stat_best_distance: 'Cea mai bună distanță',
+    stat_avg_distance: 'Ø Distanță',
     stat_custom_last: 'Ultima ședință',
 
     stat_pb: 'Cel mai bun timp',

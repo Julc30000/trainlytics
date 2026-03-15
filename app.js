@@ -201,6 +201,7 @@ function applyLanguage() {
         'stat-jog-trend': 'stat_trend', 'stat-jog-weekly': 'stat_avg_week',
         'stat-ct-sessions': 'stat_sessions', 'stat-ct-fav': 'stat_custom_most_cat',
         'stat-ct-weekly': 'stat_avg_week', 'stat-ct-last': 'stat_custom_last',
+        'stat-ct-best-dist': 'stat_best_distance', 'stat-ct-avg-dist': 'stat_avg_distance',
         'stat-best': 'stat_pb', 'stat-avg': 'stat_average',
         'stat-count': 'stat_sessions', 'stat-recent': 'stat_last5',
         'stat-trend': 'stat_trend', 'stat-worst': 'stat_worst',
@@ -2256,12 +2257,32 @@ function updateCustomTypeStats(data, ct) {
     const $ = id => document.getElementById(id);
     $('stat-ct-icon').textContent = ct.emoji || '📌';
     $('stat-ct-sessions').textContent = data.length;
+
+    // Distance stat cards — show/hide based on tracking
+    const showDist = ct.trackDistance === true;
+    $('stat-ct-best-dist-card').style.display = showDist ? '' : 'none';
+    $('stat-ct-avg-dist-card').style.display = showDist ? '' : 'none';
+
     if (!data.length) {
         $('stat-ct-fav').textContent = '--';
         $('stat-ct-weekly').textContent = '--';
         $('stat-ct-last').textContent = '--';
+        if (showDist) { $('stat-ct-best-dist').textContent = '--'; $('stat-ct-avg-dist').textContent = '--'; }
         return;
     }
+
+    // Distance stats
+    if (showDist) {
+        const allDists = data.flatMap(d => d.distances || []).filter(v => v > 0);
+        if (allDists.length) {
+            $('stat-ct-best-dist').textContent = Math.max(...allDists).toFixed(2) + 'm';
+            $('stat-ct-avg-dist').textContent = (allDists.reduce((a,b) => a+b, 0) / allDists.length).toFixed(2) + 'm';
+        } else {
+            $('stat-ct-best-dist').textContent = '--';
+            $('stat-ct-avg-dist').textContent = '--';
+        }
+    }
+
     // Most frequent subcategory
     if (ct.subcategories && ct.subcategories.length) {
         const freq = {};

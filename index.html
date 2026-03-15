@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=build036">
+    <link rel="stylesheet" href="styles.css?v=build037">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -697,6 +697,16 @@
                     <span class="stat-value" id="stat-ct-last">--</span>
                     <span class="stat-label">Letzte Einheit</span>
                 </div>
+                <div class="stat-card accent-teal" id="stat-ct-best-dist-card" style="display:none">
+                    <span class="stat-icon">🏅</span>
+                    <span class="stat-value" id="stat-ct-best-dist">--</span>
+                    <span class="stat-label">Beste Weite</span>
+                </div>
+                <div class="stat-card accent-gold" id="stat-ct-avg-dist-card" style="display:none">
+                    <span class="stat-icon">📊</span>
+                    <span class="stat-value" id="stat-ct-avg-dist">--</span>
+                    <span class="stat-label">Ø Weite</span>
+                </div>
             </div>
 
             <!-- Stats -->
@@ -1015,6 +1025,10 @@
                         <span class="ct-color-opt" data-color="#34D399" style="background:#34D399"></span>
                         <span class="ct-color-opt" data-color="#60A5FA" style="background:#60A5FA"></span>
                         <span class="ct-color-opt" data-color="#E879F9" style="background:#E879F9"></span>
+                        <span class="ct-color-opt" data-color="#F472B6" style="background:#F472B6"></span>
+                        <span class="ct-color-opt" data-color="#A78BFA" style="background:#A78BFA"></span>
+                        <span class="ct-color-opt" data-color="#2DD4BF" style="background:#2DD4BF"></span>
+                        <span class="ct-color-opt" data-color="#38BDF8" style="background:#38BDF8"></span>
                     </div>
                 </div>
                 <div class="form-group" id="ct-subcategories-group">
@@ -1118,7 +1132,7 @@
         </form>
     </div>
 
-    <script src="lang.js?v=build036"></script>
-    <script src="app.js?v=build036"></script>
+    <script src="lang.js?v=build037"></script>
+    <script src="app.js?v=build037"></script>
 </body>
 </html>
