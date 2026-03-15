@@ -395,8 +395,8 @@ function applyUserRestrictions(userName) {
         hFilter.innerHTML = '<option value="all">Alle</option><option value="Joggen (5km)">Joggen (5km)</option>';
         aType.innerHTML = '<option value="Allgemein">📊 Allgemein</option><option value="Joggen (5km)">🏃‍♀️ Joggen (5km)</option>';
     } else {
-        sel.innerHTML = '<option value="">-- Bitte wählen --</option><option value="Sprint (50m)">Sprint (50m)</option><option value="Tempolauf (120m)">Tempolauf (120m)</option><option value="Tempolauf (150m)">Tempolauf (150m)</option><option value="Kraft">Kraft</option><option value="Technik">Technik</option>';
-        hFilter.innerHTML = '<option value="all">Alle</option><option value="Sprint (50m)">Sprint (50m)</option><option value="Tempolauf (120m)">Tempolauf (120m)</option><option value="Tempolauf (150m)">Tempolauf (150m)</option><option value="Kraft">Kraft</option><option value="Technik">Technik</option>';
+        sel.innerHTML = '<option value="">-- Bitte wählen --</option><option value="Sprint (50m)">Sprint (50m)</option><option value="Tempolauf (120m)">Tempolauf (120m)</option><option value="Tempolauf (150m)">Tempolauf (150m)</option><option value="Kraft">Kraft</option><option value="Technik">Technik</option><option value="Pausetag">💤 Pausetag</option>';
+        hFilter.innerHTML = '<option value="all">Alle</option><option value="Sprint (50m)">Sprint (50m)</option><option value="Tempolauf (120m)">Tempolauf (120m)</option><option value="Tempolauf (150m)">Tempolauf (150m)</option><option value="Kraft">Kraft</option><option value="Technik">Technik</option><option value="Pausetag">💤 Pausetag</option>';
         aType.innerHTML = '<option value="Allgemein">📊 Allgemein</option><option value="Sprint (50m)">⚡ Sprint (50m)</option><option value="Tempolauf (120m)">🏃 Tempolauf (120m)</option><option value="Tempolauf (150m)">🏃 Tempolauf (150m)</option><option value="Kraft">💪 Kraft</option><option value="Technik">🎯 Technik</option>';
     }
     // Append custom training types to all dropdowns
@@ -428,6 +428,7 @@ trainingType.addEventListener('change', () => {
     const isJoggen = val === 'Joggen (5km)';
     const isSprint = val === 'Sprint (50m)';
     const isTechnik = val === 'Technik';
+    const isPause = val === 'Pausetag';
     const customType = getCustomType(val);
     document.getElementById('sprint-cat-group').style.display = isSprint ? '' : 'none';
     if (!isSprint) document.getElementById('sprint-category').value = '';
@@ -448,9 +449,10 @@ trainingType.addEventListener('change', () => {
     intensityGroup.style.display = isTempo ? '' : 'none';
     document.getElementById('kraft-container').style.display = isKraft ? '' : 'none';
     joggenContainer.style.display = isJoggen ? '' : 'none';
-    if (isKraft || isJoggen || isTechnik) {
+    if (isKraft || isJoggen || isTechnik || isPause) {
         timesContainer.style.display = 'none';
         countContainer.style.display = 'none';
+        document.getElementById('ct-kg-container').style.display = 'none';
         telemarkContainer.style.display = 'none';
     } else if (customType) {
         timesContainer.style.display = customType.trackTimes ? '' : 'none';
@@ -614,6 +616,7 @@ form.addEventListener('submit', e => {
     const isJoggen = type === 'Joggen (5km)';
     const isSprint = type === 'Sprint (50m)';
     const isTechnik = type === 'Technik';
+    const isPause = type === 'Pausetag';
     const customType = getCustomType(type);
     const intensity = isTempo ? trainingIntensity.value : '';
     const sprintCategory = isSprint ? document.getElementById('sprint-category').value : '';
@@ -627,6 +630,20 @@ form.addEventListener('submit', e => {
     if (isTechnik && !technikCategory) { showToast('Bitte Technik-Kategorie wählen'); return; }
     if (isTechnik && technikCategory === 'Sonstiges' && !technikCustom) { showToast('Bitte Beschreibung eingeben'); return; }
     if (customType && customType.subcategories && customType.subcategories.length && !customCategory) { showToast('Bitte Kategorie wählen'); return; }
+
+    // Pausetag — no data collection needed
+    if (isPause) {
+        const entry = { id: generateId(), date, time, type: 'Pausetag', intensity: '', sprintCategory: '', technikCategory: '', technikCustom: '', customCategory: '', times: [], count: null, telemarks: null, exercises: null, joggenTimeSec: null, customKg: null, customReps: null, notes };
+        const data = loadData();
+        data.unshift(entry);
+        saveData(data);
+        form.reset();
+        setDefaults();
+        document.getElementById('training-notes').value = '';
+        renderList();
+        showToast('Pausetag eingetragen 💤');
+        return;
+    }
 
     let times = [];
     let count = null;
@@ -789,6 +806,7 @@ function typeCss(type) {
     if (type === 'Kraft') return 'kraft';
     if (type === 'Technik') return 'technik';
     if (type.startsWith('Joggen')) return 'joggen';
+    if (type === 'Pausetag') return 'pausetag';
     if (getCustomType(type)) return 'custom-type';
     return 'tempo150';
 }
@@ -831,7 +849,9 @@ function renderList() {
                     ${en.intensity ? `<span class="intensity-badge">${escapeHtml(en.intensity)}</span>` : ''}
                 </div>
             </div>
-            ${en.type === 'Technik'
+            ${en.type === 'Pausetag'
+                ? '<div class="entry-notes" style="opacity:.6">Pausetag 💤</div>'
+                : en.type === 'Technik'
                 ? ''
                 : en.type === 'Kraft' && en.exercises
                 ? `<div class="entry-kraft">${Object.entries(en.exercises).map(([k,v]) => {
@@ -915,6 +935,7 @@ const COLORS = {
     'Kraft':              { main:'#F87171', bg:'rgba(248,113,113,0.18)', g1:'rgba(248,113,113,0.35)', g2:'rgba(248,113,113,0.02)' },
     'Technik':            { main:'#FB923C', bg:'rgba(251,146,60,0.18)',  g1:'rgba(251,146,60,0.35)',  g2:'rgba(251,146,60,0.02)' },
     'Joggen (5km)':       { main:'#34D399', bg:'rgba(52,211,153,0.18)',  g1:'rgba(52,211,153,0.35)',  g2:'rgba(52,211,153,0.02)' },
+    'Pausetag':           { main:'#F59E0B', bg:'rgba(245,158,11,0.18)',  g1:'rgba(245,158,11,0.35)',  g2:'rgba(245,158,11,0.02)' },
 };
 
 function hexToColorObj(hex) {
@@ -1076,13 +1097,16 @@ function updateGeneralStats() {
     const all = loadData();
     const season = getCurrentSeason();
     const seasonData = all.filter(d => d.date >= season.start && d.date <= season.end);
+    const seasonTraining = seasonData.filter(d => d.type !== 'Pausetag');
+    const seasonPause = seasonData.filter(d => d.type === 'Pausetag');
 
     $('stat-gen-season').textContent = season.label;
-    $('stat-gen-total').textContent = seasonData.length;
-    $('stat-gen-total-all').textContent = all.length;
+    $('stat-gen-total').textContent = seasonTraining.length;
+    $('stat-gen-total-all').textContent = all.filter(d => d.type !== 'Pausetag').length;
+    $('stat-gen-pause').textContent = seasonPause.length;
 
     // Avg per week (from tracking start)
-    const weeklyData = seasonData.filter(d => d.date >= WEEKLY_TRACK_START);
+    const weeklyData = seasonTraining.filter(d => d.date >= WEEKLY_TRACK_START);
     if (weeklyData.length) {
         const trackStart = new Date(WEEKLY_TRACK_START + 'T00:00:00');
         const now = new Date();
@@ -1092,9 +1116,10 @@ function updateGeneralStats() {
         $('stat-gen-weekly').textContent = '--';
     }
 
-    // Current weekly streak: consecutive weeks with at least 1 session
-    if (all.length) {
-        const sorted = [...all].sort((a, b) => b.date.localeCompare(a.date));
+    // Current weekly streak: consecutive weeks with at least 1 training session (excl. Pausetag)
+    const trainingAll = all.filter(d => d.type !== 'Pausetag');
+    if (trainingAll.length) {
+        const sorted = [...trainingAll].sort((a, b) => b.date.localeCompare(a.date));
         const weekKeys = [...new Set(sorted.map(d => getWeekKey(d.date)))].sort().reverse();
         // Current week
         const currentWeek = getWeekKey(new Date().toISOString().split('T')[0]);
@@ -1115,9 +1140,9 @@ function updateGeneralStats() {
         $('stat-gen-streak').textContent = '0';
     }
 
-    // Last session
-    if (all.length) {
-        const sorted = [...all].sort((a, b) => b.date.localeCompare(a.date));
+    // Last training session (excl. Pausetag)
+    if (trainingAll.length) {
+        const sorted = [...trainingAll].sort((a, b) => b.date.localeCompare(a.date));
         $('stat-gen-last').textContent = fmtDate(sorted[0].date);
     } else {
         $('stat-gen-last').textContent = '--';
@@ -1126,7 +1151,7 @@ function updateGeneralStats() {
 
 function buildGeneralCharts() {
     const container = getChartsContainer();
-    const all = loadData();
+    const all = loadData().filter(d => d.type !== 'Pausetag');
     if (!all.length) return;
 
     const sorted = [...all].sort((a, b) => a.date.localeCompare(b.date));
@@ -2546,10 +2571,6 @@ function resolveBase(val) {
 function applyBaseVisibility(hasBase) {
     document.getElementById('ct-emoji-group').style.display = hasBase ? 'none' : '';
     document.getElementById('ct-color-group').style.display = hasBase ? 'none' : '';
-    document.getElementById('ct-subcategories-group').style.display = hasBase ? 'none' : '';
-    document.getElementById('ct-times-group').style.display = hasBase ? 'none' : '';
-    document.getElementById('ct-count-group').style.display = hasBase ? 'none' : '';
-    document.getElementById('ct-weight-group').style.display = hasBase ? 'none' : '';
     const nameLabel = document.querySelector('#ct-name-group label');
     const nameInput = document.getElementById('ct-name');
     if (hasBase) {
@@ -2693,21 +2714,23 @@ function generateWeeklyPDF(weekVal) {
 
     // ---- Overview Cards ----
     y += 6;
+    const pauseDays = week.filter(e => e.type === 'Pausetag').length;
+    const training = week.filter(e => e.type !== 'Pausetag');
     const byType = {};
-    week.forEach(e => { (byType[e.type] = byType[e.type] || []).push(e); });
+    training.forEach(e => { (byType[e.type] = byType[e.type] || []).push(e); });
     const typeCount = Object.keys(byType).length;
 
     // All times across all timed types
-    const allTimedEntries = week.filter(e => e.times && e.times.length);
+    const allTimedEntries = training.filter(e => e.times && e.times.length);
     const allTimes = allTimedEntries.flatMap(e => e.times).filter(t => t > 0);
     const totalRuns = allTimes.length;
     const bestTime = totalRuns ? Math.min(...allTimes).toFixed(2) + 's' : '--';
 
     // Days trained
-    const daysSet = new Set(week.map(e => e.date));
+    const daysSet = new Set(training.map(e => e.date));
 
     const cards = [
-        { label: 'Einheiten', value: String(week.length), color: primary },
+        { label: 'Einheiten', value: String(training.length), color: primary },
         { label: 'Trainingsarten', value: String(typeCount), color: accent },
         { label: 'Trainingstage', value: String(daysSet.size) + '/7', color: [251, 191, 36] },
         { label: 'Beste Zeit', value: bestTime, color: [52, 211, 153] },
@@ -2735,6 +2758,15 @@ function generateWeeklyPDF(weekVal) {
     });
 
     y += cardH + 8;
+
+    // Pausetage note
+    if (pauseDays > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(251, 191, 36);
+        doc.text('💤 ' + pauseDays + ' Pausetag' + (pauseDays > 1 ? 'e' : ''), mg, y);
+        y += 6;
+    }
 
     // ---- Type Breakdown ----
     doc.setFont('helvetica', 'bold');
@@ -3042,7 +3074,7 @@ function resetCtForm() {
     document.getElementById('ct-cancel-edit').style.display = 'none';
 }
 
-// Base category selector — auto-fill emoji & color
+// Base category selector — auto-fill emoji & color, pre-fill toggles
 document.getElementById('ct-base').addEventListener('change', () => {
     const val = document.getElementById('ct-base').value;
     const base = resolveBase(val);
@@ -3055,6 +3087,12 @@ document.getElementById('ct-base').addEventListener('change', () => {
         document.querySelectorAll('.ct-color-opt').forEach(o => {
             o.classList.toggle('selected', o.dataset.color === ctSelectedColor);
         });
+        document.getElementById('ct-times-yes').classList.toggle('active', ctTrackTimes);
+        document.getElementById('ct-times-no').classList.toggle('active', !ctTrackTimes);
+        document.getElementById('ct-count-yes').classList.toggle('active', ctTrackCount);
+        document.getElementById('ct-count-no').classList.toggle('active', !ctTrackCount);
+        document.getElementById('ct-weight-yes').classList.toggle('active', ctTrackWeight);
+        document.getElementById('ct-weight-no').classList.toggle('active', !ctTrackWeight);
     } else {
         document.getElementById('ct-emoji').value = '';
     }
@@ -3069,10 +3107,10 @@ document.getElementById('ct-save').addEventListener('click', () => {
     const name = document.getElementById('ct-name').value.trim();
     const emoji = base ? base.emoji : document.getElementById('ct-emoji').value.trim();
     const color = base ? base.color : ctSelectedColor;
-    const trackTimes = base ? base.trackTimes : ctTrackTimes;
-    const trackCount = base ? base.trackCount : ctTrackCount;
-    const trackWeight = base ? base.trackWeight : ctTrackWeight;
-    const subcatsRaw = base ? '' : document.getElementById('ct-subcategories').value.trim();
+    const trackTimes = ctTrackTimes;
+    const trackCount = ctTrackCount;
+    const trackWeight = ctTrackWeight;
+    const subcatsRaw = document.getElementById('ct-subcategories').value.trim();
     const subcategories = subcatsRaw ? subcatsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
 
     if (!name) { showToast('Bitte Name eingeben'); return; }

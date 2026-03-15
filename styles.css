@@ -480,6 +480,7 @@ textarea { resize:vertical; min-height:48px; }
 .type-badge.tempo150 { background:rgba(251,191,36,0.15); color:var(--warning); }
 .type-badge.kraft { background:rgba(248,113,113,0.15); color:#F87171; }
 .type-badge.joggen { background:rgba(52,211,153,0.15); color:#34D399; }
+.type-badge.pausetag { background:rgba(245,158,11,0.15); color:#F59E0B; }
 
 /* Joggen input */
 .joggen-inputs { display:flex; gap:8px; align-items:center; }
@@ -635,6 +636,7 @@ textarea { resize:vertical; min-height:48px; }
 .accent-blue .stat-value { color:var(--blue); }
 .accent-green .stat-value { color:var(--success); }
 .accent-red .stat-value { color:var(--danger); }
+.accent-orange .stat-value { color:#F59E0B; }
 
 /* ---- Chart Cards ---- */
 .chart-header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px; }
