@@ -367,11 +367,24 @@ function applyLanguage() {
     const scNameLabel = document.querySelector('label[for="sc-name"]');
     if (scNameLabel) scNameLabel.textContent = t('new_subcat_label');
     document.getElementById('sc-name').placeholder = t('new_subcat_ph');
-
-    // Extend subcats heading
-    document.querySelectorAll('#tab-types .custom-type-form h4').forEach(h => {
-        if (h.textContent.match(/Unterkategorien|Extinde/)) h.textContent = t('extend_subcats');
-    });
+    // SC tracking labels
+    const scTimesLabel = document.querySelector('#sc-times-group > label');
+    if (scTimesLabel) scTimesLabel.textContent = t('track_times');
+    document.getElementById('sc-times-no').textContent = t('no');
+    document.getElementById('sc-times-yes').textContent = t('yes');
+    const scCountLabel = document.querySelector('#sc-count-group > label');
+    if (scCountLabel) scCountLabel.textContent = t('track_reps');
+    document.getElementById('sc-count-no').textContent = t('no');
+    document.getElementById('sc-count-yes').textContent = t('yes');
+    const scWeightLabel = document.querySelector('#sc-weight-group > label');
+    if (scWeightLabel) scWeightLabel.textContent = t('track_kg');
+    document.getElementById('sc-weight-no').textContent = t('no');
+    document.getElementById('sc-weight-yes').textContent = t('yes');
+    // Section titles
+    const scSectionTitle = document.getElementById('sc-section-title');
+    if (scSectionTitle) scSectionTitle.textContent = t('extend_subcats');
+    const htTitle = document.getElementById('hidden-types-title');
+    if (htTitle) htTitle.textContent = t('hide_types_title');
 
     // Select options that need translation (type selectors)
     ['training-type', 'history-filter', 'analytics-type'].forEach(selId => {
@@ -582,6 +595,9 @@ async function loadCustomTypesFromFirestore(user) {
             if (doc.data().customSubcategories) {
                 _customSubcategories = doc.data().customSubcategories;
             }
+            if (doc.data().hiddenTypes) {
+                _hiddenTypes = doc.data().hiddenTypes;
+            }
         } else {
             loadCustomTypes();
         }
@@ -589,6 +605,7 @@ async function loadCustomTypesFromFirestore(user) {
 }
 
 let _customSubcategories = {};
+let _hiddenTypes = [];
 
 function saveCustomSubcategories(data) {
     _customSubcategories = data;
@@ -596,6 +613,18 @@ function saveCustomSubcategories(data) {
     db.collection('users').doc(currentUser.toLowerCase().trim())
       .set({ customSubcategories: data }, { merge: true }).catch(() => {});
 }
+
+function saveHiddenTypes(list) {
+    _hiddenTypes = list;
+    if (!currentUser) return;
+    db.collection('users').doc(currentUser.toLowerCase().trim())
+      .set({ hiddenTypes: list }, { merge: true }).catch(() => {});
+}
+
+// Subcategory entry helpers (backward compat: entries can be string or {name, trackTimes, trackCount, trackWeight})
+function scEntryName(entry) { return typeof entry === 'string' ? entry : (entry.name || ''); }
+function scEntryNames(type) { return (_customSubcategories[type] || []).map(scEntryName); }
+function scFindEntry(type, name) { return (_customSubcategories[type] || []).find(e => scEntryName(e) === name); }
 
 function getCustomType(typeName) {
     return _customTypes.find(ct => ct.name === typeName);
@@ -640,6 +669,11 @@ function startListener(user) {
             // Sync custom subcategories
             if (data.customSubcategories) {
                 _customSubcategories = data.customSubcategories;
+            }
+            // Sync hidden types
+            if (data.hiddenTypes) {
+                _hiddenTypes = data.hiddenTypes;
+                applyUserRestrictions(currentUser);
             }
         }
     });
@@ -817,6 +851,7 @@ document.getElementById('btn-logout').addEventListener('click', () => {
     _competitions = [];
     _injuries = [];
     _customTypes = [];
+    _hiddenTypes = [];
     resetAppUI();
     loginScreen.style.display = '';
     loginScreen.classList.remove('fade-in');
@@ -881,26 +916,27 @@ function applyUserRestrictions(userName) {
         hFilter.innerHTML = '<option value="all">' + escapeHtml(t('filter_all')) + '</option><option value="Joggen (5km)">' + escapeHtml(translateType('Joggen (5km)')) + '</option>';
         aType.innerHTML = '<option value="Allgemein">📊 ' + escapeHtml(t('general')) + '</option><option value="Joggen (5km)">🏃‍♀️ ' + escapeHtml(translateType('Joggen (5km)')) + '</option>';
     } else {
+        const biTraining = [
+            {v:'Sprint (50m)', l:translateType('Sprint (50m)')},
+            {v:'Tempolauf (120m)', l:translateType('Tempolauf (120m)')},
+            {v:'Tempolauf (150m)', l:translateType('Tempolauf (150m)')},
+            {v:'Kraft', l:translateType('Kraft')},
+            {v:'Technik', l:translateType('Technik')},
+            {v:'Pausetag', l:translateType('Pausetag')},
+        ].filter(bt => !_hiddenTypes.includes(bt.v));
+        const biAnalytics = [
+            {v:'Sprint (50m)', e:'⚡'},
+            {v:'Tempolauf (120m)', e:'🏃'},
+            {v:'Tempolauf (150m)', e:'🏃'},
+            {v:'Kraft', e:'💪'},
+            {v:'Technik', e:'🎯'},
+        ].filter(bt => !_hiddenTypes.includes(bt.v));
         sel.innerHTML = '<option value="">' + escapeHtml(t('please_select')) + '</option>' +
-            '<option value="Sprint (50m)">' + escapeHtml(translateType('Sprint (50m)')) + '</option>' +
-            '<option value="Tempolauf (120m)">' + escapeHtml(translateType('Tempolauf (120m)')) + '</option>' +
-            '<option value="Tempolauf (150m)">' + escapeHtml(translateType('Tempolauf (150m)')) + '</option>' +
-            '<option value="Kraft">' + escapeHtml(translateType('Kraft')) + '</option>' +
-            '<option value="Technik">' + escapeHtml(translateType('Technik')) + '</option>' +
-            '<option value="Pausetag">' + escapeHtml(translateType('Pausetag')) + '</option>';
+            biTraining.map(bt => '<option value="' + escapeHtml(bt.v) + '">' + escapeHtml(bt.l) + '</option>').join('');
         hFilter.innerHTML = '<option value="all">' + escapeHtml(t('filter_all')) + '</option>' +
-            '<option value="Sprint (50m)">' + escapeHtml(translateType('Sprint (50m)')) + '</option>' +
-            '<option value="Tempolauf (120m)">' + escapeHtml(translateType('Tempolauf (120m)')) + '</option>' +
-            '<option value="Tempolauf (150m)">' + escapeHtml(translateType('Tempolauf (150m)')) + '</option>' +
-            '<option value="Kraft">' + escapeHtml(translateType('Kraft')) + '</option>' +
-            '<option value="Technik">' + escapeHtml(translateType('Technik')) + '</option>' +
-            '<option value="Pausetag">' + escapeHtml(translateType('Pausetag')) + '</option>';
+            biTraining.map(bt => '<option value="' + escapeHtml(bt.v) + '">' + escapeHtml(bt.l) + '</option>').join('');
         aType.innerHTML = '<option value="Allgemein">📊 ' + escapeHtml(t('general')) + '</option>' +
-            '<option value="Sprint (50m)">⚡ ' + escapeHtml(translateType('Sprint (50m)')) + '</option>' +
-            '<option value="Tempolauf (120m)">🏃 ' + escapeHtml(translateType('Tempolauf (120m)')) + '</option>' +
-            '<option value="Tempolauf (150m)">🏃 ' + escapeHtml(translateType('Tempolauf (150m)')) + '</option>' +
-            '<option value="Kraft">💪 ' + escapeHtml(translateType('Kraft')) + '</option>' +
-            '<option value="Technik">🎯 ' + escapeHtml(translateType('Technik')) + '</option>';
+            biAnalytics.map(bt => '<option value="' + escapeHtml(bt.v) + '">' + bt.e + ' ' + escapeHtml(translateType(bt.v)) + '</option>').join('');
     }
     // Append custom training types to all dropdowns
     _customTypes.forEach(ct => {
@@ -937,7 +973,7 @@ trainingType.addEventListener('change', () => {
     if (isSprint) {
         const sprintSel = document.getElementById('sprint-category');
         const builtIn = ['Locker', 'Sub-Max', 'Max', 'Seil'];
-        const custom = _customSubcategories['Sprint (50m)'] || [];
+        const custom = scEntryNames('Sprint (50m)');
         sprintSel.innerHTML = '<option value="">-- ' + t('please_select') + ' --</option>' +
             [...builtIn, ...custom].map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('');
         document.getElementById('sprint-cat-group').style.display = '';
@@ -949,7 +985,7 @@ trainingType.addEventListener('change', () => {
     if (isTechnik) {
         const technikSel = document.getElementById('technik-category');
         const builtIn = ['Hütchen', 'Schirm'];
-        const custom = _customSubcategories['Technik'] || [];
+        const custom = scEntryNames('Technik');
         technikSel.innerHTML = '<option value="">-- ' + t('please_select') + ' --</option>' +
             [...builtIn, ...custom].map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('') +
             '<option value="Sonstiges">' + t('cat_sonstiges') + '</option>';
@@ -962,7 +998,7 @@ trainingType.addEventListener('change', () => {
     // Custom type subcategory OR built-in type custom subcategories
     const customCatGroup = document.getElementById('custom-cat-group');
     const customCatSel = document.getElementById('custom-category');
-    const builtInCustomSubs = (!customType && !isSprint && !isTechnik) ? (_customSubcategories[val] || []) : [];
+    const builtInCustomSubs = (!customType && !isSprint && !isTechnik) ? scEntryNames(val) : [];
     if (customType && customType.subcategories && customType.subcategories.length) {
         customCatSel.innerHTML = '<option value="">-- ' + t('please_select') + ' --</option>' +
             customType.subcategories.map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('');
@@ -1151,7 +1187,7 @@ form.addEventListener('submit', e => {
     const sprintCategory = isSprint ? document.getElementById('sprint-category').value : '';
     const technikCategory = isTechnik ? document.getElementById('technik-category').value : '';
     const technikCustom = (isTechnik && technikCategory === 'Sonstiges') ? document.getElementById('technik-custom').value.trim() : '';
-    const customCategory = (customType || (!isSprint && !isTechnik && (_customSubcategories[type] || []).length)) ? document.getElementById('custom-category').value : '';
+    const customCategory = (customType || (!isSprint && !isTechnik && scEntryNames(type).length)) ? document.getElementById('custom-category').value : '';
     const isCountMode = intensity === 'NI';
 
     if (isTempo && !intensity) { showToast(t('toast_select_intensity')); return; }
@@ -1159,7 +1195,7 @@ form.addEventListener('submit', e => {
     if (isTechnik && !technikCategory) { showToast(t('toast_select_technik_cat')); return; }
     if (isTechnik && technikCategory === 'Sonstiges' && !technikCustom) { showToast(t('toast_enter_description')); return; }
     if (customType && customType.subcategories && customType.subcategories.length && !customCategory) { showToast(t('toast_select_category')); return; }
-    if (!customType && !isSprint && !isTechnik && (_customSubcategories[type] || []).length && !customCategory) { showToast(t('toast_select_category')); return; }
+    if (!customType && !isSprint && !isTechnik && scEntryNames(type).length && !customCategory) { showToast(t('toast_select_category')); return; }
 
     // Pausetag — no data collection needed
     if (isPause) {
@@ -1226,8 +1262,12 @@ form.addEventListener('submit', e => {
     } else if (isTechnik) {
         // Technik has no times/count — just category + notes
     } else if (customType) {
-        // Custom type: optionally track times or count
-        if (customType.trackTimes) {
+        // Custom type: check for subcategory tracking override
+        const scOverride = customCategory ? scFindEntry(type, customCategory) : null;
+        const effTimes = (scOverride && typeof scOverride === 'object') ? scOverride.trackTimes : customType.trackTimes;
+        const effCount = (scOverride && typeof scOverride === 'object') ? scOverride.trackCount : customType.trackCount;
+        const effWeight = (scOverride && typeof scOverride === 'object') ? scOverride.trackWeight : customType.trackWeight;
+        if (effTimes) {
             const inputs = timesList.querySelectorAll('.time-input');
             let ok = true;
             inputs.forEach(inp => {
@@ -1237,11 +1277,11 @@ form.addEventListener('submit', e => {
             });
             if (!ok || !times.length) { showToast(t('toast_valid_times')); return; }
         }
-        if (customType.trackCount) {
+        if (effCount) {
             count = parseInt(document.getElementById('training-count').value, 10);
             if (!count || count < 1) { showToast(t('toast_enter_count')); return; }
         }
-        if (customType.trackWeight) {
+        if (effWeight) {
             const kgVal = parseFloat(document.getElementById('ct-kg-value').value);
             const repsVal = parseInt(document.getElementById('ct-kg-reps').value, 10);
             if (!kgVal || kgVal <= 0) { showToast(t('toast_enter_kg')); return; }
@@ -1406,11 +1446,10 @@ function renderList() {
                 ? `<div class="entry-times"><span class="time-chip joggen-chip">${fmtJoggenTime(en.joggenTimeSec)}</span></div>`
                 : getCustomType(en.type)
                 ? (() => {
-                    const _ct = getCustomType(en.type);
                     let parts = [];
-                    if (_ct.trackTimes && en.times && en.times.length) parts.push(`<div class="entry-times">${en.times.map(t=>`<span class="time-chip">${escapeHtml(String(t))}s</span>`).join('')}</div>`);
-                    if (_ct.trackCount && en.count) parts.push(`<div class="entry-count">${t('count_prefix')}: <strong>${en.count}</strong></div>`);
-                    if (_ct.trackWeight && en.customKg) parts.push(`<div class="entry-count">${en.customKg}kg${en.customReps ? ' × ' + en.customReps + ' ' + t('reps_short') : ''}</div>`);
+                    if (en.times && en.times.length) parts.push(`<div class="entry-times">${en.times.map(t=>`<span class="time-chip">${escapeHtml(String(t))}s</span>`).join('')}</div>`);
+                    if (en.count) parts.push(`<div class="entry-count">${t('count_prefix')}: <strong>${en.count}</strong></div>`);
+                    if (en.customKg) parts.push(`<div class="entry-count">${en.customKg}kg${en.customReps ? ' × ' + en.customReps + ' ' + t('reps_short') : ''}</div>`);
                     return parts.join('');
                   })()
                 : en.intensity === 'NI'
@@ -3152,6 +3191,8 @@ document.getElementById('btn-settings').addEventListener('click', () => {
     document.getElementById('tab-report').classList.add('active');
     ctModal.classList.add('show');
     renderScList();
+    updateScTypeOptions();
+    renderHiddenTypesUI();
 });
 
 // Tab switching
@@ -3596,6 +3637,7 @@ document.getElementById('ct-weight-no').addEventListener('click', () => {
 function resetCtForm() {
     ctEditId = null;
     updateCtBaseOptions();
+    updateScTypeOptions();
     document.getElementById('ct-base').value = '';
     document.getElementById('ct-name').value = '';
     document.getElementById('ct-emoji').value = '';
@@ -3761,11 +3803,38 @@ function renderCustomTypesList() {
 // ================================================================
 //  CUSTOM SUBCATEGORIES MANAGEMENT
 // ================================================================
+let scTrackTimes = false;
+let scTrackCount = false;
+let scTrackWeight = false;
+
+function updateScTypeOptions() {
+    const sel = document.getElementById('sc-type');
+    const curVal = sel.value;
+    const BUILT_IN = [
+        {v:'Sprint (50m)', e:'⚡'}, {v:'Tempolauf (120m)', e:'🏃'}, {v:'Tempolauf (150m)', e:'🏃'},
+        {v:'Kraft', e:'💪'}, {v:'Technik', e:'🎯'}, {v:'Joggen (5km)', e:'🏃‍♀️'}
+    ];
+    sel.innerHTML = BUILT_IN.map(bt => '<option value="' + escapeHtml(bt.v) + '">' + bt.e + ' ' + escapeHtml(bt.v) + '</option>').join('');
+    _customTypes.forEach(ct => {
+        const opt = document.createElement('option');
+        opt.value = ct.name;
+        opt.textContent = (ct.emoji || '📌') + ' ' + ct.name;
+        sel.appendChild(opt);
+    });
+    if (curVal) sel.value = curVal;
+}
+
 function renderScList() {
     const scListEl = document.getElementById('sc-list');
     const allEntries = [];
     Object.entries(_customSubcategories).forEach(([type, subs]) => {
-        subs.forEach(s => allEntries.push({ type, name: s }));
+        subs.forEach(s => {
+            const name = scEntryName(s);
+            const icons = typeof s === 'object'
+                ? (s.trackTimes ? '⏱️' : '') + (s.trackCount ? '🔢' : '') + (s.trackWeight ? '🏋️' : '')
+                : '';
+            allEntries.push({ type, name, icons });
+        });
     });
     if (!allEntries.length) {
         scListEl.innerHTML = '<p style="color:var(--text-tertiary);font-size:13px;text-align:center;padding:4px 0">' + t('no_custom_subcats') + '</p>';
@@ -3776,6 +3845,7 @@ function renderScList() {
             <div class="ct-item-info">
                 <span class="ct-item-name" style="font-size:12px">${escapeHtml(e.type)}</span>
                 <span class="ct-item-subs" style="margin-left:6px">${escapeHtml(e.name)}</span>
+                ${e.icons ? '<span class="ct-item-times" style="margin-left:4px">' + e.icons + '</span>' : ''}
             </div>
             <button class="btn-icon sc-del-btn" data-type="${escapeHtml(e.type)}" data-name="${escapeHtml(e.name)}" title="${t('remove_label')}">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
@@ -3788,7 +3858,7 @@ function renderScList() {
             const name = btn.dataset.name;
             const data = { ..._customSubcategories };
             if (data[type]) {
-                data[type] = data[type].filter(s => s !== name);
+                data[type] = data[type].filter(s => scEntryName(s) !== name);
                 if (!data[type].length) delete data[type];
             }
             saveCustomSubcategories(data);
@@ -3798,6 +3868,49 @@ function renderScList() {
     });
 }
 
+function resetScForm() {
+    scTrackTimes = false; scTrackCount = false; scTrackWeight = false;
+    document.getElementById('sc-name').value = '';
+    document.getElementById('sc-times-yes').classList.remove('active');
+    document.getElementById('sc-times-no').classList.add('active');
+    document.getElementById('sc-count-yes').classList.remove('active');
+    document.getElementById('sc-count-no').classList.add('active');
+    document.getElementById('sc-weight-yes').classList.remove('active');
+    document.getElementById('sc-weight-no').classList.add('active');
+}
+
+// SC tracking toggles
+document.getElementById('sc-times-yes').addEventListener('click', () => {
+    scTrackTimes = true;
+    document.getElementById('sc-times-yes').classList.add('active');
+    document.getElementById('sc-times-no').classList.remove('active');
+});
+document.getElementById('sc-times-no').addEventListener('click', () => {
+    scTrackTimes = false;
+    document.getElementById('sc-times-no').classList.add('active');
+    document.getElementById('sc-times-yes').classList.remove('active');
+});
+document.getElementById('sc-count-yes').addEventListener('click', () => {
+    scTrackCount = true;
+    document.getElementById('sc-count-yes').classList.add('active');
+    document.getElementById('sc-count-no').classList.remove('active');
+});
+document.getElementById('sc-count-no').addEventListener('click', () => {
+    scTrackCount = false;
+    document.getElementById('sc-count-no').classList.add('active');
+    document.getElementById('sc-count-yes').classList.remove('active');
+});
+document.getElementById('sc-weight-yes').addEventListener('click', () => {
+    scTrackWeight = true;
+    document.getElementById('sc-weight-yes').classList.add('active');
+    document.getElementById('sc-weight-no').classList.remove('active');
+});
+document.getElementById('sc-weight-no').addEventListener('click', () => {
+    scTrackWeight = false;
+    document.getElementById('sc-weight-no').classList.add('active');
+    document.getElementById('sc-weight-yes').classList.remove('active');
+});
+
 document.getElementById('sc-add').addEventListener('click', () => {
     const type = document.getElementById('sc-type').value;
     const name = document.getElementById('sc-name').value.trim();
@@ -3805,12 +3918,67 @@ document.getElementById('sc-add').addEventListener('click', () => {
     if (name.length > 30) { showToast(t('toast_name_too_long')); return; }
     const data = { ..._customSubcategories };
     if (!data[type]) data[type] = [];
-    if (data[type].includes(name)) { showToast(t('toast_exists')); return; }
-    data[type].push(name);
+    if (scEntryNames(type).includes(name)) { showToast(t('toast_exists')); return; }
+    data[type].push({ name, trackTimes: scTrackTimes, trackCount: scTrackCount, trackWeight: scTrackWeight });
     saveCustomSubcategories(data);
-    document.getElementById('sc-name').value = '';
+    resetScForm();
     renderScList();
     showToast(t('toast_added'));
+});
+
+// ================================================================
+//  HIDDEN TYPES MANAGEMENT
+// ================================================================
+function renderHiddenTypesUI() {
+    const container = document.getElementById('hidden-types-list');
+    const BI = [
+        {v:'Sprint (50m)', e:'⚡'}, {v:'Tempolauf (120m)', e:'🏃'}, {v:'Tempolauf (150m)', e:'🏃'},
+        {v:'Kraft', e:'💪'}, {v:'Technik', e:'🎯'}, {v:'Joggen (5km)', e:'🏃‍♀️'}, {v:'Pausetag', e:'🛌'}
+    ];
+    container.innerHTML = '<p style="color:var(--text-tertiary);font-size:12px;margin-bottom:8px">' + t('hide_types_hint') + '</p>' +
+        BI.map(bt => {
+            const hidden = _hiddenTypes.includes(bt.v);
+            return '<label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;font-size:13px;color:var(--text-primary)">' +
+                '<input type="checkbox" class="ht-checkbox" data-type="' + escapeHtml(bt.v) + '" ' + (hidden ? '' : 'checked') + '>' +
+                '<span>' + bt.e + ' ' + escapeHtml(translateType(bt.v)) + '</span></label>';
+        }).join('');
+    container.querySelectorAll('.ht-checkbox').forEach(cb => {
+        cb.addEventListener('change', () => {
+            const type = cb.dataset.type;
+            if (cb.checked) {
+                _hiddenTypes = _hiddenTypes.filter(t => t !== type);
+            } else {
+                if (!_hiddenTypes.includes(type)) _hiddenTypes.push(type);
+            }
+            saveHiddenTypes(_hiddenTypes);
+            applyUserRestrictions(currentUser);
+        });
+    });
+}
+
+// Subcategory tracking override for custom-category dropdown
+document.getElementById('custom-category').addEventListener('change', () => {
+    const type = document.getElementById('training-type').value;
+    const cat = document.getElementById('custom-category').value;
+    const isTempo = type.startsWith('Tempolauf');
+    const isKraft = type === 'Kraft';
+    const isJoggen = type === 'Joggen (5km)';
+    // Don't override for types with specialized form handling
+    if (isTempo || isKraft || isJoggen) return;
+    const entry = cat ? scFindEntry(type, cat) : null;
+    if (entry && typeof entry === 'object') {
+        timesContainer.style.display = entry.trackTimes ? '' : 'none';
+        countContainer.style.display = entry.trackCount ? '' : 'none';
+        document.getElementById('ct-kg-container').style.display = entry.trackWeight ? '' : 'none';
+    } else if (!cat) {
+        // Revert to type defaults
+        const customType = getCustomType(type);
+        if (customType) {
+            timesContainer.style.display = customType.trackTimes ? '' : 'none';
+            countContainer.style.display = customType.trackCount ? '' : 'none';
+            document.getElementById('ct-kg-container').style.display = customType.trackWeight ? '' : 'none';
+        }
+    }
 });
 
 // ================================================================
@@ -3879,18 +4047,18 @@ document.getElementById('add-type-btn').addEventListener('click', () => {
 
         if (val === 'Sprint (50m)') {
             const builtIn = ['Locker', 'Sub-Max', 'Max', 'Seil'];
-            const custom = _customSubcategories['Sprint (50m)'] || [];
+            const custom = scEntryNames('Sprint (50m)');
             options = [...builtIn, ...custom];
         } else if (val === 'Technik') {
             const builtIn = ['Hütchen', 'Schirm'];
-            const custom = _customSubcategories['Technik'] || [];
+            const custom = scEntryNames('Technik');
             options = [...builtIn, ...custom, 'Sonstiges'];
         } else {
             const ct = getCustomType(val);
             if (ct && ct.subcategories && ct.subcategories.length) {
                 options = ct.subcategories;
             } else {
-                const custom = _customSubcategories[val] || [];
+                const custom = scEntryNames(val);
                 if (custom.length) options = custom;
             }
         }

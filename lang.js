@@ -279,6 +279,8 @@ de: {
     extend_subcats: 'Unterkategorien erweitern',
     new_subcat_label: 'Neue Unterkategorie',
     new_subcat_ph: 'z.B. Hürden, Staffel',
+    hide_types_title: 'Trainingsarten ausblenden',
+    hide_types_hint: 'Deaktivierte Typen erscheinen nicht im Trainingsformular.',
 
     // Toast messages
     toast_pw_required: 'Bitte Passwort eingeben',
@@ -786,6 +788,8 @@ ro: {
     extend_subcats: 'Extinde subcategoriile',
     new_subcat_label: 'Subcategorie nouă',
     new_subcat_ph: 'ex. Garduri, Ștafetă',
+    hide_types_title: 'Ascunde tipuri antrenament',
+    hide_types_hint: 'Tipurile dezactivate nu apar în formularul de antrenament.',
 
     toast_pw_required: 'Te rog introdu parola',
     toast_pw_wrong: 'Parolă greșită',

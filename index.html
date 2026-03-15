@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=build028">
+    <link rel="stylesheet" href="styles.css?v=build029">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -1041,26 +1041,44 @@
 
             <!-- Subcategory management -->
             <div class="custom-type-form" style="margin-top:16px">
-                <h4>Unterkategorien erweitern</h4>
+                <h4 id="sc-section-title">Unterkategorien erweitern</h4>
                 <div class="form-group">
                     <label for="sc-type">Trainingsart</label>
-                    <select id="sc-type">
-                        <option value="Sprint (50m)">⚡ Sprint (50m)</option>
-                        <option value="Tempolauf (120m)">🏃 Tempolauf (120m)</option>
-                        <option value="Tempolauf (150m)">🏃 Tempolauf (150m)</option>
-                        <option value="Kraft">💪 Kraft</option>
-                        <option value="Technik">🎯 Technik</option>
-                        <option value="Joggen (5km)">🏃‍♀️ Joggen (5km)</option>
-                    </select>
+                    <select id="sc-type"></select>
                 </div>
-                <div style="display:flex;gap:8px;align-items:flex-end">
-                    <div class="form-group" style="flex:1;margin-bottom:0">
-                        <label for="sc-name">Neue Unterkategorie</label>
-                        <input type="text" id="sc-name" placeholder="z.B. Hürden, Staffel" maxlength="30" autocomplete="off">
+                <div class="form-group">
+                    <label for="sc-name">Neue Unterkategorie</label>
+                    <input type="text" id="sc-name" placeholder="z.B. Hürden, Staffel" maxlength="30" autocomplete="off">
+                </div>
+                <div class="form-group" id="sc-times-group">
+                    <label>Zeiten erfassen?</label>
+                    <div class="toggle-row">
+                        <button type="button" class="toggle-btn active" id="sc-times-no" data-val="no">Nein</button>
+                        <button type="button" class="toggle-btn" id="sc-times-yes" data-val="yes">Ja</button>
                     </div>
-                    <button type="button" class="btn-primary" id="sc-add" style="height:38px;padding:0 14px;white-space:nowrap">+ Hinzufügen</button>
                 </div>
+                <div class="form-group" id="sc-count-group">
+                    <label>Wiederholungen erfassen?</label>
+                    <div class="toggle-row">
+                        <button type="button" class="toggle-btn active" id="sc-count-no" data-val="no">Nein</button>
+                        <button type="button" class="toggle-btn" id="sc-count-yes" data-val="yes">Ja</button>
+                    </div>
+                </div>
+                <div class="form-group" id="sc-weight-group">
+                    <label>Kilogramm erfassen?</label>
+                    <div class="toggle-row">
+                        <button type="button" class="toggle-btn active" id="sc-weight-no" data-val="no">Nein</button>
+                        <button type="button" class="toggle-btn" id="sc-weight-yes" data-val="yes">Ja</button>
+                    </div>
+                </div>
+                <button type="button" class="btn-primary" id="sc-add" style="width:100%">+ Hinzufügen</button>
                 <div id="sc-list" style="margin-top:10px"></div>
+            </div>
+
+            <!-- Hidden types management -->
+            <div class="custom-type-form" style="margin-top:16px">
+                <h4 id="hidden-types-title">Trainingsarten ausblenden</h4>
+                <div id="hidden-types-list"></div>
             </div>
             </div><!-- /tab-types -->
 
@@ -1082,7 +1100,7 @@
         </form>
     </div>
 
-    <script src="lang.js?v=build028"></script>
-    <script src="app.js?v=build028"></script>
+    <script src="lang.js?v=build029"></script>
+    <script src="app.js?v=build029"></script>
 </body>
 </html>
