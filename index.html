@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=build025">
+    <link rel="stylesheet" href="styles.css?v=build026">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -1064,7 +1064,26 @@
         </div>
     </div>
 
-    <script src="lang.js?v=build025"></script>
-    <script src="app.js?v=build025"></script>
+    <!-- ============ CHAT POPUP ============ -->
+    <button class="chat-fab" id="chat-fab" style="display:none" title="Chat">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+    </button>
+    <div class="chat-popup" id="chat-popup" style="display:none">
+        <div class="chat-header">
+            <span class="chat-title" data-i18n="chat_title">📊 Daten-Chat</span>
+            <button class="chat-close" id="chat-close">&times;</button>
+        </div>
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-suggestions" id="chat-suggestions"></div>
+        <form class="chat-input-row" id="chat-form">
+            <input type="text" id="chat-input" data-i18n-ph="chat_placeholder" placeholder="Frag etwas über deine Daten…" autocomplete="off" maxlength="200">
+            <button type="submit" class="chat-send">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+        </form>
+    </div>
+
+    <script src="lang.js?v=build026"></script>
+    <script src="app.js?v=build026"></script>
 </body>
 </html>

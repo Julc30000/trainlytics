@@ -4804,3 +4804,408 @@ document.getElementById('plan-prev')?.addEventListener('click', () => {
 document.getElementById('plan-next')?.addEventListener('click', () => {
     if (_athletePlanIdx < _athletePlans.length - 1) { _athletePlanIdx++; renderAthletePlan(); }
 });
+
+// ================================================================
+//  DATA CHAT (Rule-based)
+// ================================================================
+(function() {
+    const fab = document.getElementById('chat-fab');
+    const popup = document.getElementById('chat-popup');
+    const closeBtn = document.getElementById('chat-close');
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const messagesEl = document.getElementById('chat-messages');
+    const suggestionsEl = document.getElementById('chat-suggestions');
+
+    if (!fab || !popup) return;
+
+    fab.addEventListener('click', () => {
+        fab.style.display = 'none';
+        popup.style.display = 'flex';
+        if (!messagesEl.children.length) {
+            addBotMessage(t('chat_welcome'));
+            showSuggestions();
+        }
+        chatInput.focus();
+    });
+    closeBtn.addEventListener('click', () => {
+        popup.style.display = 'none';
+        fab.style.display = 'flex';
+    });
+
+    function addBotMessage(html) {
+        const d = document.createElement('div');
+        d.className = 'chat-msg bot';
+        d.innerHTML = html;
+        messagesEl.appendChild(d);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+    function addUserMessage(text) {
+        const d = document.createElement('div');
+        d.className = 'chat-msg user';
+        d.textContent = text;
+        messagesEl.appendChild(d);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function showSuggestions() {
+        const keys = [
+            'chat_q_total', 'chat_q_rest', 'chat_q_streak',
+            'chat_q_types', 'chat_q_month', 'chat_q_pb'
+        ];
+        suggestionsEl.innerHTML = keys.map(k => {
+            const text = t(k);
+            return `<button type="button" class="chat-suggestion">${text}</button>`;
+        }).join('');
+        suggestionsEl.querySelectorAll('.chat-suggestion').forEach(btn => {
+            btn.addEventListener('click', () => {
+                processQuery(btn.textContent);
+            });
+        });
+    }
+
+    chatForm.addEventListener('submit', e => {
+        e.preventDefault();
+        const q = chatInput.value.trim();
+        if (!q) return;
+        chatInput.value = '';
+        processQuery(q);
+    });
+
+    function processQuery(q) {
+        addUserMessage(q);
+        suggestionsEl.innerHTML = '';
+        const answer = analyzeQuery(q);
+        setTimeout(() => {
+            addBotMessage(answer);
+            showSuggestions();
+        }, 300);
+    }
+
+    function analyzeQuery(q) {
+        const entries = loadData();
+        const comps = _competitions || [];
+        const injuries = _injuries || [];
+        const ql = q.toLowerCase();
+
+        // --- Rest days / Pause ---
+        if (match(ql, ['pause', 'pauză', 'rest', 'frei', 'ruhetag', 'liber'])) {
+            return answerRestDays(entries);
+        }
+        // --- Streak ---
+        if (match(ql, ['streak', 'serie', 'hintereinander', 'în șir', 'reihe', 'consecutiv'])) {
+            return answerStreak(entries);
+        }
+        // --- Total trainings ---
+        if (match(ql, ['gesamt', 'total', 'insgesamt', 'wie viel', 'wie oft', 'câte', 'de câte ori', 'anzahl'])) {
+            // Check if asking about a specific type
+            const typeMatch = detectType(ql, entries);
+            if (typeMatch) return answerTypeCount(entries, typeMatch);
+            return answerTotal(entries);
+        }
+        // --- Type distribution ---
+        if (match(ql, ['verteilung', 'typ', 'art', 'distribuție', 'tipuri', 'types', 'aufteilu'])) {
+            return answerTypeDistribution(entries);
+        }
+        // --- Month stats ---
+        if (match(ql, ['monat', 'month', 'lună', 'luna', 'januar', 'februar', 'märz', 'april', 'mai', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'dezember', 'ianuarie', 'februarie', 'martie', 'aprilie', 'iunie', 'iulie', 'septembrie', 'octombrie', 'noiembrie', 'decembrie'])) {
+            return answerMonthStats(entries, ql);
+        }
+        // --- This week ---
+        if (match(ql, ['diese woche', 'săptămâna', 'this week', 'woche'])) {
+            return answerThisWeek(entries);
+        }
+        // --- PB / Bestzeit / Sprint ---
+        if (match(ql, ['pb', 'bestzeit', 'record', 'schnellst', 'fastest', 'cel mai rapid', 'best'])) {
+            return answerPB(entries);
+        }
+        // --- Kraft / max KB ---
+        if (match(ql, ['kraft', 'kniebeugen', 'kb', 'genuflexiuni', 'max kg', 'stärkst', 'gewicht'])) {
+            return answerMaxKB(entries);
+        }
+        // --- Joggen ---
+        if (match(ql, ['joggen', 'jog', 'laufen', 'alergat', '5km', '5 km'])) {
+            return answerJoggen(entries);
+        }
+        // --- Injuries ---
+        if (match(ql, ['verletzung', 'schmerz', 'injury', 'pain', 'durere', 'accidentare', 'weh'])) {
+            return answerInjuries(injuries);
+        }
+        // --- Competition ---
+        if (match(ql, ['wettkampf', 'competition', 'competiție', 'competitie', 'wk'])) {
+            return answerCompetitions(comps);
+        }
+        // --- Last training ---
+        if (match(ql, ['letzte', 'last', 'ultimul', 'ultima', 'zuletzt', 'recent'])) {
+            return answerLast(entries);
+        }
+        // --- Average / per week ---
+        if (match(ql, ['durchschnitt', 'average', 'pro woche', 'per week', 'medie', 'pe săptămână', 'ø'])) {
+            return answerAvgPerWeek(entries);
+        }
+        // --- Intensity ---
+        if (match(ql, ['intensität', 'intensity', 'intensitate', 'intensiv'])) {
+            return answerIntensity(entries);
+        }
+        // --- Notes search ---
+        if (match(ql, ['notiz', 'note', 'notă', 'notiță'])) {
+            return answerNotes(entries, ql);
+        }
+
+        return t('chat_unknown');
+    }
+
+    function match(ql, keywords) {
+        return keywords.some(k => ql.includes(k));
+    }
+
+    function detectType(ql, entries) {
+        const types = {};
+        entries.forEach(e => { if (e.type) types[e.type.toLowerCase()] = e.type; });
+        for (const [lower, original] of Object.entries(types)) {
+            if (ql.includes(lower)) return original;
+        }
+        if (ql.includes('sprint')) return Object.values(types).find(t => t.includes('Sprint')) || null;
+        if (ql.includes('tempo')) return Object.values(types).find(t => t.includes('Tempolauf')) || null;
+        if (ql.includes('kraft') || ql.includes('forță')) return 'Kraft';
+        if (ql.includes('technik') || ql.includes('tehnică')) return 'Technik';
+        if (ql.includes('joggen') || ql.includes('alergat')) return Object.values(types).find(t => t.includes('Joggen')) || null;
+        if (ql.includes('pause') || ql.includes('pauză')) return 'Pausetag';
+        return null;
+    }
+
+    function s(v) { return v === 1 ? '' : (getLang() === 'ro' ? '' : 'e'); }
+
+    // --- Answer functions ---
+
+    function answerTotal(entries) {
+        const real = entries.filter(e => e.type !== 'Pausetag');
+        return t('chat_a_total', { n: '<span class="chat-stat">' + real.length + '</span>' });
+    }
+
+    function answerTypeCount(entries, type) {
+        const c = entries.filter(e => e.type === type).length;
+        return t('chat_a_type_count', {
+            type: '<span class="chat-stat">' + translateType(type) + '</span>',
+            n: '<span class="chat-stat">' + c + '</span>'
+        });
+    }
+
+    function answerRestDays(entries) {
+        const pauseCount = entries.filter(e => e.type === 'Pausetag').length;
+        if (!entries.length) return t('chat_no_data');
+        // Calculate days without any entry
+        const dates = new Set(entries.map(e => e.date));
+        const sorted = [...dates].sort();
+        if (sorted.length < 2) return t('chat_a_rest', { n: '<span class="chat-stat">' + pauseCount + '</span>' });
+        const first = new Date(sorted[0]);
+        const last = new Date(sorted[sorted.length - 1]);
+        const totalDays = Math.round((last - first) / 86400000) + 1;
+        const daysOff = totalDays - dates.size;
+        return t('chat_a_rest_full', {
+            pause: '<span class="chat-stat">' + pauseCount + '</span>',
+            off: '<span class="chat-stat">' + daysOff + '</span>',
+            total: '<span class="chat-stat">' + totalDays + '</span>'
+        });
+    }
+
+    function answerStreak(entries) {
+        if (!entries.length) return t('chat_no_data');
+        const dates = [...new Set(entries.filter(e => e.type !== 'Pausetag').map(e => e.date))].sort();
+        let maxStreak = 1, current = 1;
+        for (let i = 1; i < dates.length; i++) {
+            const prev = new Date(dates[i - 1]);
+            const curr = new Date(dates[i]);
+            const diff = (curr - prev) / 86400000;
+            if (diff === 1) { current++; maxStreak = Math.max(maxStreak, current); }
+            else { current = 1; }
+        }
+        if (dates.length <= 1) maxStreak = dates.length;
+        return t('chat_a_streak', { n: '<span class="chat-stat">' + maxStreak + '</span>' });
+    }
+
+    function answerTypeDistribution(entries) {
+        const real = entries.filter(e => e.type !== 'Pausetag');
+        if (!real.length) return t('chat_no_data');
+        const counts = {};
+        real.forEach(e => { counts[e.type] = (counts[e.type] || 0) + 1; });
+        const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+        const lines = sorted.map(([type, n]) => `• ${translateType(type)}: <span class="chat-stat">${n}</span>`);
+        return t('chat_a_distribution') + '<br>' + lines.join('<br>');
+    }
+
+    function answerMonthStats(entries, ql) {
+        const now = new Date();
+        let month = now.getMonth();
+        let year = now.getFullYear();
+        // Try to detect month from query
+        const monthNames = {
+            de: ['januar','februar','märz','april','mai','juni','juli','august','september','oktober','november','dezember'],
+            ro: ['ianuarie','februarie','martie','aprilie','mai','iunie','iulie','august','septembrie','octombrie','noiembrie','decembrie']
+        };
+        const lang = getLang();
+        (monthNames[lang] || monthNames.de).forEach((name, i) => {
+            if (ql.includes(name)) month = i;
+        });
+        // Also check the other language
+        const otherLang = lang === 'de' ? 'ro' : 'de';
+        monthNames[otherLang].forEach((name, i) => {
+            if (ql.includes(name)) month = i;
+        });
+        const monthEntries = entries.filter(e => {
+            if (!e.date) return false;
+            const d = new Date(e.date);
+            return d.getMonth() === month && d.getFullYear() === year && e.type !== 'Pausetag';
+        });
+        const mName = t('months')[month];
+        return t('chat_a_month', {
+            month: '<span class="chat-stat">' + mName + ' ' + year + '</span>',
+            n: '<span class="chat-stat">' + monthEntries.length + '</span>'
+        });
+    }
+
+    function answerThisWeek(entries) {
+        const now = new Date();
+        const dayOfWeek = now.getDay() || 7;
+        const monday = new Date(now);
+        monday.setDate(now.getDate() - dayOfWeek + 1);
+        monday.setHours(0, 0, 0, 0);
+        const count = entries.filter(e => {
+            if (!e.date || e.type === 'Pausetag') return false;
+            return new Date(e.date) >= monday;
+        }).length;
+        return t('chat_a_week', { n: '<span class="chat-stat">' + count + '</span>' });
+    }
+
+    function answerPB(entries) {
+        const sprintEntries = entries.filter(e => e.type && e.type.includes('Sprint') && e.times && e.times.length);
+        if (!sprintEntries.length) return t('chat_a_no_pb');
+        let best = null;
+        sprintEntries.forEach(e => {
+            const min = Math.min(...e.times.filter(t => t > 0));
+            if (min > 0 && (!best || min < best.time)) {
+                best = { time: min, date: e.date, type: e.type };
+            }
+        });
+        if (!best) return t('chat_a_no_pb');
+        return t('chat_a_pb', {
+            time: '<span class="chat-stat">' + best.time.toFixed(2) + 's</span>',
+            type: translateType(best.type),
+            date: '<span class="chat-stat">' + formatLocalDate(best.date) + '</span>'
+        });
+    }
+
+    function answerMaxKB(entries) {
+        const kraftEntries = entries.filter(e => e.type === 'Kraft' && e.exercises && e.exercises.kniebeugen);
+        if (!kraftEntries.length) return t('chat_a_no_kb');
+        let maxKg = 0, maxDate = '';
+        kraftEntries.forEach(e => {
+            const kb = e.exercises.kniebeugen;
+            if (kb.pyramid && kb.pyramid.length) {
+                kb.pyramid.forEach(s => { if (s.kg > maxKg) { maxKg = s.kg; maxDate = e.date; } });
+            }
+        });
+        if (!maxKg) return t('chat_a_no_kb');
+        return t('chat_a_kb', {
+            kg: '<span class="chat-stat">' + maxKg + ' kg</span>',
+            date: '<span class="chat-stat">' + formatLocalDate(maxDate) + '</span>'
+        });
+    }
+
+    function answerJoggen(entries) {
+        const jogs = entries.filter(e => e.type && e.type.includes('Joggen') && e.joggenTimeSec);
+        if (!jogs.length) return t('chat_a_no_jog');
+        const times = jogs.map(e => e.joggenTimeSec);
+        const best = Math.min(...times);
+        const avg = times.reduce((a, b) => a + b, 0) / times.length;
+        const fmtTime = s => {
+            const m = Math.floor(s / 60);
+            const sec = Math.round(s % 60);
+            return m + ':' + String(sec).padStart(2, '0');
+        };
+        return t('chat_a_jog', {
+            n: '<span class="chat-stat">' + jogs.length + '</span>',
+            best: '<span class="chat-stat">' + fmtTime(best) + '</span>',
+            avg: '<span class="chat-stat">' + fmtTime(avg) + '</span>'
+        });
+    }
+
+    function answerInjuries(injuries) {
+        if (!injuries.length) return t('chat_a_no_injuries');
+        const avgPain = (injuries.reduce((s, i) => s + (i.pain || 0), 0) / injuries.length).toFixed(1);
+        const parts = {};
+        injuries.forEach(i => { parts[i.bodypart] = (parts[i.bodypart] || 0) + 1; });
+        const top = Object.entries(parts).sort((a, b) => b[1] - a[1])[0];
+        return t('chat_a_injuries', {
+            n: '<span class="chat-stat">' + injuries.length + '</span>',
+            avg: '<span class="chat-stat">' + avgPain + '</span>',
+            part: '<span class="chat-stat">' + translateBody(top[0]) + ' (' + top[1] + '×)</span>'
+        });
+    }
+
+    function answerCompetitions(comps) {
+        if (!comps.length) return t('chat_a_no_comp');
+        const upcoming = comps.filter(c => new Date(c.date) >= new Date()).length;
+        const past = comps.length - upcoming;
+        return t('chat_a_comp', {
+            total: '<span class="chat-stat">' + comps.length + '</span>',
+            upcoming: '<span class="chat-stat">' + upcoming + '</span>',
+            past: '<span class="chat-stat">' + past + '</span>'
+        });
+    }
+
+    function answerLast(entries) {
+        const real = entries.filter(e => e.type !== 'Pausetag');
+        if (!real.length) return t('chat_no_data');
+        const last = real.sort((a, b) => b.date.localeCompare(a.date))[0];
+        return t('chat_a_last', {
+            type: '<span class="chat-stat">' + translateType(last.type) + '</span>',
+            date: '<span class="chat-stat">' + formatLocalDate(last.date) + '</span>'
+        });
+    }
+
+    function answerAvgPerWeek(entries) {
+        const real = entries.filter(e => e.type !== 'Pausetag');
+        if (real.length < 2) return t('chat_no_data');
+        const dates = real.map(e => new Date(e.date)).sort((a, b) => a - b);
+        const weeks = (dates[dates.length - 1] - dates[0]) / (7 * 86400000);
+        const avg = weeks > 0 ? (real.length / weeks).toFixed(1) : real.length;
+        return t('chat_a_avg', { n: '<span class="chat-stat">' + avg + '</span>' });
+    }
+
+    function answerIntensity(entries) {
+        const withIntensity = entries.filter(e => e.intensity && e.intensity !== '');
+        if (!withIntensity.length) return t('chat_no_data');
+        const counts = {};
+        withIntensity.forEach(e => { counts[e.intensity] = (counts[e.intensity] || 0) + 1; });
+        const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+        const lines = sorted.map(([i, n]) => `• ${i}: <span class="chat-stat">${n}×</span>`);
+        return t('chat_a_intensity') + '<br>' + lines.join('<br>');
+    }
+
+    function answerNotes(entries, ql) {
+        // Extract search term after "notiz" / "note"
+        const words = ql.replace(/notiz|note|notiță|notă/gi, '').trim();
+        if (!words) return t('chat_a_notes_hint');
+        const found = entries.filter(e => e.notes && e.notes.toLowerCase().includes(words));
+        if (!found.length) return t('chat_a_notes_none', { q: words });
+        return t('chat_a_notes_found', {
+            n: '<span class="chat-stat">' + found.length + '</span>',
+            q: words
+        });
+    }
+
+    function formatLocalDate(dateStr) {
+        if (!dateStr) return '?';
+        const d = new Date(dateStr);
+        return d.toLocaleDateString(t('locale'), { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    // Show FAB when main app is visible
+    const observer = new MutationObserver(() => {
+        const appVisible = document.getElementById('app')?.style.display !== 'none';
+        if (appVisible && popup.style.display === 'none') fab.style.display = 'flex';
+        else if (!appVisible) { fab.style.display = 'none'; popup.style.display = 'none'; }
+    });
+    observer.observe(document.getElementById('app'), { attributes: true, attributeFilter: ['style'] });
+})();
