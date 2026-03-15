@@ -1002,11 +1002,15 @@ trainingType.addEventListener('change', () => {
         countContainer.style.display = customType.trackCount ? '' : 'none';
         document.getElementById('ct-kg-container').style.display = customType.trackWeight ? '' : 'none';
         telemarkContainer.style.display = 'none';
+        if (customType.trackCount) {
+            document.querySelector('label[for="training-count"]').textContent = t('count_prefix');
+        }
         if (!customType.trackTimes && !customType.trackCount) {
             trainingIntensity.value = '';
         }
     } else if (!isTempo) {
         trainingIntensity.value = '';
+        document.querySelector('label[for="training-count"]').textContent = t('count_label');
         showTimesMode();
     } else {
         updateFormMode();
@@ -3839,6 +3843,7 @@ document.getElementById('custom-category').addEventListener('change', () => {
         timesContainer.style.display = entry.trackTimes ? '' : 'none';
         countContainer.style.display = entry.trackCount ? '' : 'none';
         document.getElementById('ct-kg-container').style.display = entry.trackWeight ? '' : 'none';
+        if (entry.trackCount) document.querySelector('label[for="training-count"]').textContent = t('count_prefix');
     } else if (!cat) {
         // Revert to type defaults
         const customType = getCustomType(type);
