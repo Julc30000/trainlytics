@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=build026">
+    <link rel="stylesheet" href="styles.css?v=build027">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -195,6 +195,9 @@
                 </div>
             </div>
             <div style="display:flex;align-items:center;gap:8px">
+                <button class="btn-logout" id="btn-chat" title="Chat" data-i18n-title="chat_title">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                </button>
                 <button class="btn-logout" id="btn-settings" title="Eigene Trainingsarten" data-i18n-title="settings_title">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
@@ -1065,16 +1068,12 @@
     </div>
 
     <!-- ============ CHAT POPUP ============ -->
-    <button class="chat-fab" id="chat-fab" style="display:none" title="Chat">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-    </button>
     <div class="chat-popup" id="chat-popup" style="display:none">
         <div class="chat-header">
             <span class="chat-title" data-i18n="chat_title">📊 Daten-Chat</span>
             <button class="chat-close" id="chat-close">&times;</button>
         </div>
         <div class="chat-messages" id="chat-messages"></div>
-        <div class="chat-suggestions" id="chat-suggestions"></div>
         <form class="chat-input-row" id="chat-form">
             <input type="text" id="chat-input" data-i18n-ph="chat_placeholder" placeholder="Frag etwas über deine Daten…" autocomplete="off" maxlength="200">
             <button type="submit" class="chat-send">
@@ -1083,7 +1082,7 @@
         </form>
     </div>
 
-    <script src="lang.js?v=build026"></script>
-    <script src="app.js?v=build026"></script>
+    <script src="lang.js?v=build027"></script>
+    <script src="app.js?v=build027"></script>
 </body>
 </html>

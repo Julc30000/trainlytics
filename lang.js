@@ -503,14 +503,14 @@ de: {
     // Chat
     chat_title: '📊 Daten-Chat',
     chat_placeholder: 'Frag etwas über deine Daten…',
-    chat_welcome: 'Hallo! Ich kann dir Fragen über deine Trainingsdaten beantworten. Probier eine der Vorschläge oder schreib einfach los! 💬',
+    chat_welcome: 'Hallo! Ich kann dir Fragen über deine Trainingsdaten beantworten. Schreib einfach los oder tippe <b>/ask</b> für Vorschläge! 💬',
     chat_q_total: 'Wie viele Trainings habe ich?',
     chat_q_rest: 'Wie oft habe ich Pause gemacht?',
     chat_q_streak: 'Was ist mein längster Streak?',
     chat_q_types: 'Welche Trainingsarten mache ich?',
     chat_q_month: 'Wie viele Einheiten diesen Monat?',
     chat_q_pb: 'Was ist mein Sprint-PB?',
-    chat_unknown: 'Da bin ich mir nicht sicher 🤔 Versuch es mit anderen Wörtern, z.B. "Pause", "Streak", "Kraft", "PB", "Verletzung" oder "Wettkampf".',
+    chat_unknown: 'Da bin ich mir nicht sicher 🤔 Versuch es mit anderen Wörtern, z.B. "Pause", "Streak", "Kraft", "PB", "Verletzung" oder "Wettkampf". Tippe <b>/ask</b> für Vorschläge.',
     chat_no_data: 'Es sind noch keine Daten vorhanden.',
     chat_a_total: 'Du hast insgesamt {n} Trainingseinheiten absolviert (ohne Pausetage).',
     chat_a_type_count: 'Du hast {n}× {type} trainiert.',
@@ -536,6 +536,7 @@ de: {
     chat_a_notes_hint: 'Schreib ein Stichwort nach "Notiz", z.B. "Notiz Hürden".',
     chat_a_notes_none: 'Kein Eintrag mit "{q}" in den Notizen gefunden.',
     chat_a_notes_found: '{n} Einträge mit "{q}" in den Notizen gefunden.',
+    chat_ask_hint: 'Hier sind ein paar Vorschläge:',
 },
 ro: {
     months: ['Ian','Feb','Mar','Apr','Mai','Iun','Iul','Aug','Sep','Oct','Nov','Dec'],
@@ -993,14 +994,14 @@ ro: {
     // Chat
     chat_title: '📊 Chat Date',
     chat_placeholder: 'Întreabă ceva despre datele tale…',
-    chat_welcome: 'Salut! Pot să răspund la întrebări despre datele tale de antrenament. Încearcă o sugestie sau scrie direct! 💬',
+    chat_welcome: 'Salut! Pot să răspund la întrebări despre datele tale de antrenament. Scrie direct sau tastează <b>/ask</b> pentru sugestii! 💬',
     chat_q_total: 'Câte antrenamente am?',
     chat_q_rest: 'Câte pauze am făcut?',
     chat_q_streak: 'Care e cea mai lungă serie?',
     chat_q_types: 'Ce tipuri de antrenament fac?',
     chat_q_month: 'Câte ședințe luna aceasta?',
     chat_q_pb: 'Care e PB-ul meu la sprint?',
-    chat_unknown: 'Nu sunt sigur 🤔 Încearcă alte cuvinte, ex. „pauză", „serie", „forță", „PB", „durere" sau „competiție".',
+    chat_unknown: 'Nu sunt sigur 🤔 Încearcă alte cuvinte, ex. „pauză", „serie", „forță", „PB", „durere" sau „competiție". Tastează <b>/ask</b> pentru sugestii.',
     chat_no_data: 'Nu există date încă.',
     chat_a_total: 'Ai efectuat în total {n} ședințe de antrenament (fără pauze).',
     chat_a_type_count: 'Ai antrenat {type} de {n} ori.',
@@ -1026,6 +1027,7 @@ ro: {
     chat_a_notes_hint: 'Scrie un cuvânt cheie după „notiță", ex. „notiță garduri".',
     chat_a_notes_none: 'Nicio intrare cu „{q}" în notițe.',
     chat_a_notes_found: '{n} intrări cu „{q}" în notițe găsite.',
+    chat_ask_hint: 'Iată câteva sugestii:',
 }
 };
 

@@ -4809,29 +4809,26 @@ document.getElementById('plan-next')?.addEventListener('click', () => {
 //  DATA CHAT (Rule-based)
 // ================================================================
 (function() {
-    const fab = document.getElementById('chat-fab');
+    const chatBtn = document.getElementById('btn-chat');
     const popup = document.getElementById('chat-popup');
     const closeBtn = document.getElementById('chat-close');
     const chatForm = document.getElementById('chat-form');
     const chatInput = document.getElementById('chat-input');
     const messagesEl = document.getElementById('chat-messages');
-    const suggestionsEl = document.getElementById('chat-suggestions');
 
-    if (!fab || !popup) return;
+    if (!chatBtn || !popup) return;
 
-    fab.addEventListener('click', () => {
-        fab.style.display = 'none';
-        popup.style.display = 'flex';
-        if (!messagesEl.children.length) {
-            addBotMessage(t('chat_welcome'));
-            showSuggestions();
+    chatBtn.addEventListener('click', () => {
+        const open = popup.style.display === 'flex';
+        popup.style.display = open ? 'none' : 'flex';
+        if (!open) {
+            if (!messagesEl.children.length) {
+                addBotMessage(t('chat_welcome'));
+            }
+            chatInput.focus();
         }
-        chatInput.focus();
     });
-    closeBtn.addEventListener('click', () => {
-        popup.style.display = 'none';
-        fab.style.display = 'flex';
-    });
+    closeBtn.addEventListener('click', () => { popup.style.display = 'none'; });
 
     function addBotMessage(html) {
         const d = document.createElement('div');
@@ -4848,19 +4845,19 @@ document.getElementById('plan-next')?.addEventListener('click', () => {
         messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
-    function showSuggestions() {
+    function buildSuggestionsHTML() {
         const keys = [
             'chat_q_total', 'chat_q_rest', 'chat_q_streak',
             'chat_q_types', 'chat_q_month', 'chat_q_pb'
         ];
-        suggestionsEl.innerHTML = keys.map(k => {
-            const text = t(k);
-            return `<button type="button" class="chat-suggestion">${text}</button>`;
-        }).join('');
-        suggestionsEl.querySelectorAll('.chat-suggestion').forEach(btn => {
-            btn.addEventListener('click', () => {
-                processQuery(btn.textContent);
-            });
+        return '<div class="chat-suggestions-inline">' + keys.map(k =>
+            `<button type="button" class="chat-suggestion">${t(k)}</button>`
+        ).join('') + '</div>';
+    }
+
+    function bindSuggestionClicks(container) {
+        container.querySelectorAll('.chat-suggestion').forEach(btn => {
+            btn.addEventListener('click', () => { processQuery(btn.textContent); });
         });
     }
 
@@ -4873,13 +4870,20 @@ document.getElementById('plan-next')?.addEventListener('click', () => {
     });
 
     function processQuery(q) {
+        // Handle /ask command
+        if (q.toLowerCase().replace(/\s/g, '') === '/ask') {
+            addUserMessage(q);
+            setTimeout(() => {
+                const html = t('chat_ask_hint') + buildSuggestionsHTML();
+                addBotMessage(html);
+                bindSuggestionClicks(messagesEl.lastElementChild);
+            }, 200);
+            return;
+        }
+
         addUserMessage(q);
-        suggestionsEl.innerHTML = '';
         const answer = analyzeQuery(q);
-        setTimeout(() => {
-            addBotMessage(answer);
-            showSuggestions();
-        }, 300);
+        setTimeout(() => { addBotMessage(answer); }, 300);
     }
 
     function analyzeQuery(q) {
@@ -4898,7 +4902,6 @@ document.getElementById('plan-next')?.addEventListener('click', () => {
         }
         // --- Total trainings ---
         if (match(ql, ['gesamt', 'total', 'insgesamt', 'wie viel', 'wie oft', 'câte', 'de câte ori', 'anzahl'])) {
-            // Check if asking about a specific type
             const typeMatch = detectType(ql, entries);
             if (typeMatch) return answerTypeCount(entries, typeMatch);
             return answerTotal(entries);
@@ -4974,8 +4977,6 @@ document.getElementById('plan-next')?.addEventListener('click', () => {
         return null;
     }
 
-    function s(v) { return v === 1 ? '' : (getLang() === 'ro' ? '' : 'e'); }
-
     // --- Answer functions ---
 
     function answerTotal(entries) {
@@ -4994,7 +4995,6 @@ document.getElementById('plan-next')?.addEventListener('click', () => {
     function answerRestDays(entries) {
         const pauseCount = entries.filter(e => e.type === 'Pausetag').length;
         if (!entries.length) return t('chat_no_data');
-        // Calculate days without any entry
         const dates = new Set(entries.map(e => e.date));
         const sorted = [...dates].sort();
         if (sorted.length < 2) return t('chat_a_rest', { n: '<span class="chat-stat">' + pauseCount + '</span>' });
@@ -5038,7 +5038,6 @@ document.getElementById('plan-next')?.addEventListener('click', () => {
         const now = new Date();
         let month = now.getMonth();
         let year = now.getFullYear();
-        // Try to detect month from query
         const monthNames = {
             de: ['januar','februar','märz','april','mai','juni','juli','august','september','oktober','november','dezember'],
             ro: ['ianuarie','februarie','martie','aprilie','mai','iunie','iulie','august','septembrie','octombrie','noiembrie','decembrie']
@@ -5047,7 +5046,6 @@ document.getElementById('plan-next')?.addEventListener('click', () => {
         (monthNames[lang] || monthNames.de).forEach((name, i) => {
             if (ql.includes(name)) month = i;
         });
-        // Also check the other language
         const otherLang = lang === 'de' ? 'ro' : 'de';
         monthNames[otherLang].forEach((name, i) => {
             if (ql.includes(name)) month = i;
@@ -5184,7 +5182,6 @@ document.getElementById('plan-next')?.addEventListener('click', () => {
     }
 
     function answerNotes(entries, ql) {
-        // Extract search term after "notiz" / "note"
         const words = ql.replace(/notiz|note|notiță|notă/gi, '').trim();
         if (!words) return t('chat_a_notes_hint');
         const found = entries.filter(e => e.notes && e.notes.toLowerCase().includes(words));
@@ -5200,12 +5197,4 @@ document.getElementById('plan-next')?.addEventListener('click', () => {
         const d = new Date(dateStr);
         return d.toLocaleDateString(t('locale'), { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
-
-    // Show FAB when main app is visible
-    const observer = new MutationObserver(() => {
-        const appVisible = document.getElementById('app')?.style.display !== 'none';
-        if (appVisible && popup.style.display === 'none') fab.style.display = 'flex';
-        else if (!appVisible) { fab.style.display = 'none'; popup.style.display = 'none'; }
-    });
-    observer.observe(document.getElementById('app'), { attributes: true, attributeFilter: ['style'] });
 })();

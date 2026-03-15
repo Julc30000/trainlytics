@@ -1003,18 +1003,6 @@ textarea { resize:vertical; min-height:48px; }
 .btn-remove-additional:hover { background:rgba(248,113,113,0.15); color:var(--danger); }
 
 /* ---- Chat Popup ---- */
-.chat-fab {
-    position:fixed; bottom:80px; right:20px;
-    width:52px; height:52px; border-radius:50%;
-    background:linear-gradient(135deg, var(--primary), var(--accent));
-    border:none; color:#fff; cursor:pointer;
-    display:flex; align-items:center; justify-content:center;
-    box-shadow:0 4px 20px rgba(124,106,239,0.4);
-    z-index:900; transition:transform 0.2s, box-shadow 0.2s;
-}
-.chat-fab:hover { transform:scale(1.08); box-shadow:0 6px 28px rgba(124,106,239,0.55); }
-.chat-fab:active { transform:scale(0.95); }
-
 .chat-popup {
     position:fixed; bottom:80px; right:20px;
     width:340px; max-height:500px;
@@ -1061,9 +1049,9 @@ textarea { resize:vertical; min-height:48px; }
 }
 .chat-msg.bot .chat-stat { color:var(--accent); font-weight:700; }
 
-.chat-suggestions {
+.chat-suggestions-inline {
     display:flex; flex-wrap:wrap; gap:6px;
-    padding:0 14px 10px;
+    margin-top:8px;
 }
 .chat-suggestion {
     background:var(--bg-input); border:1px solid var(--border);
@@ -1094,5 +1082,4 @@ textarea { resize:vertical; min-height:48px; }
 
 @media (max-width:400px) {
     .chat-popup { right:10px; left:10px; width:auto; bottom:72px; max-height:70vh; }
-    .chat-fab { right:14px; bottom:72px; }
 }
