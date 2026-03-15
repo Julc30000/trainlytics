@@ -3228,7 +3228,12 @@ function generateWeeklyPDF(weekVal) {
     const pauseDays = week.filter(e => e.type === 'Pausetag').length;
     const training = week.filter(e => e.type !== 'Pausetag');
     const byType = {};
-    training.forEach(e => { (byType[e.type] = byType[e.type] || []).push(e); });
+    training.forEach(e => {
+        (byType[e.type] = byType[e.type] || []).push(e);
+        if (e.additionalTypes) e.additionalTypes.forEach(at => {
+            (byType[at.type] = byType[at.type] || []).push(e);
+        });
+    });
     const typeCount = Object.keys(byType).length;
 
     // All times across all timed types
@@ -3291,8 +3296,9 @@ function generateWeeklyPDF(weekVal) {
     const barY = y;
     let barX = mg;
     const typeKeys = Object.keys(byType);
+    const totalByType = typeKeys.reduce((s, k) => s + byType[k].length, 0);
     typeKeys.forEach(type => {
-        const frac = byType[type].length / week.length;
+        const frac = byType[type].length / totalByType;
         const segW = cw * frac;
         const tc = getTypeColor(type);
         const hex = tc.main;
@@ -3439,7 +3445,8 @@ function generateWeeklyPDF(weekVal) {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(7.5);
         doc.setTextColor(r, g, b);
-        doc.text(e.type, mg + 48, y + 4.8);
+        const typeLabel = e.type + ((e.additionalTypes && e.additionalTypes.length) ? ' + ' + e.additionalTypes.map(at => at.type).join(' + ') : '');
+        doc.text(typeLabel, mg + 48, y + 4.8);
 
         // Times summary or detail
         let detail = '';
